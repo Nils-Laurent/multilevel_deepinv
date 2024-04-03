@@ -9,9 +9,9 @@ from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import ScorePrior
 
 # multilevel imports
-from optim.prior import TVPrior
-from optim.optim_iterators.multi_level import MultiLevelIteration
-from optim.coarse_model import CoarseModel
+from multilevel.prior import TVPrior
+from multilevel.iterator import MultiLevelIteration
+from multilevel.coarse_model import CoarseModel
 
 from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images
 from utils.paths import gen_fname

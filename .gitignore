@@ -1,4 +1,6 @@
 .idea
+.venv
+out
 datasets
 sync_out.ps1
 __pycache__

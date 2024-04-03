@@ -1,7 +1,7 @@
 from deepinv.optim.optim_iterators.optim_iterator import OptimIterator
 
 # multilevel imports
-from optim.coarse_model import CoarseModel
+from multilevel.coarse_model import CoarseModel
 
 
 class MultiLevelIteration(OptimIterator):

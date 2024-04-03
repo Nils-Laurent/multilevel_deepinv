@@ -6,6 +6,8 @@ import torch
 
 
 def dict_str(dict_in):
+    if 'cit' in dict_in:
+        dict_in['cit'] = str(dict_in['cit'])
     return str(dict_in)
 
 
@@ -15,6 +17,8 @@ def log_param_in_dict(dict_in, dict_params):
     for k_ in dict_params.keys():
         if not isinstance(dict_params[k_], dict):
             d2['params_algo'][k_] = dict_params[k_]
+        elif k_ == 'cit':
+            d2[k_] = str(dict_params[k_])
         else:
             d2[k_] = dict_params[k_]
 

@@ -4,9 +4,9 @@ from deepinv.physics import Inpainting
 import deepinv.optim as optim
 
 # multilevel imports
-from optim.info_transfer import DownsamplingTransfer
-from optim.optim_iterators.coarse_gradient_descent import CGDIteration
-import optim.optim_iterators.multi_level as multi_level
+from multilevel.info_transfer import DownsamplingTransfer
+from multilevel.coarse_gradient_descent import CGDIteration
+import multilevel.iterator as multi_level
 
 
 class CoarseModel(torch.nn.Module):

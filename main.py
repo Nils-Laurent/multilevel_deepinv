@@ -8,11 +8,10 @@ from pathlib import Path
 
 import deepinv
 from deepinv.physics import GaussianNoise, Inpainting
-from deepinv.physics.blur import gaussian_blur, Blur
 from deepinv.utils.demo import load_dataset
 
-from optim.info_transfer import BlackmannHarris
-from optim.optim_iterators.multi_level import MultiLevelIteration, MultiLevelParams
+from multilevel.info_transfer import BlackmannHarris
+from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from tests.test_alg import RunAlgorithm
 
 
@@ -66,6 +65,9 @@ def test_settings(data, params_exp, device):
 
     iters_fine = 400
     iters_vec = [5, 5, 5, iters_fine]
+    if device == "cpu":
+        iters_vec = [5, 5, iters_fine]
+
     levels = len(iters_vec)
     p_multilevel = MultiLevelParams({"iters": iters_vec})
 
@@ -84,8 +86,7 @@ def test_settings(data, params_exp, device):
     p_red['scale_coherent_grad'] = True
 
     param_init = copy.deepcopy(p_red)
-    param_init['init_ml_x0'] = [40] * levels
-    # param_init['x0'] = data
+    param_init['init_ml_x0'] = [80] * levels
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     ra.RED_GD(p_red)
     ra.RED_GD(single_level_params(p_red))
@@ -116,8 +117,7 @@ def main_test():
 
     dataset_name = 'set3c'
     ORIGINAL_DATA_DIR = Path(".") / "datasets"
-    # img_size = 256 if torch.cuda.is_available() else 32
-    img_size = 256
+    img_size = 256 if torch.cuda.is_available() else 64
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
     )
