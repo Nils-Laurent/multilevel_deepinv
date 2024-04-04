@@ -6,14 +6,11 @@ from deepinv.datasets import generate_dataset, HDF5Dataset
 from deepinv.physics.blur import gaussian_blur
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from pathlib import Path
-
-from torch.utils.data import Dataset
 
 # install deepinv using the command below
-#   pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
+#   python -m pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
 # update with :
-#   pip install -U git+https://github.com/deepinv/deepinv.git#egg=deepinv
+#   python -m pip install -U git+https://github.com/deepinv/deepinv.git#egg=deepinv
 
 import deepinv
 from deepinv.physics import GaussianNoise, Inpainting, Blur
@@ -114,13 +111,13 @@ def test_settings(data_in, params_exp, device):
         'cit': BlackmannHarris(),
         'level': levels,
         'params_multilevel': p_multilevel,
+        'iml_max_iter': 6,
     }
 
     #                    RED
     # ____________________________________________
     p_red = copy.deepcopy(params_algo)
     standard_multilevel_param(p_red, lambda_red, step_coeff=0.9, lip_g=lip_d)
-    p_red['iml_max_iter'] = 5
     p_red['g_param'] = g_param
     p_red['scale_coherent_grad'] = True
 
@@ -139,7 +136,6 @@ def test_settings(data_in, params_exp, device):
     #                    PGD
     # ____________________________________________
     p_moreau = copy.deepcopy(params_algo)
-    p_moreau['iml_max_iter'] = 6
     p_moreau['prox_crit'] = 1e-6
     p_moreau['prox_max_it'] = 1000
     p_moreau['params_multilevel'].params['gamma_moreau'] = [1.1] * levels  # smoothing parameter
