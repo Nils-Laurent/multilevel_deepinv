@@ -4,15 +4,12 @@ import torch
 import deepinv
 from deepinv.physics import GaussianNoise, Inpainting
 from deepinv.utils import plot, plot_curves
-from deepinv.models import DRUNet
 from deepinv.optim import L2, optim_builder
-from deepinv.optim.optim_iterators import GDIteration, PGDIteration
-from deepinv.optim.prior import ScorePrior
+from deepinv.optim.optim_iterators import PGDIteration
 
 # multilevel imports
 from multilevel.info_transfer import BlackmannHarris
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
-from multilevel.coarse_model import CoarseModel
 from multilevel.prior import TVPrior
 
 
