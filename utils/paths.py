@@ -31,8 +31,10 @@ def gen_fname(params, p_exp, alg_name):
 
     # identifies experiment
     exp = f"{p_exp['img_name']}_n{p_exp['noise_pow']}"
-    if 'mask' in p_exp.keys():
-        exp += f"_in{p_exp['mask']}"
+
+    problem = p_exp['problem']
+    if problem in p_exp.keys():
+        exp += f"_{problem}"
     else:
         raise NotImplemented
 

@@ -1,18 +1,28 @@
 import copy
+import glob
+
 import torch
+from deepinv.datasets import generate_dataset, HDF5Dataset
+from deepinv.physics.blur import gaussian_blur
+from torch.utils.data import DataLoader
 from torchvision import transforms
 from pathlib import Path
 
+from torch.utils.data import Dataset
+
 # install deepinv using the command below
-# pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
+#   pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
+# update with :
+#   pip install -U git+https://github.com/deepinv/deepinv.git#egg=deepinv
 
 import deepinv
-from deepinv.physics import GaussianNoise, Inpainting
+from deepinv.physics import GaussianNoise, Inpainting, Blur
 from deepinv.utils.demo import load_dataset
 
 from multilevel.info_transfer import BlackmannHarris
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from tests.test_alg import RunAlgorithm
+from utils.paths import dataset_path, measurements_path
 
 
 def single_level_params(param_multilevel):
@@ -43,16 +53,45 @@ def standard_multilevel_param(params, lambda_def, step_coeff, lip_g):
     params['scale_coherent_grad'] = True
 
 
-def test_settings(data, params_exp, device):
-    if device is None:
-        device = data.device
+def test_settings(data_in, params_exp, device):
 
-    print("def_mask:", params_exp["mask"])
+    problem = params_exp['problem']
+    print("def_mask:", params_exp[problem])
     print("def_noise:", params_exp["noise_pow"])
 
     g = GaussianNoise(sigma=params_exp["noise_pow"])
-    # physics = Blur(gaussian_blur(sigma=(2, 2), angle=0), device=device)
-    physics = Inpainting(params_exp['shape'], mask=params_exp["mask"], noise_model=g, device=device)
+    match problem:
+        case 'inpainting':
+            problem_full = problem + "_" + str(params_exp[problem]) + "_" + str(params_exp["noise_pow"])
+            physics = Inpainting(params_exp['shape'], mask=params_exp[problem], noise_model=g, device=device)
+        case 'blur':
+            power = params_exp[problem + '_pow']
+            problem_full = problem + "_" + str(power) + "_" + str(params_exp["noise_pow"])
+            physics = Blur(gaussian_blur(sigma=(power, power), angle=0), device=device)
+        case _:
+            raise NotImplementedError("Problem " + problem + " not supported")
+
+    if isinstance(data_in, torch.Tensor):
+        data = data_in
+    else:
+        save_dir = measurements_path().joinpath(params_exp['set_name'], problem_full)
+        f_prefix = str(save_dir.joinpath('**', '*.'))
+        find = ""
+        find_file = ""
+        for filename in glob.iglob(f_prefix + 'h5', recursive=True):
+            print(filename)
+            find = "h5"
+            find_file = filename
+
+        match find:
+            case 'h5':
+                data_bis = HDF5Dataset(path=find_file, train=False)
+            case _:
+                # create dataset if it does not exist
+                data_bis = generate_dataset(
+                    train_dataset=None, physics=physics, save_dir=save_dir, device=device, test_dataset=data_in
+                )
+        data = DataLoader(data_bis, shuffle=False)
 
     lambda_tv = 2.5 * params_exp["noise_pow"]
     lambda_red = 0.2 * params_exp["noise_pow"]
@@ -87,6 +126,7 @@ def test_settings(data, params_exp, device):
 
     param_init = copy.deepcopy(p_red)
     param_init['init_ml_x0'] = [80] * levels
+
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     ra.RED_GD(p_red)
     ra.RED_GD(single_level_params(p_red))
@@ -116,15 +156,20 @@ def main_test():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
     dataset_name = 'set3c'
-    ORIGINAL_DATA_DIR = Path(".") / "datasets"
+    original_data_dir = dataset_path()
     img_size = 256 if torch.cuda.is_available() else 64
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
     )
 
-    dataset = load_dataset(dataset_name, ORIGINAL_DATA_DIR, transform=val_transform)
+    dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
 
-    params_exp = {'mask': 0.8, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    # inpainting: proportion of pixels to keep
+    problem = 'inpainting'
+    params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.8, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    test_settings(dataset, params_exp, device=device)
+    return
+
     id_img = 0
     for t in dataset:
         id_img += 1

@@ -1,5 +1,5 @@
 import copy
-import torch
+import deepinv
 
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.utils import plot, plot_curves
@@ -7,6 +7,7 @@ from deepinv.models import DRUNet
 from deepinv.optim import PnP, L2, optim_builder
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import ScorePrior
+from torch.utils.data import DataLoader
 
 # multilevel imports
 from multilevel.prior import TVPrior
@@ -113,9 +114,16 @@ class RunAlgorithm:
 
         print("run", alg_name)
 
-        if not isinstance(self.data, torch.Tensor):
-            raise NotImplementedError("Not implemented yet")
+        if isinstance(self.data, DataLoader):
+            test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
+                model, self.data, self.physics, device=self.device
+            )
+            print(alg_name, ": test_psnr = ", test_psnr)
+            print(alg_name, ": test_std_psnr = ", test_std_psnr)
+            print(alg_name, ": init_psnr = ", init_psnr)
+            print(alg_name, ": init_std_psnr = ", init_std_psnr)
         else:
+            # Assumes self.data is an image of the form torch.Tensor
             x_ref = self.data
             y = self.physics(x_ref)  # A(x) + noise
             x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True)
