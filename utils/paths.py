@@ -33,10 +33,7 @@ def gen_fname(params, p_exp, alg_name):
     exp = f"{p_exp['img_name']}_n{p_exp['noise_pow']}"
 
     problem = p_exp['problem']
-    if problem in p_exp.keys():
-        exp += f"_{problem}"
-    else:
-        raise NotImplemented
+    exp += f"_{problem}"
 
     # identifies algorithm for resolution
     f_prefix = exp + f"_{alg_name}"

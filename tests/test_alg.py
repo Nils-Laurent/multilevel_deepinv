@@ -2,6 +2,7 @@ import copy
 import deepinv
 
 from deepinv.optim.dpir import get_DPIR_params
+from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
 from deepinv.optim import PnP, L2, optim_builder
@@ -13,22 +14,28 @@ from torch.utils.data import DataLoader
 from multilevel.prior import TVPrior
 from multilevel.iterator import MultiLevelIteration
 from multilevel.coarse_model import CoarseModel
+from tests.utils import standard_multilevel_param
 
 from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images
 from utils.paths import gen_fname
 
 
 class RunAlgorithm:
-    def __init__(self, data, physics, params_exp, device, param_init=None):
+    def __init__(self, data, physics, params_exp, device, param_init=None, r_model=False, trainable_params=None):
         self.data = data
         self.physics = physics
         self.params_exp = params_exp
         self.data_fidelity = L2()
         self.device = device
+        self.ret_model = r_model
+
+        self.trainable_params = trainable_params
+        if trainable_params is None:
+            self.trainable_params = []
 
         if param_init is None:
             param_init = {}
-        self.param_init = param_init
+        self.param_init = copy.deepcopy(param_init)
 
     def PNP_PGD(self, params_algo):
         alg_name = "PNP_PGD"
@@ -84,11 +91,14 @@ class RunAlgorithm:
             x0 = params_init['x0']
             f_init = lambda x, physics: {'est': [x0], 'cost': None}
         elif 'init_ml_x0' in params_init:
-            params_init['params_multilevel'].params['iters'] = params_init['init_ml_x0']
-            params_init.pop('init_ml_x0', None)
+            lambda_def = params_init['lambda']
+            step_coeff = params_init['step_coeff']
+            lip_g = params_init['lip_g']
+            iters = params_init['init_ml_x0']
+            params_algo_init = standard_multilevel_param(params_algo, lambda_def, step_coeff, lip_g, iters)
             def init_ml_x0(x, physics):
-                cm = CoarseModel(prior, self.data_fidelity, physics, params_init)
-                x0 = cm.init_ml_x0({'est': [x]}, x, params_init)
+                cm = CoarseModel(prior, self.data_fidelity, physics, params_algo_init)
+                x0 = cm.init_ml_x0({'est': [x]}, x, params_algo_init)
                 return {'est': [x0], 'cost': None}
 
             f_init = init_ml_x0
@@ -98,7 +108,7 @@ class RunAlgorithm:
         else:
             iters = params_algo['iters']
 
-        model = optim_builder(
+        model = unfolded_builder(
             iteration=iteration,
             prior=prior,
             data_fidelity=self.data_fidelity,
@@ -109,8 +119,12 @@ class RunAlgorithm:
             thres_conv=1e-6,
             verbose=True,
             params_algo=copy.deepcopy(params_algo),
-            custom_init=f_init
+            custom_init=f_init,
+            trainable_params=self.trainable_params,
         )
+
+        if self.ret_model:
+            return model
 
         print("run", alg_name)
 

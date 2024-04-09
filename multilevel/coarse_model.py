@@ -1,6 +1,6 @@
 import torch
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting
+from deepinv.physics import Inpainting, Blur
 import deepinv.optim as optim
 
 # multilevel imports
@@ -72,6 +72,13 @@ class CoarseModel(torch.nn.Module):
             m_coarse = self.projection(m_fine)
             c_mask = torch.squeeze(m_coarse, 0)
             self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask)
+        elif isinstance(self.fph, Blur):
+            fph = self.fph
+            if fph.filter.shape[2] < 4 or fph.filter.shape[3] < 4 :
+                filt = fph.filter
+            else:
+                filt = self.projection(fph.filter)
+            self.physics = Blur(filter=filt, padding=fph.padding, device=fph.device)
         else:
             raise NotImplementedError("Coarse physics not implemented for " + str(type(self.fph)))
 
