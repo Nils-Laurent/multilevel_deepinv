@@ -68,7 +68,7 @@ class TVPrior(Prior):
     :param int n_it_max: maximal number of iterations for the inner solver of the TV denoiser; default value: 1000.
     """
 
-    def __init__(self, def_crit=1e-8, n_it_max=1000, *args, **kwargs):
+    def __init__(self, def_crit=1e-6, n_it_max=1000, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.explicit_prior = True
         self.TVModel = TVDenoiser(crit=def_crit, n_it_max=n_it_max)

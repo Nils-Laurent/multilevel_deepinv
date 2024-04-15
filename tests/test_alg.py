@@ -6,6 +6,7 @@ from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
+from deepinv.optim.prior import Zero, L1Prior
 from deepinv.optim import PnP, optim_builder
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
@@ -60,14 +61,16 @@ class RunAlgorithm:
 
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
 
-    def TV_PGD(self, params_algo):
+    def TV_PGD(self, params_algo, use_cost=True):
         alg_name = "TV_PGD"
         prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
+        #prior = multilevel.prior.TVPrior()
+        #prior = L1Prior()
 
         def F_fn(x, cur_data_fidelity, cur_prior, cur_params, y, physics):
             return cur_data_fidelity.d(physics.A(x), y) + cur_params['lambda'] * cur_prior.g(x)
 
-        iteration = PGDIteration(has_cost=True, F_fn=F_fn)
+        iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
 

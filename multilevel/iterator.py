@@ -121,3 +121,9 @@ class MultiLevelParams:
         if isinstance(self.params['params_multilevel'], dict):
             self.params['params_multilevel'] = [self.params['params_multilevel']]
 
+        for key, value in self.params.items():
+            if (isinstance(value, torch.nn.parameter.Parameter) or
+                isinstance(value, torch.Tensor)):
+                self.params[key] = [value]
+
+

@@ -80,25 +80,24 @@ class CoarseModel(torch.nn.Module):
         return self.physics
 
     def init_ml_x0(self, X, y_h):
-        with torch.no_grad():
-            [x0, x0_h, y] = self.coarse_data(X, y_h)
+        [x0, x0_h, y] = self.coarse_data(X, y_h)
 
-            if self.ph.level > 1:
-                model = CoarseModel(self.g, self.f, self.physics, self.pc)
-                x0 = model.init_ml_x0({'est': [x0]}, y)
+        if self.ph.level > 1:
+            model = CoarseModel(self.g, self.f, self.physics, self.pc)
+            x0 = model.init_ml_x0({'est': [x0]}, y)
 
-            f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
-            iteration = GDIteration(has_cost=False)
-            model = optim.optim_builder(
-                iteration,
-                data_fidelity=self.f,
-                prior=self.g,
-                custom_init=f_init,
-                max_iter=self.pc.iters(),
-                params_algo=self.pc.params,
-            )
-            x_est_coarse = model(y, self.physics)
-            return self.prolongation(x_est_coarse)
+        f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
+        iteration = GDIteration(has_cost=False)
+        model = optim.optim_builder(
+            iteration,
+            data_fidelity=self.f,
+            prior=self.g,
+            custom_init=f_init,
+            max_iter=self.pc.iters(),
+            params_algo=self.pc.params,
+        )
+        x_est_coarse = model(y, self.physics)
+        return self.prolongation(x_est_coarse)
 
     def forward(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)

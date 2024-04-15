@@ -97,7 +97,7 @@ def standard_multilevel_param(params, it_vec):
     return params
 
 
-#from prettytable import PrettyTable
+from prettytable import PrettyTable
 def count_parameters(model, pr=True, namenet=''):
     table = PrettyTable(["Modules", "Parameters"])
 

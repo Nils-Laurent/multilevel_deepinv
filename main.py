@@ -102,14 +102,16 @@ def test_settings(data_in, params_exp, device):
     print(p_tv)
 
 
-def main_test():
+def main_test(test_dataset=True, tune=False):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
     dataset_name = 'set3c'
     original_data_dir = dataset_path()
     img_size = 256 if torch.cuda.is_available() else 64
-    #img_size = 64
+    if tune is True:
+        img_size = 32
+
     max_lv = 2
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
@@ -123,12 +125,12 @@ def main_test():
     #problem = 'blur'
     #params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
 
-    bool_dataset = False
-    # bool_dataset = True
-
-    if bool_dataset is True:
+    if tune is True:
         tune_param(dataset, params_exp, device, max_lv)
-        # test_settings(dataset, params_exp, device=device)
+        return
+
+    if test_dataset is True:
+        test_settings(dataset, params_exp, device=device)
     else:
         id_img = 0
         for t in dataset:
@@ -141,8 +143,7 @@ def main_test():
 
 if __name__ == "__main__":
     # test_rastrigin()
-    main_test()
-    # tune_param()
+    main_test(tune=True)
 
     #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     #denoiser = DRUNet(device=device)
