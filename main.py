@@ -1,4 +1,5 @@
 import torch
+from deepinv.models import DRUNet
 from torchvision import transforms
 
 # install deepinv using the command below
@@ -10,6 +11,7 @@ import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 
+from tests.test_lipschitz import measure_lipschitz
 from multilevel.info_transfer import BlackmannHarris
 from multilevel.iterator import MultiLevelParams
 from tests.rastrigin import eval_rastrigin, test_rastrigin
@@ -39,34 +41,31 @@ def test_settings(data_in, params_exp, device):
     print("lambda_tv:", lambda_tv)
     print("lambda_red:", lambda_red)
 
-    lip_d = 160.0  # DRUnet
-    g_param = 0.05  # 0.05
+    lip_g = 160.0  # DRUnet lipschitz
+    g_param = 0.05  # sigma denoiser
 
-    iters_fine = 80
+    iters_fine = 200
     iters_vec = [5, 5, 5, iters_fine]
     if device == "cpu":
-        iters_vec = [5, 5, iters_fine]
-
-    levels = len(iters_vec)
+        iters_fine = 5
+        iters_vec = [2, 2, iters_fine]
 
     params_algo = {
         'cit': BlackmannHarris(),
-        'level': levels,
         'iml_max_iter': 8,
+        'scale_coherent_grad': True
     }
 
     #                    RED
     # ____________________________________________
-    p_red = standard_multilevel_param(params_algo, lambda_red, step_coeff=0.9, lip_g=lip_d, it_vec=iters_vec)
+    p_red = standard_multilevel_param(params_algo, it_vec=iters_vec)
     p_red['g_param'] = g_param
-    p_red['scale_coherent_grad'] = True
+    p_red['lip_g'] = lip_g  # denoiser Lipschitz constant
+    p_red['lambda'] = lambda_red
+    p_red['step_coeff'] = 0.9  # no convex setting
+    p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * lip_g)
 
-    param_init = {
-        'init_ml_x0': [80] * levels,
-        'lambda': lambda_red,
-        'step_coeff': 0.9,
-        'lip_g': lip_d,
-    }
+    param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     ra.RED_GD(p_red)
     ra.RED_GD(single_level_params(p_red))
@@ -78,15 +77,18 @@ def test_settings(data_in, params_exp, device):
 
     #                    PGD
     # ____________________________________________
-    p_moreau = standard_multilevel_param(params_algo, lambda_tv, step_coeff=1.9, lip_g=1.0, it_vec=iters_vec)
+    p_moreau = standard_multilevel_param(params_algo, it_vec=iters_vec)
+    p_moreau['lambda'] = lambda_tv
+    p_moreau['lip_g'] = 1.0  # denoiser Lipschitz constant
     p_moreau['prox_crit'] = 1e-6
     p_moreau['prox_max_it'] = 1000
-    p_moreau['params_multilevel'].params['gamma_moreau'] = [1.1] * levels  # smoothing parameter
-    p_moreau['params_multilevel'].params['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
-    p_moreau['scale_coherent_grad'] = True
+    p_moreau['params_multilevel'][0]['gamma_moreau'] = [1.1] * len(iters_vec)  # smoothing parameter
+    p_moreau['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
+    p_moreau['step_coeff'] = 1.9  # convex setting
+    p_moreau['stepsize'] = p_moreau['step_coeff'] / (1.0 + lambda_tv)
 
     ra = RunAlgorithm(data, physics, params_exp, device=device)
-    ra.TV_PGD(p_moreau)
+    ra.TV_PGD(p_moreau.copy())
     ra.TV_PGD(single_level_params(p_moreau))
 
 
@@ -97,6 +99,8 @@ def main_test():
     dataset_name = 'set3c'
     original_data_dir = dataset_path()
     img_size = 256 if torch.cuda.is_available() else 64
+    #img_size = 64
+    max_lv = 2
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
     )
@@ -104,16 +108,16 @@ def main_test():
     dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
 
     # inpainting: proportion of pixels to keep
-    #problem = 'inpainting'
-    #params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.8, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
-    problem = 'blur'
-    params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    problem = 'inpainting'
+    params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.8, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    #problem = 'blur'
+    #params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
 
     bool_dataset = False
     # bool_dataset = True
 
     if bool_dataset is True:
-        tune_param(dataset, params_exp, device)
+        tune_param(dataset, params_exp, device, max_lv)
         # test_settings(dataset, params_exp, device=device)
     else:
         id_img = 0
@@ -128,3 +132,9 @@ def main_test():
 if __name__ == "__main__":
     # test_rastrigin()
     main_test()
+    # tune_param()
+
+    #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
+    #denoiser = DRUNet(device=device)
+    #sigma_vec = [0.02, 0.1]
+    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device)

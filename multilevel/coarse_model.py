@@ -10,13 +10,18 @@ import multilevel.iterator as multi_level
 
 
 class CoarseModel(torch.nn.Module):
-    def __init__(self, prior, data_fidelity, fine_physics, params_ml, *args, **kwargs):
+    def __init__(self, prior, data_fidelity, fine_physics, ml_params, *args, **kwargs):
+        """
+        :param multi_level.MultiLevelParams ml_params: all parameters
+        """
         super().__init__(*args, **kwargs)
         self.g = prior
         self.f = data_fidelity
         self.fph = fine_physics
         self.physics = None
-        self.cit_str = params_ml['cit']
+        self.ph = ml_params
+        self.pc = self.ph.coarse_params()
+        self.cit_str = self.ph.cit()
         self.cit_op = None
 
     def projection(self, x):
@@ -37,25 +42,15 @@ class CoarseModel(torch.nn.Module):
         grad_f = self.f.grad(x, y, physics)
 
         if hasattr(self.g, 'denoiser'):
-            grad_g = self.g.grad(x, sigma_denoiser=params['g_param'])
-        elif hasattr(self.g, 'moreau_grad') and 'gamma_moreau' in params.keys():
-            grad_g = self.g.moreau_grad(x, gamma=params['gamma_moreau'])
+            grad_g = self.g.grad(x, sigma_denoiser=params.g_param())
+        elif hasattr(self.g, 'moreau_grad'):
+            grad_g = self.g.moreau_grad(x, gamma=params.gamma_moreau())
         else:
-            grad_g = self.g.grad(x)
+            raise NotImplementedError("Gradient not defined in this case")
 
-        return grad_f + params['lambda'] * grad_g
+        return grad_f + params.lambda_r() * grad_g
 
-    def coarse_data(self, X, y_h, params_ml_h):
-        params_ml = params_ml_h.copy()
-        params_ml['level'] = params_ml['level'] - 1
-
-        params = multi_level.MultiLevelIteration.get_level_params(params_ml)
-
-        # todo: compute lipschitz constant in a clever way
-        if 'gamma_moreau' in params.keys():
-            f_lipschitz = 1.0
-            params['stepsize'] = 1.0 / (f_lipschitz + params['gamma_moreau'])
-
+    def coarse_data(self, X, y_h):
         x0_h = X['est']
         if not isinstance(x0_h, torch.Tensor):
             x0_h = x0_h[0]  # primal value of 'est'
@@ -64,7 +59,7 @@ class CoarseModel(torch.nn.Module):
         x0 = self.projection(x0_h)
         y = self.projection(y_h)
 
-        return x0, x0_h, y, params
+        return x0, x0_h, y
 
     def coarse_physics(self):
         if isinstance(self.fph, Inpainting):
@@ -84,58 +79,57 @@ class CoarseModel(torch.nn.Module):
 
         return self.physics
 
-    def init_ml_x0(self, X, y_h, params_ml_h):
-        [x0, x0_h, y, params] = self.coarse_data(X, y_h, params_ml_h)
+    def init_ml_x0(self, X, y_h):
+        with torch.no_grad():
+            [x0, x0_h, y] = self.coarse_data(X, y_h)
 
-        if params['level'] > 1:
-            model = CoarseModel(self.g, self.f, self.physics, params)
-            x0 = model.init_ml_x0({'est': [x0]}, y, params)
+            if self.ph.level > 1:
+                model = CoarseModel(self.g, self.f, self.physics, self.pc)
+                x0 = model.init_ml_x0({'est': [x0]}, y)
 
-        f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
-        iters_vec = params['params_multilevel'].params['iters']
-        iteration = GDIteration(has_cost=False)
-        model = optim.optim_builder(
-            iteration,
-            data_fidelity=self.f,
-            prior=self.g,
-            custom_init=f_init,
-            max_iter=iters_vec[params['level'] - 1],
-            params_algo=params.copy(),
-        )
-        x_est_coarse = model(y, self.physics)
-        return self.prolongation(x_est_coarse)
+            f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
+            iteration = GDIteration(has_cost=False)
+            model = optim.optim_builder(
+                iteration,
+                data_fidelity=self.f,
+                prior=self.g,
+                custom_init=f_init,
+                max_iter=self.pc.iters(),
+                params_algo=self.pc.params,
+            )
+            x_est_coarse = model(y, self.physics)
+            return self.prolongation(x_est_coarse)
 
-    def forward(self, X, y_h, params_ml_h, grad=None):
-        [x0, x0_h, y, params] = self.coarse_data(X, y_h, params_ml_h)
-        params_h = multi_level.MultiLevelIteration.get_level_params(params_ml_h)
+    def forward(self, X, y_h, grad=None):
+        [x0, x0_h, y] = self.coarse_data(X, y_h)
 
-        if params['scale_coherent_grad'] is True:
+        if self.ph.scale_coherent_gradient() is True:
             if grad is None:
-                grad_x0 = self.grad(x0_h, y_h, self.fph, params_h)
+                grad_x0 = self.grad(x0_h, y_h, self.fph, self.ph)
             else:
                 grad_x0 = grad(x0_h)
 
             v = self.projection(grad_x0)
-            v -= self.grad(x0, y, self.physics, params)
+            v -= self.grad(x0, y, self.physics, self.pc)
 
             # Coarse gradient (first order coherent)
-            grad_coarse = lambda x: self.grad(x, y, self.physics, params) + v
+            grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc) + v
         else:
-            grad_coarse = lambda x: self.grad(x, y, self.physics, params)
+            grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc)
 
         level_iteration = CGDIteration(has_cost=False, coherent_grad_fn=grad_coarse)
         iteration = multi_level.MultiLevelIteration(level_iteration, grad_fn=grad_coarse, has_cost=False)
 
         f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
-        iters_vec = params['params_multilevel'].params['iters']
         model = optim.optim_builder(
             iteration,
             data_fidelity=self.f,
             prior=self.g,
             custom_init=f_init,
-            max_iter=iters_vec[params['level'] - 1],
-            params_algo=params.copy(),
+            max_iter=self.pc.iters(),
+            params_algo=self.pc.params,
         )
         x_est_coarse = model(y, self.physics)
 
         return self.prolongation(x_est_coarse - x0)
+
