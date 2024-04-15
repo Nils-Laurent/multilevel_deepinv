@@ -6,13 +6,15 @@ from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
-from deepinv.optim import PnP, L2, optim_builder
+from deepinv.optim import PnP, optim_builder
+from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import ScorePrior
 from torch.utils.data import DataLoader
 
 # multilevel imports
 from multilevel.prior import TVPrior
+import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from tests.utils import standard_multilevel_param
@@ -60,10 +62,10 @@ class RunAlgorithm:
 
     def TV_PGD(self, params_algo):
         alg_name = "TV_PGD"
-        prior = TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
+        prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
 
         def F_fn(x, cur_data_fidelity, cur_prior, cur_params, y, physics):
-            return cur_data_fidelity(x, y, physics) + cur_params['lambda'] * cur_prior(x)
+            return cur_data_fidelity.d(physics.A(x), y) + cur_params['lambda'] * cur_prior.g(x)
 
         iteration = PGDIteration(has_cost=True, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
@@ -90,7 +92,7 @@ class RunAlgorithm:
         if 'x0' in params_init.keys():
             x0 = params_init['x0']
             f_init = lambda x, physics: {'est': [x0], 'cost': None}
-        elif 'init_ml_x0' in params_init:
+        elif 'init_ml_x0' in params_init.keys():
             params_algo_init = params_algo.copy()
             standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
             ml_params = MultiLevelParams(params_algo_init)
@@ -121,6 +123,8 @@ class RunAlgorithm:
             trainable_params=self.trainable_params,
             device=self.device,
         )
+
+        print(params_algo['stepsize'])
 
         if self.ret_model:
             return model

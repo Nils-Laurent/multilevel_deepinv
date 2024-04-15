@@ -16,6 +16,7 @@ def measurements_path():
 def checkpoint_path():
     BASE_DIR = Path(".")  # emplacement du script qui contient __main__
     CKPT_DIR = BASE_DIR / "ckpts"
+    return CKPT_DIR
 
 def get_out_dir():
     r"""
@@ -37,9 +38,7 @@ def gen_fname(params, p_exp, alg_name):
 
     # identifies algorithm for resolution
     f_prefix = exp + f"_{alg_name}"
-    if 'level' in params.keys():
-        f_prefix += f"_{params['level']}L{params['cit']}"
-
-    # "_d{params['d']}"
+    if 'level' in params.keys() and params['level'][0] > 1:
+        f_prefix += f"_{params['level'][0]}L{params['cit'][0]}"
 
     return f_prefix, exp

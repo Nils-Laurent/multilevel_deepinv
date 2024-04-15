@@ -58,7 +58,8 @@ def test_settings(data_in, params_exp, device):
 
     #                    RED
     # ____________________________________________
-    p_red = standard_multilevel_param(params_algo, it_vec=iters_vec)
+    p_red = params_algo.copy()
+    p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
     p_red['g_param'] = g_param
     p_red['lip_g'] = lip_g  # denoiser Lipschitz constant
     p_red['lambda'] = lambda_red
@@ -67,29 +68,38 @@ def test_settings(data_in, params_exp, device):
 
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-    ra.RED_GD(p_red)
-    ra.RED_GD(single_level_params(p_red))
+    #ra.RED_GD(p_red)
+    #ra.RED_GD(single_level_params(p_red))
 
     #                    DPIR
     # ____________________________________________
     ra = RunAlgorithm(data, physics, params_exp, device=device)
-    ra.DPIR(single_level_params(p_red))
+    #ra.DPIR(single_level_params(p_red))
 
     #                    PGD
     # ____________________________________________
-    p_moreau = standard_multilevel_param(params_algo, it_vec=iters_vec)
-    p_moreau['lambda'] = lambda_tv
-    p_moreau['lip_g'] = 1.0  # denoiser Lipschitz constant
-    p_moreau['prox_crit'] = 1e-6
-    p_moreau['prox_max_it'] = 1000
-    p_moreau['params_multilevel'][0]['gamma_moreau'] = [1.1] * len(iters_vec)  # smoothing parameter
-    p_moreau['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
-    p_moreau['step_coeff'] = 1.9  # convex setting
-    p_moreau['stepsize'] = p_moreau['step_coeff'] / (1.0 + lambda_tv)
+    p_tv = params_algo.copy()
+    p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec)
+    p_tv['lambda'] = lambda_tv
+    p_tv['lip_g'] = 1.0  # denoiser Lipschitz constant
+    p_tv['prox_crit'] = 1e-6
+    p_tv['prox_max_it'] = 1000
+    p_tv['params_multilevel'][0]['gamma_moreau'] = [1.1] * len(iters_vec)  # smoothing parameter
+    p_tv['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
+    p_tv['step_coeff'] = 1.9  # convex setting
+    p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
 
+    print(p_tv['stepsize'])
+
+    # todo: attention!! TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente!!
     ra = RunAlgorithm(data, physics, params_exp, device=device)
-    ra.TV_PGD(p_moreau.copy())
-    ra.TV_PGD(single_level_params(p_moreau))
+    ra.TV_PGD(p_tv)
+    print(p_tv)
+    p_tv['prox_crit'] = 1e-6
+    p_tv['prox_max_it'] = 1000
+    p_tv = single_level_params(p_tv.copy())
+    ra.TV_PGD(p_tv)
+    print(p_tv)
 
 
 def main_test():
