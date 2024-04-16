@@ -35,7 +35,7 @@ def test_settings(data_in, params_exp, device):
         lambda_tv = 2.5 * noise_pow
         lambda_red = 0.2 * noise_pow
     else:  # blur problem
-        lambda_tv = 2.5 * noise_pow
+        lambda_tv = 0.6 * noise_pow
         lambda_red = 0.05 * noise_pow
 
     print("lambda_tv:", lambda_tv)
@@ -68,13 +68,19 @@ def test_settings(data_in, params_exp, device):
 
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-    #ra.RED_GD(p_red)
-    #ra.RED_GD(single_level_params(p_red))
+    ra.RED_GD(p_red.copy())
+    ra.RED_GD(single_level_params(p_red.copy()))
+
+    ra = RunAlgorithm(data, physics, params_exp, device=device)
+    ra.RED_GD(p_red.copy())
+    ra.RED_GD(single_level_params(p_red.copy()))
+
+    return
 
     #                    DPIR
     # ____________________________________________
     ra = RunAlgorithm(data, physics, params_exp, device=device)
-    #ra.DPIR(single_level_params(p_red))
+    ra.DPIR(single_level_params(p_red))
 
     #                    PGD
     # ____________________________________________
@@ -89,20 +95,16 @@ def test_settings(data_in, params_exp, device):
     p_tv['step_coeff'] = 1.9  # convex setting
     p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
 
-    print(p_tv['stepsize'])
-
     # todo: attention!! TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente!!
     ra = RunAlgorithm(data, physics, params_exp, device=device)
     ra.TV_PGD(p_tv)
-    print(p_tv)
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
     p_tv = single_level_params(p_tv.copy())
     ra.TV_PGD(p_tv)
-    print(p_tv)
 
 
-def main_test(test_dataset=True, tune=False):
+def main_test(problem, test_dataset=True, tune=False):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
@@ -120,10 +122,10 @@ def main_test(test_dataset=True, tune=False):
     dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
 
     # inpainting: proportion of pixels to keep
-    problem = 'inpainting'
-    params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.8, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
-    #problem = 'blur'
-    #params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    if problem == 'inpainting':
+        params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.6, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    elif problem == 'blur':
+        params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
 
     if tune is True:
         tune_param(dataset, params_exp, device, max_lv)
@@ -138,14 +140,16 @@ def main_test(test_dataset=True, tune=False):
             name_id = dataset_name + "_" + str(id_img)
             params_exp['img_name'] = name_id
             test_settings(t[0].unsqueeze(0).to(device), params_exp, device=device)
-            break
+            #break
 
 
 if __name__ == "__main__":
     # test_rastrigin()
-    main_test(tune=True)
+    main_test('inpainting', test_dataset=False)
+    #main_test('blur')
 
     #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     #denoiser = DRUNet(device=device)
-    #sigma_vec = [0.02, 0.1]
+    ##sigma_vec = [0.02, 0.1]
+    #sigma_vec = [0.02 + n * 0.001 for n in range(0, 200)]
     #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device)

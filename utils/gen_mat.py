@@ -51,6 +51,22 @@ def gen_mat_cost(dict_cost, f_name, dict_params):
     savemat(out_f, dict_cost)
 
 
+def gen_mat_dataset_psnr(dict_psnr_in, f_name, dict_params, exp):
+    # if cost is list of scalar tensor, convert to normal scalar
+    dict_psnr = {}
+    for k_ in dict_psnr_in.keys():
+        if isinstance(dict_psnr_in[k_], torch.Tensor):
+            dict_psnr[k_] = dict_psnr_in[k_].item()
+        elif isinstance(dict_psnr_in[k_], float):
+            dict_psnr[k_] = dict_psnr_in[k_]
+
+    log_param_in_dict(dict_psnr, dict_params)
+
+    f_name_ext = f_name + "_psnr.mat"
+    out_f = join(paths.get_out_dir(), f_name_ext)
+    savemat(out_f, dict_psnr)
+
+
 def img_np_convention(x):
     x = x.squeeze()
     # check if it is a rgb image

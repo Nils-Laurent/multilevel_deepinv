@@ -31,7 +31,10 @@ def get_out_dir():
 def gen_fname(params, p_exp, alg_name):
 
     # identifies experiment
-    exp = f"{p_exp['img_name']}_n{p_exp['noise_pow']}"
+    if 'img_name' in p_exp.keys():
+        exp = f"{p_exp['img_name']}_n{p_exp['noise_pow']}"
+    else:
+        exp = f"{p_exp['set_name']}_n{p_exp['noise_pow']}"
 
     problem = p_exp['problem']
     exp += f"_{problem}"

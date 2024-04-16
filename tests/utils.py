@@ -80,7 +80,6 @@ def single_level_params(params_ml):
     params['n_levels'] = 1
     params['level'] = 1
     params['iters'] = params_ml['params_multilevel'][0]['iters'][-1]
-    params.pop('params_multilevel')
 
     return params
 

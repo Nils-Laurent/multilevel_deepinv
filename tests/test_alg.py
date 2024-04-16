@@ -20,7 +20,7 @@ from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from tests.utils import standard_multilevel_param
 
-from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images
+from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
 
 
@@ -96,6 +96,7 @@ class RunAlgorithm:
             x0 = params_init['x0']
             f_init = lambda x, physics: {'est': [x0], 'cost': None}
         elif 'init_ml_x0' in params_init.keys():
+            alg_name = alg_name + "_x0ML"
             params_algo_init = params_algo.copy()
             standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
             ml_params = MultiLevelParams(params_algo_init)
@@ -127,8 +128,6 @@ class RunAlgorithm:
             device=self.device,
         )
 
-        print(params_algo['stepsize'])
-
         if self.ret_model:
             return model
 
@@ -138,6 +137,18 @@ class RunAlgorithm:
             test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
                 model, self.data, self.physics, device=self.device
             )
+            dict_res = {
+                "test_psnr": test_psnr,
+                "test_std_psnr": test_std_psnr,
+                "init_psnr": init_psnr,
+                "init_std_psnr": init_std_psnr,
+            }
+
+            f_prefix, exp = gen_fname(params_algo, self.params_exp, alg_name)
+            print("saving:", f_prefix)
+            gen_matlab_conf(exp)
+            gen_mat_dataset_psnr(dict_res, f_prefix, params_algo, exp)
+
             print(alg_name, ": test_psnr = ", test_psnr)
             print(alg_name, ": test_std_psnr = ", test_std_psnr)
             print(alg_name, ": init_psnr = ", init_psnr)
