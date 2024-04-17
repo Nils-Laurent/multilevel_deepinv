@@ -1,4 +1,3 @@
-import copy
 import deepinv
 import torch
 
@@ -7,7 +6,7 @@ from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
 from deepinv.optim.prior import Zero, L1Prior
-from deepinv.optim import PnP, optim_builder
+from deepinv.optim import PnP
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import ScorePrior
@@ -64,8 +63,6 @@ class RunAlgorithm:
     def TV_PGD(self, params_algo, use_cost=True):
         alg_name = "TV_PGD"
         prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
-        #prior = multilevel.prior.TVPrior()
-        #prior = L1Prior()
 
         def F_fn(x, cur_data_fidelity, cur_prior, cur_params, y, physics):
             return cur_data_fidelity.d(physics.A(x), y) + cur_params['lambda'] * cur_prior.g(x)
@@ -135,7 +132,7 @@ class RunAlgorithm:
 
         if isinstance(self.data, DataLoader):
             test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
-                model, self.data, self.physics, device=self.device
+                model, self.data, self.physics, device=self.device, online_measurements=True,
             )
             dict_res = {
                 "test_psnr": test_psnr,
@@ -154,6 +151,7 @@ class RunAlgorithm:
             print(alg_name, ": init_psnr = ", init_psnr)
             print(alg_name, ": init_std_psnr = ", init_std_psnr)
         else:
+            model.eval()
             # Assumes self.data is an image of the form torch.Tensor
             x_ref = self.data
             y = self.physics(x_ref)  # A(x) + noise

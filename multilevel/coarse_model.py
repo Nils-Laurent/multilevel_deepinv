@@ -82,7 +82,7 @@ class CoarseModel(torch.nn.Module):
     def init_ml_x0(self, X, y_h):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
 
-        if self.ph.level > 1:
+        if self.pc.level > 1:
             model = CoarseModel(self.g, self.f, self.physics, self.pc)
             x0 = model.init_ml_x0({'est': [x0]}, y)
 

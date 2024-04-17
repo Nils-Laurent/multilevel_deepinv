@@ -2,7 +2,7 @@ import copy
 
 import torch
 import glob
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from deepinv.physics import Inpainting, Blur
 from deepinv.physics.blur import gaussian_blur
@@ -52,25 +52,30 @@ class CH5Dataset(HDF5Dataset):
 def data_from_user_input(input_data, physics, params_exp, problem_name, device):
     if isinstance(input_data, torch.Tensor):
         data = input_data
+    elif isinstance(input_data, Dataset):
+        return DataLoader(input_data, shuffle=True)
     else:
-        save_dir = measurements_path().joinpath(params_exp['set_name'], problem_name)
-        f_prefix = str(save_dir.joinpath('**', '*.'))
-        find = ""
-        find_file = ""
-        for filename in glob.iglob(f_prefix + 'h5', recursive=True):
-            print(filename)
-            find = "h5"
-            find_file = filename
+        raise NotImplementedError()
+        #save_dir = measurements_path().joinpath(params_exp['set_name'], problem_name)
+        #f_prefix = str(save_dir.joinpath('**', '*.'))
+        #find = ""
+        #find_file = ""
+        #for filename in glob.iglob(f_prefix + 'h5', recursive=True):
+        #    print(filename)
+        #    find = "h5"
+        #    find_file = filename
 
-        match find:
-            case 'h5':
-                data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
-            case _:
-                # create dataset if it does not exist
-                data_bis = generate_dataset(
-                    train_dataset=None, physics=physics, save_dir=save_dir, device=device, test_dataset=input_data
-                )
-        data = DataLoader(data_bis, shuffle=False)
+        #match find:
+        #    case 'h5':
+        #        data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
+        #    case _:
+        #        # create dataset if it does not exist
+        #        generate_dataset(
+        #            train_dataset=input_data, physics=physics, save_dir=save_dir, device=device, test_dataset=input_data
+        #        )
+        #        data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
+        #data = DataLoader(data_bis, shuffle=True, batch_size=1)
+        ##data = DataLoader(data_bis, shuffle=False)
 
     return data
 
@@ -90,8 +95,8 @@ def standard_multilevel_param(params, it_vec):
     params['level'] = levels
     params['n_levels'] = levels
 
-    #lambda_vec = [lambda_def / 4 ** (levels - 1 - i) for i in range(0, levels)]
-    #stepsize_vec = [step_coeff / (l0 * lip_g + 1.0) for l0 in lambda_vec]
+    iml_max_iter = params['iml_max_iter']
+    params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
 
     return params
 

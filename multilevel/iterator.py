@@ -10,14 +10,12 @@ class MultiLevelIteration(OptimIterator):
         self.F_fn = fine_iteration.F_fn
         self.has_cost = fine_iteration.has_cost
         self.grad_fn = grad_fn
-        self.cur_ml_iter = 0
 
     def multilevel_step(self, X, data_fidelity, prior, params, y, physics):
         ml_params = MultiLevelParams(params)
-        if ml_params.level == 1 or self.cur_ml_iter >= ml_params.iml_max_iter():
+        if ml_params.level == 1 or not ml_params.multilevel_step():
             return X
 
-        self.cur_ml_iter += 1
         model = CoarseModel(prior, data_fidelity, physics, ml_params)
         diff = model(X, y, grad=self.grad_fn)
         step = 1.0
@@ -78,6 +76,9 @@ class MultiLevelParams:
 
     def lambda_r(self):
         return self._get_scalar('lambda')
+
+    def multilevel_step(self):
+        return self._get_scalar('multilevel_step')
 
     # ============================== MULTILEVEL ==============================
 

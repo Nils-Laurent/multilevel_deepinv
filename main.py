@@ -13,7 +13,6 @@ from deepinv.utils.demo import load_dataset
 
 from tests.test_lipschitz import measure_lipschitz
 from multilevel.info_transfer import BlackmannHarris
-from multilevel.iterator import MultiLevelParams
 from tests.rastrigin import eval_rastrigin, test_rastrigin
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
@@ -74,8 +73,6 @@ def test_settings(data_in, params_exp, device):
     ra = RunAlgorithm(data, physics, params_exp, device=device)
     ra.RED_GD(p_red.copy())
     ra.RED_GD(single_level_params(p_red.copy()))
-
-    return
 
     #                    DPIR
     # ____________________________________________
@@ -145,7 +142,8 @@ def main_test(problem, test_dataset=True, tune=False):
 
 if __name__ == "__main__":
     # test_rastrigin()
-    main_test('inpainting', test_dataset=False)
+    main_test('inpainting')
+    #main_test('inpainting', test_dataset=False)
     #main_test('blur')
 
     #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
