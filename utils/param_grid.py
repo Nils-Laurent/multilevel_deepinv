@@ -1,3 +1,4 @@
+import math
 import torch
 import numpy
 from deepinv.physics import GaussianNoise
@@ -28,13 +29,14 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
     p_red = params_algo.copy()
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
     p_red['step_coeff'] = 0.9  # no convex setting
+    p_red['lip_g'] = 200  # denoiser Lipschitz constant
 
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     algo = ra.RED_GD
 
     # TUNE RED
-    tune_grid(p_red, algo)
+    tune_grid_red(p_red, algo)
 
     # parameters for tv
     p_tv = params_algo.copy()
@@ -50,27 +52,36 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
     algo = ra.TV_PGD
 
     # TUNE TV
-    pop_vec = ['lip_g']
-    tune_grid(p_tv, algo, pop=pop_vec)
+    tune_grid_tv(p_tv, algo)
 
 
-def tune_grid(params_algo, algo, pop=None):
-    lambda_range = [0.01, 10.0]
-    lambda_split = 10
-    sigma_range = [0.001, 0.3]
-    sigma_split = 5
+def tune_grid_red(params_algo, algo):
+    lambda_range = [0.01, 1.0]
+    lambda_split = 5
+    sigma_range = [0.035, 0.2]
+    sigma_split = 3
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
-        'lip_g': [sigma_range, sigma_split],
+        'g_param': [sigma_range, sigma_split],
     }
 
-    if pop is not None:
-        for key_ in pop:
-            d_grid.pop(key_)
+    recurse = 3
+    res = _tune(params_algo, algo, d_grid, recurse)
+    print(res)
+
+
+def tune_grid_tv(params_algo, algo):
+    lambda_range = [0.01, 5.0]
+    lambda_split = 5
+
+    d_grid = {
+        'lambda': [lambda_range, lambda_split],
+    }
 
     recurse = 2
-    _tune(params_algo, algo, d_grid, recurse)
+    res = _tune(params_algo, algo, d_grid, recurse)
+    print(res)
 
 
 def _tune(params_algo, algo, d_grid, recurse):
@@ -87,27 +98,40 @@ def _tune(params_algo, algo, d_grid, recurse):
 
     g = torch.full(sz, -torch.inf)
 
+    nb_iter = len(list(numpy.ndindex(g.shape)))
+    it = 0
     for i0 in numpy.ndindex(g.shape):
-        params = {}
+        it += 1
+        print("-------------------------------------------------")
+        print("Iteration {} of {}".format(it, nb_iter))
         for j in range(len(sz)):
             q = i0[j]
             kj = list(params_name)[j]
-            params_algo[kj] = y_vec[j][q]
+            params_algo[kj] = y_vec[j][q].item()
+            print(f"set {kj} to {params_algo[kj]}")
 
         step_coeff = params_algo['step_coeff']
-        lambda_r = params_algo['lambda']
         lip_g = params_algo['lip_g']
+        lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
-        #algo(params_algo)
-        #print(i0)
+        r = algo(params_algo.copy())
+        r_psnr = r['test_psnr']
+        if not math.isnan(r_psnr):
+            g[i0] = r_psnr
+        print(f"iter {it} out of {nb_iter} (psnr {r['test_psnr']}, recurse {recurse})")
 
-    g = torch.randn(sz)
+    #g = torch.randn(sz)
 
     max_j = torch.argmax(g.view(-1))
     max_i = torch.unravel_index(max_j, g.shape)
 
     if recurse == 0:
-        return max_i
+        res = {}
+        for j in range(len(sz)):
+            kj = list(params_name)[j]
+            val_j = y_vec[j][max_i[j]]
+            res[kj] = val_j
+        return res
 
     d_grid2 = d_grid.copy()
     for j in range(len(sz)):
@@ -121,5 +145,5 @@ def _tune(params_algo, algo, d_grid, recurse):
         d_grid2[kj][0][0] = y_min.item()
         d_grid2[kj][0][1] = y_max.item()
 
-    _tune(params_algo, algo, d_grid, recurse)
+    return _tune(params_algo, algo, d_grid2, recurse)
 

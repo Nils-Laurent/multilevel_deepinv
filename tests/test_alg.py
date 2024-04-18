@@ -31,6 +31,7 @@ class RunAlgorithm:
         self.data_fidelity = L2()
         self.device = device
         self.ret_model = r_model
+        self.verbose = False
 
         self.trainable_params = trainable_params
         if trainable_params is None:
@@ -142,14 +143,15 @@ class RunAlgorithm:
             }
 
             f_prefix, exp = gen_fname(params_algo, self.params_exp, alg_name)
-            print("saving:", f_prefix)
             gen_matlab_conf(exp)
             gen_mat_dataset_psnr(dict_res, f_prefix, params_algo, exp)
 
-            print(alg_name, ": test_psnr = ", test_psnr)
-            print(alg_name, ": test_std_psnr = ", test_std_psnr)
-            print(alg_name, ": init_psnr = ", init_psnr)
-            print(alg_name, ": init_std_psnr = ", init_std_psnr)
+            if self.verbose is True:
+                print("saving:", f_prefix)
+                print(alg_name, ": test_psnr = ", test_psnr)
+                print(alg_name, ": test_std_psnr = ", test_std_psnr)
+                print(alg_name, ": init_psnr = ", init_psnr)
+                print(alg_name, ": init_std_psnr = ", init_std_psnr)
 
             return dict_res
         else:

@@ -18,7 +18,7 @@ from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
 from tests.utils import standard_multilevel_param, single_level_params
 from utils.param_grad import tune_param
-from utils.param_grid import tune_grid, tune_grid_all
+from utils.param_grid import tune_grid_all
 from utils.paths import dataset_path
 
 
@@ -123,7 +123,7 @@ def main_test(problem, test_dataset=True, tune=False):
 
     # inpainting: proportion of pixels to keep
     if problem == 'inpainting':
-        params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.1, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+        params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.5, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
     elif problem == 'blur':
         params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
 
