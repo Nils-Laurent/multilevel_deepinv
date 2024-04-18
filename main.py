@@ -18,6 +18,7 @@ from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
 from tests.utils import standard_multilevel_param, single_level_params
 from utils.param_grad import tune_param
+from utils.param_grid import tune_grid, tune_grid_all
 from utils.paths import dataset_path
 
 
@@ -44,7 +45,8 @@ def test_settings(data_in, params_exp, device):
     g_param = 0.05  # sigma denoiser
 
     iters_fine = 200
-    iters_vec = [5, 5, 5, iters_fine]
+    lc = 3
+    iters_vec = [lc, lc, lc, iters_fine]
     if device == "cpu":
         iters_fine = 5
         iters_vec = [2, 2, iters_fine]
@@ -68,6 +70,7 @@ def test_settings(data_in, params_exp, device):
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     ra.RED_GD(p_red.copy())
+    return
     ra.RED_GD(single_level_params(p_red.copy()))
 
     ra = RunAlgorithm(data, physics, params_exp, device=device)
@@ -120,12 +123,13 @@ def main_test(problem, test_dataset=True, tune=False):
 
     # inpainting: proportion of pixels to keep
     if problem == 'inpainting':
-        params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.6, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+        params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.1, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
     elif problem == 'blur':
         params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
 
     if tune is True:
-        tune_param(dataset, params_exp, device, max_lv)
+        #tune_param(dataset, params_exp, device, max_lv)
+        tune_grid_all(dataset, params_exp, device, max_lv)
         return
 
     if test_dataset is True:
@@ -142,7 +146,7 @@ def main_test(problem, test_dataset=True, tune=False):
 
 if __name__ == "__main__":
     # test_rastrigin()
-    main_test('inpainting')
+    main_test('inpainting', tune=True)
     #main_test('inpainting', test_dataset=False)
     #main_test('blur')
 

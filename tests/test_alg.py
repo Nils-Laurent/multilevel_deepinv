@@ -150,6 +150,8 @@ class RunAlgorithm:
             print(alg_name, ": test_std_psnr = ", test_std_psnr)
             print(alg_name, ": init_psnr = ", init_psnr)
             print(alg_name, ": init_std_psnr = ", init_std_psnr)
+
+            return dict_res
         else:
             model.eval()
             # Assumes self.data is an image of the form torch.Tensor
