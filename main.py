@@ -126,6 +126,8 @@ def main_test(problem, test_dataset=True, tune=False):
         params_exp = {'problem': problem, 'set_name': dataset_name, problem: 0.5, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
     elif problem == 'blur':
         params_exp = {'problem': problem, 'set_name': dataset_name, problem + '_pow': 2, 'noise_pow': 0.1, 'shape': (3, img_size, img_size)}
+    else:
+        raise NotImplementedError()
 
     if tune is True:
         #tune_param(dataset, params_exp, device, max_lv)
