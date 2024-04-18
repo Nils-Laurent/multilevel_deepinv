@@ -57,29 +57,29 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
 
 def tune_grid_red(params_algo, algo):
     lambda_range = [0.01, 1.0]
-    lambda_split = 5
+    lambda_split = 5  # should be around 20
     sigma_range = [0.035, 0.2]
-    sigma_split = 3
+    sigma_split = 3  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
         'g_param': [sigma_range, sigma_split],
     }
 
-    recurse = 3
+    recurse = 2
     res = _tune(params_algo, algo, d_grid, recurse)
     print(res)
 
 
 def tune_grid_tv(params_algo, algo):
     lambda_range = [0.01, 5.0]
-    lambda_split = 5
+    lambda_split = 5  # should be around 5
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
     }
 
-    recurse = 2
+    recurse = 4
     res = _tune(params_algo, algo, d_grid, recurse)
     print(res)
 
