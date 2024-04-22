@@ -4,13 +4,15 @@ from torchvision import transforms
 
 # install deepinv using the command below
 #   python -m pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
-# update with :
-#   python -m pip install -U git+https://github.com/deepinv/deepinv.git#egg=deepinv
+# uninstall with :
+#   python -m pip uninstall deepinv
+# update by uninstall + install + restart IDE
 
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 
+from tests.drunet_scale import test_drunet_scale
 from tests.test_lipschitz import measure_lipschitz
 from multilevel.info_transfer import BlackmannHarris
 from tests.rastrigin import eval_rastrigin, test_rastrigin
@@ -148,9 +150,10 @@ def main_test(problem, test_dataset=True, tune=False):
 
 if __name__ == "__main__":
     # test_rastrigin()
-    main_test('inpainting', tune=True)
+    #main_test('inpainting', tune=True)
     #main_test('inpainting', test_dataset=False)
     #main_test('blur')
+    test_drunet_scale()
 
     #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     #denoiser = DRUNet(device=device)

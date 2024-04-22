@@ -3,13 +3,13 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from .utils import get_weights_url
+from deepinv.models.utils import get_weights_url
 
 cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 
-class DRUNet(nn.Module):
+class DRUNetScale(nn.Module):
     r"""
     DRUNet denoiser network.
 
@@ -55,8 +55,8 @@ class DRUNet(nn.Module):
         train=False,
         device=None,
     ):
-        super(DRUNet, self).__init__()
-        in_channels = in_channels + 1  # accounts for the input noise channel
+        super(DRUNetScale, self).__init__()
+        in_channels = in_channels + 2  # accounts for the input noise channel and scale
         self.m_head = conv(in_channels, nc[0], bias=False, mode="C")
 
         # downsample
@@ -137,7 +137,7 @@ class DRUNet(nn.Module):
         self.m_tail = conv(nc[0], out_channels, bias=False, mode="C")
         if pretrained is not None:
             if pretrained == "download":
-                if in_channels == 4:
+                if in_channels == 4 or in_channels == 5:
                     name = "drunet_deepinv_color.pth"
                 elif in_channels == 2:
                     name = "drunet_deepinv_gray.pth"
@@ -174,7 +174,37 @@ class DRUNet(nn.Module):
         x = self.m_tail(x + x1)
         return x
 
-    def forward(self, x, sigma):
+    @staticmethod
+    def format_param(x, param):
+        if isinstance(param, torch.Tensor):
+            if len(param.size()) > 0:
+                if x.get_device() > -1:
+                    param = param[
+                        int(x.get_device() * x.shape[0]) : int(
+                            (x.get_device() + 1) * x.shape[0]
+                        )
+                            ]
+                    param_map = param.to(x.device).view(x.size(0), 1, 1, 1)
+                else:
+                    param_map = param.view(x.size(0), 1, 1, 1).to(x.device)
+                param_map = param_map.expand(-1, 1, x.size(2), x.size(3))
+            else:
+                param = param.item()
+                param_map = (
+                    torch.FloatTensor(x.size(0), 1, x.size(2), x.size(3))
+                    .fill_(param)
+                    .to(x.device)
+                )
+        else:
+            param_map = (
+                torch.FloatTensor(x.size(0), 1, x.size(2), x.size(3))
+                .fill_(param)
+                .to(x.device)
+            )
+
+        return param_map
+
+    def forward(self, x, sigma, scale):
         r"""
         Run the denoiser on image with noise level :math:`\sigma`.
 
@@ -182,32 +212,12 @@ class DRUNet(nn.Module):
         :param float, torch.Tensor sigma: noise level. If ``sigma`` is a float, it is used for all images in the batch.
             If ``sigma`` is a tensor, it must be of shape ``(batch_size,)``.
         """
-        if isinstance(sigma, torch.Tensor):
-            if len(sigma.size()) > 0:
-                if x.get_device() > -1:
-                    sigma = sigma[
-                        int(x.get_device() * x.shape[0]) : int(
-                            (x.get_device() + 1) * x.shape[0]
-                        )
-                    ]
-                    noise_level_map = sigma.to(x.device).view(x.size(0), 1, 1, 1)
-                else:
-                    noise_level_map = sigma.view(x.size(0), 1, 1, 1).to(x.device)
-                noise_level_map = noise_level_map.expand(-1, 1, x.size(2), x.size(3))
-            else:
-                sigma = sigma.item()
-                noise_level_map = (
-                    torch.FloatTensor(x.size(0), 1, x.size(2), x.size(3))
-                    .fill_(sigma)
-                    .to(x.device)
-                )
-        else:
-            noise_level_map = (
-                torch.FloatTensor(x.size(0), 1, x.size(2), x.size(3))
-                .fill_(sigma)
-                .to(x.device)
-            )
+
+        noise_level_map = self.format_param(x, sigma)
+        scale_level_map = self.format_param(x, scale)
+
         x = torch.cat((x, noise_level_map), 1)
+        x = torch.cat((x, scale_level_map), 1)
         if self.training or (
             x.size(2) % 8 == 0
             and x.size(3) % 8 == 0
