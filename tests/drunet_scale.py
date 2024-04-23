@@ -1,15 +1,54 @@
 import deepinv
 import torch
 from deepinv.models import DRUNet, ArtifactRemoval
+from deepinv.physics import UniformGaussianNoise, GaussianNoise
+from deepinv.physics.generator import SigmaGenerator
 
 from models.drunet_scale import DRUNetScale
 from tests.drunet_scale_utils import get_transforms, load_data, create_physics, ScaleModel
 from utils.paths import checkpoint_path
 
 
+def target_psnr(noise_pow, device):
+    in_channels = 3
+    out_channels = 3
+    target_network = DRUNet(
+        in_channels=in_channels, out_channels=out_channels, pretrained="download", train=False, device=device
+    ).to(device)
+    model = ArtifactRemoval(backbone_net=target_network, device=device)
+    physics = deepinv.physics.DecomposablePhysics(device=device)
+    physics.noise_model = GaussianNoise()
+    generator = SigmaGenerator(sigma_max=noise_pow, device=device)
+
+    gpu_num = 1
+    num_workers = 8 * gpu_num if torch.cuda.is_available() else 0
+    train_patch_size = 128
+    train_batch_size = 64*gpu_num
+
+    train_ = "CBSD10"
+    test_ = "CBSD68"
+
+    train_transform, val_transform, in_channels, out_channels = get_transforms(train_patch_size)
+    train_dataloader, test_dataloader = load_data(
+        train_, test_, train_transform, val_transform, train_batch_size, num_workers
+    )
+
+    deepinv.test(
+        model,
+        test_dataloader=test_dataloader,
+        physics=physics,
+        physics_generator=generator,
+        online_measurements=True,
+        device=device
+    )
+
+
 def test_drunet_scale():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
+
+    noise_pow = 0.2
+    target_psnr(noise_pow, device)
 
     gpu_num = 1
     num_workers = 8 * gpu_num if torch.cuda.is_available() else 0
@@ -37,7 +76,6 @@ def test_drunet_scale():
         model = torch.nn.DataParallel(model, device_ids=list(range(gpu_num)))
 
     batch_shape = (train_batch_size, in_channels, train_patch_size, train_patch_size)
-    noise_pow = 0.2
     max_scale = 2
     physics = create_physics(max_scale, noise_pow, device, gpu_num, batch_shape)
 
@@ -71,4 +109,5 @@ def test_drunet_scale():
         #ckpt_pretrained=ckpt_resume,
         freq_plot=100,
     )
+
     model = trainer.train()
