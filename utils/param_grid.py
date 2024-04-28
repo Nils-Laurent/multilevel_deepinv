@@ -32,11 +32,7 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
     p_red['lip_g'] = 200  # denoiser Lipschitz constant
 
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
-    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-    algo = ra.RED_GD
-
-    # TUNE RED
-    tune_grid_red(p_red, algo)
+    ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
 
     # parameters for tv
     p_tv = params_algo.copy()
@@ -48,11 +44,15 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
     p_tv['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
     p_tv['step_coeff'] = 1.9  # convex setting
 
-    ra = RunAlgorithm(data, physics, params_exp, device=device)
-    algo = ra.TV_PGD
+    ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
 
     # TUNE TV
-    tune_grid_tv(p_tv, algo)
+    res_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
+
+    # TUNE RED
+    res_red = tune_grid_red(p_red, ra_red.RED_GD)
+
+    return {'res_tv': res_tv, 'res_red': res_red}
 
 
 def tune_grid_red(params_algo, algo):
@@ -68,7 +68,8 @@ def tune_grid_red(params_algo, algo):
 
     recurse = 2
     res = _tune(params_algo, algo, d_grid, recurse)
-    print(res)
+
+    return res
 
 
 def tune_grid_tv(params_algo, algo):
@@ -81,7 +82,7 @@ def tune_grid_tv(params_algo, algo):
 
     recurse = 4
     res = _tune(params_algo, algo, d_grid, recurse)
-    print(res)
+    return res
 
 
 def _tune(params_algo, algo, d_grid, recurse):

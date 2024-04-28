@@ -1,6 +1,6 @@
 import torch
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur
+from deepinv.physics import Inpainting, Blur, Tomography
 import deepinv.optim as optim
 
 # multilevel imports
@@ -27,10 +27,22 @@ class CoarseModel(torch.nn.Module):
     def projection(self, x):
         if self.cit_op is None:
             self.cit_op = DownsamplingTransfer(x)
+            x_proj = self.cit_op.projection(x)
+
             if self.physics is None:
-                self.coarse_physics()
+                self.coarse_physics(x_proj)
+            return x_proj
+
         x_proj = self.cit_op.projection(x)
         return x_proj
+
+    def project_observation(self, y):
+        if isinstance(self.fph, Tomography):
+            u = self.fph.A_adjoint(y)
+            v = self.projection(u)
+            return self.physics.A(v)
+
+        return self.projection(y)
 
     def prolongation(self, x):
         if self.cit_op is None:
@@ -57,16 +69,16 @@ class CoarseModel(torch.nn.Module):
 
         # Projection
         x0 = self.projection(x0_h)
-        y = self.projection(y_h)
+        y = self.project_observation(y_h)
 
         return x0, x0_h, y
 
-    def coarse_physics(self):
+    def coarse_physics(self, x_coarse):
         if isinstance(self.fph, Inpainting):
             m_fine = self.fph.mask.data
             m_coarse = self.projection(m_fine)
             c_mask = torch.squeeze(m_coarse, 0)
-            self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask)
+            self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask, device=m_fine.device)
         elif isinstance(self.fph, Blur):
             fph = self.fph
             if fph.filter.shape[2] < 4 or fph.filter.shape[3] < 4 :
@@ -74,6 +86,10 @@ class CoarseModel(torch.nn.Module):
             else:
                 filt = self.projection(fph.filter)
             self.physics = Blur(filter=filt, padding=fph.padding, device=fph.device)
+        elif isinstance(self.fph, Tomography):
+            theta_c = self.fph.radon.theta
+            size_c = x_coarse.shape[-2]
+            self.physics = Tomography(angles=theta_c, img_width=size_c, device=x_coarse.device)
         else:
             raise NotImplementedError("Coarse physics not implemented for " + str(type(self.fph)))
 
@@ -136,37 +152,4 @@ class CoarseModel(torch.nn.Module):
         x_est_coarse = model(y, self.physics)
 
         return self.prolongation(x_est_coarse - x0)
-
-    #def forward_old(self, X, y_h, grad=None):
-    #    [x0, x0_h, y] = self.coarse_data(X, y_h)
-
-    #    if self.ph.scale_coherent_gradient() is True:
-    #        if grad is None:
-    #            grad_x0 = self.grad(x0_h, y_h, self.fph, self.ph)
-    #        else:
-    #            grad_x0 = grad(x0_h)
-
-    #        v = self.projection(grad_x0)
-    #        v -= self.grad(x0, y, self.physics, self.pc)
-
-    #        # Coarse gradient (first order coherent)
-    #        grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc) + v
-    #    else:
-    #        grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc)
-
-    #    level_iteration = CGDIteration(has_cost=False, coherent_grad_fn=grad_coarse)
-    #    iteration = multi_level.MultiLevelIteration(level_iteration, grad_fn=grad_coarse, has_cost=False)
-
-    #    f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
-    #    model = optim.optim_builder(
-    #        iteration,
-    #        data_fidelity=self.f,
-    #        prior=self.g,
-    #        custom_init=f_init,
-    #        max_iter=self.pc.iters(),
-    #        params_algo=self.pc.params,
-    #    )
-    #    x_est_coarse = model(y, self.physics)
-
-    #    return self.prolongation(x_est_coarse - x0)
 

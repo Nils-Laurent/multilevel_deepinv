@@ -4,7 +4,7 @@ import torch
 import glob
 from torch.utils.data import DataLoader, Dataset
 
-from deepinv.physics import Inpainting, Blur
+from deepinv.physics import Inpainting, Blur, Tomography
 from deepinv.physics.blur import gaussian_blur
 from deepinv.datasets import generate_dataset, HDF5Dataset
 from torchvision import transforms
@@ -23,6 +23,12 @@ def physics_from_exp(params_exp, noise_model, device):
             print("def_mask:", def_mask)
             problem_full = problem + "_" + str(def_mask) + "_" + str(noise_pow)
             physics = Inpainting(params_exp['shape'], mask=def_mask, noise_model=noise_model, device=device)
+        case 'tomography':
+            prop = params_exp[problem]
+            def_angles = torch.sort(torch.rand(int(180*prop)) * 180).values
+            print("angle prop:", prop)
+            problem_full = problem + "_" + str(prop) + "_" + str(noise_pow)
+            physics = Tomography(angles=def_angles, img_width=params_exp['shape'][-2], device=device)
         case 'blur':
             power = params_exp[problem + '_pow']
             print("def_blur_pow:", power)

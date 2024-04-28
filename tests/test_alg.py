@@ -24,7 +24,17 @@ from utils.paths import gen_fname
 
 
 class RunAlgorithm:
-    def __init__(self, data, physics, params_exp, device, param_init=None, r_model=False, trainable_params=None):
+    def __init__(
+        self,
+        data,
+        physics,
+        params_exp,
+        device,
+        param_init=None,
+        r_model=False,
+        trainable_params=None,
+        return_timer=False
+    ):
         self.data = data
         self.physics = physics
         self.params_exp = params_exp
@@ -32,6 +42,7 @@ class RunAlgorithm:
         self.device = device
         self.ret_model = r_model
         self.verbose = False
+        self.time_iter = return_timer
 
         self.trainable_params = trainable_params
         if trainable_params is None:
@@ -98,9 +109,9 @@ class RunAlgorithm:
             params_algo_init = params_algo.copy()
             standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
             ml_params = MultiLevelParams(params_algo_init)
-            def init_ml_x0(x, physics):
+            def init_ml_x0(y, physics):
                 cm = CoarseModel(prior, self.data_fidelity, physics, ml_params)
-                x0 = cm.init_ml_x0({'est': [x]}, x)
+                x0 = cm.init_ml_x0({'est': [physics.A_adjoint(y)]}, y)
                 return {'est': [x0], 'cost': None}
 
             f_init = init_ml_x0
@@ -159,10 +170,11 @@ class RunAlgorithm:
             # Assumes self.data is an image of the form torch.Tensor
             x_ref = self.data
             y = self.physics(x_ref)  # A(x) + noise
-            x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True)
+            f_prefix, exp = gen_fname(params_algo, self.params_exp, alg_name)
+
+            x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True, time_iter=self.time_iter)
 
             # ==================== Save results ====================
-            f_prefix, exp = gen_fname(params_algo, self.params_exp, alg_name)
             print("saving:", f_prefix)
 
             x0 = f_init(y, self.physics)['est'][0]
