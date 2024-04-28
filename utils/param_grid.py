@@ -8,7 +8,7 @@ from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, standard_multilevel_param
 
 
-def tune_grid_all(data_in, params_exp, device, max_lv):
+def tune_grid_all(data_in, params_exp, device):
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
@@ -17,8 +17,8 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     iters_fine = 200
-    lc = 3
-    iters_vec = [lc, lc, lc, iters_fine]
+    it_coarse = 3
+    iters_vec = [it_coarse, it_coarse, it_coarse, iters_fine]
 
     params_algo = {
         'cit': BlackmannHarris(),
@@ -46,17 +46,17 @@ def tune_grid_all(data_in, params_exp, device, max_lv):
 
     ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
 
-    # TUNE TV
-    res_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
-
     # TUNE RED
-    res_red = tune_grid_red(p_red, ra_red.RED_GD)
+    res_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
+
+    # TUNE TV
+    res_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
 
     return {'res_tv': res_tv, 'res_red': res_red}
 
 
-def tune_grid_red(params_algo, algo):
-    lambda_range = [0.01, 1.0]
+def tune_grid_red(params_algo, algo, noise_pow):
+    lambda_range = [0.01 * noise_pow, 1.0 * noise_pow]
     lambda_split = 5  # should be around 20
     sigma_range = [0.035, 0.2]
     sigma_split = 3  # should be around 15
@@ -72,8 +72,8 @@ def tune_grid_red(params_algo, algo):
     return res
 
 
-def tune_grid_tv(params_algo, algo):
-    lambda_range = [0.01, 5.0]
+def tune_grid_tv(params_algo, algo, noise_pow):
+    lambda_range = [0.01 * noise_pow, 5.0 * noise_pow]
     lambda_split = 5  # should be around 5
 
     d_grid = {
@@ -115,7 +115,12 @@ def _tune(params_algo, algo, d_grid, recurse):
         lip_g = params_algo['lip_g']
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
-        r = algo(params_algo.copy())
+        try:
+            r = algo(params_algo.copy())
+        except:
+            print("Skip iteration: algorithm failed to run with current parameters")
+            continue
+
         r_psnr = r['test_psnr']
         if not math.isnan(r_psnr):
             g[i0] = r_psnr

@@ -33,7 +33,7 @@ def physics_from_exp(params_exp, noise_model, device):
             power = params_exp[problem + '_pow']
             print("def_blur_pow:", power)
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
-            physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device)
+            physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='reflect')
         case _:
             raise NotImplementedError("Problem " + problem + " not supported")
 

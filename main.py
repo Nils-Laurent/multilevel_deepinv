@@ -34,18 +34,26 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
+    #grid search : noise level = 0.1
+    #r_inpainting: {'res_tv': {'lambda': tensor(0.1413)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1175)}}
+    #r_blur:  {'res_tv': {'lambda': tensor(0.0478)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1587)}}
+
     if problem == "inpainting":
-        lambda_tv = 2.5 * noise_pow
-        lambda_red = 0.2 * noise_pow
-    else:  # blur problem
-        lambda_tv = 0.6 * noise_pow
-        lambda_red = 0.05 * noise_pow
+        lambda_tv = 1.413 * noise_pow
+        lambda_red = 0.134 * noise_pow
+        g_param = 0.1175
+        # g_param = 0.05  # sigma denoiser
+    elif problem == "blur":
+        lambda_tv = 0.0478 * noise_pow
+        lambda_red = 0.134 * noise_pow
+        g_param = 0.1587  # sigma denoiser
+    else:
+        raise NotImplementedError("not implem")
 
     print("lambda_tv:", lambda_tv)
     print("lambda_red:", lambda_red)
 
     lip_g = 160.0  # DRUnet lipschitz
-    g_param = 0.05  # sigma denoiser
 
     iters_fine = 200
     lc = 3
@@ -73,7 +81,6 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(p_red.copy())
-    return
     ra.RED_GD(single_level_params(p_red.copy()))
 
     ra = RunAlgorithm(data, physics, params_exp, device=device)
@@ -114,8 +121,8 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
     dataset_name = 'set3c'
     original_data_dir = dataset_path()
     img_size = 256 if torch.cuda.is_available() else 64
-    if tune is True:
-        img_size = 32
+    #if tune is True:
+    #    img_size = 32
 
     max_lv = 2
     val_transform = transforms.Compose(
@@ -139,7 +146,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
         raise NotImplementedError()
 
     if tune is True:
-        return tune_grid_all(dataset, params_exp, device, max_lv)
+        return tune_grid_all(dataset, params_exp, device)
 
     if test_dataset is True:
         test_settings(dataset, params_exp, device=device, benchmark=benchmark)
@@ -155,19 +162,24 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
             break
 
 def main_tune():
-    r_inpainting = main_test('inpainting', tune=True)
+    #r_inpainting = main_test('inpainting', tune=True)
     r_blur = main_test('blur', tune=True)
 
     print("GRID SEARCH FINISHED WITH")
-    print("r_inpainting: ", r_inpainting)
+    #print("r_inpainting: ", r_inpainting)
     print("r_blur: ", r_blur)
 
 if __name__ == "__main__":
-    main_tune()
+    # 1 perform grid search
+    #main_tune()
 
-    #main_test('inpainting', test_dataset=False)
-    #main_test('inpainting', test_dataset=False, benchmark=True)
-    #main_test('blur')
+    # 2 quick tests + benchmark
+    main_test('blur', test_dataset=False, benchmark=True)
+    main_test('inpainting', test_dataset=False, benchmark=True)
+
+    main_test('blur', test_dataset=True)
+    main_test('inpainting', test_dataset=True)
+
     #main_test('tomography', test_dataset=False)
 
     #test_drunet_scale()

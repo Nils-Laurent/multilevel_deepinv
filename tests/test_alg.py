@@ -2,6 +2,7 @@ import deepinv
 import torch
 
 from deepinv.optim.dpir import get_DPIR_params
+from deepinv.physics import Tomography
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
@@ -111,7 +112,10 @@ class RunAlgorithm:
             ml_params = MultiLevelParams(params_algo_init)
             def init_ml_x0(y, physics):
                 cm = CoarseModel(prior, self.data_fidelity, physics, ml_params)
-                x0 = cm.init_ml_x0({'est': [physics.A_adjoint(y)]}, y)
+                if isinstance(physics, Tomography):
+                    x0 = cm.init_ml_x0({'est': [physics.A_adjoint(y)]}, y)
+                else:
+                    x0 = cm.init_ml_x0({'est': [y]}, y)
                 return {'est': [x0], 'cost': None}
 
             f_init = init_ml_x0
