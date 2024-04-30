@@ -14,6 +14,7 @@ from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 
 from tests.drunet_scale import test_drunet_scale
+from tests.image_fft import plot_fft_dataset
 from tests.test_lipschitz import measure_lipschitz
 from multilevel.info_transfer import BlackmannHarris
 from tests.rastrigin import eval_rastrigin, test_rastrigin
@@ -38,12 +39,16 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     #r_inpainting: {'res_tv': {'lambda': tensor(0.1413)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1175)}}
     #r_blur:  {'res_tv': {'lambda': tensor(0.0478)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1587)}}
 
-    if problem == "inpainting":
+    if problem == 'inpainting':
         lambda_tv = 1.413 * noise_pow
         lambda_red = 0.134 * noise_pow
         g_param = 0.1175
         # g_param = 0.05  # sigma denoiser
-    elif problem == "blur":
+    elif problem == 'blur':
+        lambda_tv = 0.0478 * noise_pow
+        lambda_red = 0.134 * noise_pow
+        g_param = 0.1587  # sigma denoiser
+    elif problem == 'tomography':
         lambda_tv = 0.0478 * noise_pow
         lambda_red = 0.134 * noise_pow
         g_param = 0.1587  # sigma denoiser
@@ -83,13 +88,13 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     ra.RED_GD(p_red.copy())
     ra.RED_GD(single_level_params(p_red.copy()))
 
-    ra = RunAlgorithm(data, physics, params_exp, device=device)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.RED_GD(p_red.copy())
     ra.RED_GD(single_level_params(p_red.copy()))
 
     #                    DPIR
     # ____________________________________________
-    ra = RunAlgorithm(data, physics, params_exp, device=device)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.DPIR(single_level_params(p_red))
 
     #                    PGD
@@ -106,7 +111,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
 
     # todo: attention!! TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente!!
-    ra = RunAlgorithm(data, physics, params_exp, device=device)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.TV_PGD(p_tv)
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
@@ -159,7 +164,6 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
 
             img = t[0].unsqueeze(0).to(device)
             test_settings(img, params_exp, device=device, benchmark=benchmark)
-            break
 
 def main_tune():
     #r_inpainting = main_test('inpainting', tune=True)
@@ -169,25 +173,35 @@ def main_tune():
     #print("r_inpainting: ", r_inpainting)
     print("r_blur: ", r_blur)
 
+def main_lipschitz():
+    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
+    denoiser = DRUNet(device=device)
+    #sigma_vec = [0.02, 0.1]
+    sigma_vec = [0.02 + n * 0.001 for n in range(0, 200)]
+
+    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.1)
+    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.2)
+
+def main_fft_img():
+    pass
+
 if __name__ == "__main__":
     # 1 perform grid search
     #main_tune()
 
     # 2 quick tests + benchmark
-    main_test('blur', test_dataset=False, benchmark=True)
-    main_test('inpainting', test_dataset=False, benchmark=True)
+    #main_test('blur', test_dataset=False, benchmark=True)
+    #main_test('inpainting', test_dataset=False, benchmark=True)
 
-    main_test('blur', test_dataset=True)
-    main_test('inpainting', test_dataset=True)
+    # 3 database tests
+    #main_test('blur', test_dataset=True)
+    #main_test('inpainting', test_dataset=True)
 
-    #main_test('tomography', test_dataset=False)
+    main_test('tomography', test_dataset=False)
 
     #test_drunet_scale()
 
-    # test_rastrigin()
+    #plot_fft_dataset('set3c')
+    #main_lipschitz()
 
-    #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    #denoiser = DRUNet(device=device)
-    ##sigma_vec = [0.02, 0.1]
-    #sigma_vec = [0.02 + n * 0.001 for n in range(0, 200)]
-    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device)
+    # test_rastrigin()

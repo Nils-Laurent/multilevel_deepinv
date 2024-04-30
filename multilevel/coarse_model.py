@@ -1,12 +1,13 @@
 import torch
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur, Tomography
+from deepinv.physics import Inpainting, Blur
 import deepinv.optim as optim
 
 # multilevel imports
 from multilevel.info_transfer import DownsamplingTransfer
 from multilevel.coarse_gradient_descent import CGDIteration
 import multilevel.iterator as multi_level
+from physics.radon import Tomography
 
 
 class CoarseModel(torch.nn.Module):
@@ -38,7 +39,7 @@ class CoarseModel(torch.nn.Module):
 
     def project_observation(self, y):
         if isinstance(self.fph, Tomography):
-            u = self.fph.A_adjoint(y)
+            u = self.fph.A_dagger(y)
             v = self.projection(u)
             return self.physics.A(v)
 

@@ -2,7 +2,6 @@ import deepinv
 import torch
 
 from deepinv.optim.dpir import get_DPIR_params
-from deepinv.physics import Tomography
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
@@ -18,6 +17,7 @@ from multilevel.prior import TVPrior
 import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
+from physics.radon import Tomography
 from tests.utils import standard_multilevel_param
 
 from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
@@ -99,7 +99,10 @@ class RunAlgorithm:
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
 
     def run_algorithm(self, iteration, prior, params_algo, alg_name):
-        f_init = lambda x, physics: {'est': [x], 'cost': None}
+        if isinstance(self.physics, Tomography):
+            f_init = lambda x, physics: {'est': [physics.A_adjoint(x)], 'cost': None}
+        else:
+            f_init = lambda x, physics: {'est': [x], 'cost': None}
 
         params_init = self.param_init
         if 'x0' in params_init.keys():

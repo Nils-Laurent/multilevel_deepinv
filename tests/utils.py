@@ -4,12 +4,13 @@ import torch
 import glob
 from torch.utils.data import DataLoader, Dataset
 
-from deepinv.physics import Inpainting, Blur, Tomography
+from deepinv.physics import Inpainting, Blur
 from deepinv.physics.blur import gaussian_blur
 from deepinv.datasets import generate_dataset, HDF5Dataset
 from torchvision import transforms
 
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
+from physics.radon import Tomography
 from utils.paths import measurements_path
 
 

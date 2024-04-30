@@ -14,7 +14,7 @@ from utils.paths import dataset_path, measurements_path, checkpoint_path
 from torchvision import datasets
 
 
-def measure_lipschitz(denoiser, sigma_vec, device):
+def measure_lipschitz(denoiser, sigma_vec, device, sigma_noise):
     img_size = 128 if torch.cuda.is_available() else 32
 
     val_transform = transforms.Compose(
@@ -35,7 +35,7 @@ def measure_lipschitz(denoiser, sigma_vec, device):
         deepinv.utils.plot(x0)
 
     reg_l2 = JacobianSpectralNorm(max_iter=10, tol=1e-3, eval_mode=False)
-    g = GaussianNoise(sigma=0.1)  # (max - min)/2
+    g = GaussianNoise(sigma=sigma_noise)
     lipschitz = []
     for sigma in sigma_vec:
         sigma_data = {'sigma': sigma, 'cst': None}
@@ -52,5 +52,5 @@ def measure_lipschitz(denoiser, sigma_vec, device):
         sigma_data['cst'] = lip_vec
         lipschitz.append(sigma_data)
 
-    gen_mat({'lipschitz': lipschitz}, 'lipschitz.mat')
+    gen_mat({'lipschitz': lipschitz}, f'lipschitz_{sigma_noise}.mat')
 
