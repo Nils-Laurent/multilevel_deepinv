@@ -9,7 +9,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from deepinv import train
 
-from utils.gen_mat import gen_mat
+from utils.mat_utils import gen_mat
 from utils.paths import dataset_path, measurements_path, checkpoint_path
 from torchvision import datasets
 

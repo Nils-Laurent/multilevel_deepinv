@@ -21,8 +21,9 @@ from tests.rastrigin import eval_rastrigin, test_rastrigin
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
 from tests.utils import standard_multilevel_param, single_level_params
+from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.param_grad import tune_param
-from utils.param_grid import tune_grid_all
+from utils.param_grid import tune_grid_all, tune_scatter_2d, tune_plot_1d
 from utils.paths import dataset_path
 
 
@@ -166,12 +167,30 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
             test_settings(img, params_exp, device=device, benchmark=benchmark)
 
 def main_tune():
-    #r_inpainting = main_test('inpainting', tune=True)
-    r_blur = main_test('blur', tune=True)
+    pb_list = ['inpainting', 'blur']
 
-    print("GRID SEARCH FINISHED WITH")
-    #print("r_inpainting: ", r_inpainting)
-    print("r_blur: ", r_blur)
+    for pb in pb_list:
+        r_pb = main_test(pb, tune=True)
+        file_pb = save_grid_tune_info(data=r_pb, suffix='blur')
+        data = load_variables_from_npy(file_pb)
+
+        data_red = data['data_red']
+        keys_red = data['keys_red']
+        tune_scatter_2d(data_red, keys_red)
+
+        data_tv = data['data_tv']
+        keys_tv = data['keys_tv']
+        tune_plot_1d(data_tv, keys_tv)
+
+    print("_____________________________")
+    print("grid search finished")
+    print("_____________________________")
+    for pb in pb_list:
+        file_pb = grid_search_npy_filename(pb)
+        data = load_variables_from_npy(file_pb)
+        print(f"{pb}:")
+        print(f"p_red* = {data['res_red']}")
+        print(f"p_tv* = {data['res_red']}")
 
 def main_lipschitz():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
@@ -187,7 +206,7 @@ def main_fft_img():
 
 if __name__ == "__main__":
     # 1 perform grid search
-    #main_tune()
+    main_tune()
 
     # 2 quick tests + benchmark
     #main_test('blur', test_dataset=False, benchmark=True)
@@ -197,7 +216,7 @@ if __name__ == "__main__":
     #main_test('blur', test_dataset=True)
     #main_test('inpainting', test_dataset=True)
 
-    main_test('tomography', test_dataset=False)
+    #main_test('tomography', test_dataset=False)
 
     #test_drunet_scale()
 

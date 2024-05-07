@@ -1,4 +1,9 @@
+from functools import reduce
+
+from matplotlib import pyplot
+
 import math
+import matplotlib
 import torch
 import numpy
 from deepinv.physics import GaussianNoise
@@ -47,19 +52,20 @@ def tune_grid_all(data_in, params_exp, device):
     ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
 
     # TUNE RED
-    res_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
+    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
 
     # TUNE TV
-    res_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
+    res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
 
-    return {'res_tv': res_tv, 'res_red': res_red}
+    return {'res_tv': res_tv, 'data_tv': data_tv, 'keys_tv': keys_tv,
+            'res_red': res_red, 'data_red': data_red, 'keys_red': keys_red}
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
     lambda_range = [0.01 * noise_pow, 1.0 * noise_pow]
-    lambda_split = 5  # should be around 20
+    lambda_split = 9  # should be around 20
     sigma_range = [0.035, 0.2]
-    sigma_split = 3  # should be around 15
+    sigma_split = 7  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -67,48 +73,45 @@ def tune_grid_red(params_algo, algo, noise_pow):
     }
 
     recurse = 2
-    res = _tune(params_algo, algo, d_grid, recurse)
-
-    return res
+    return _tune(params_algo, algo, d_grid, recurse)
 
 
 def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [0.01 * noise_pow, 5.0 * noise_pow]
-    lambda_split = 5  # should be around 5
+    lambda_range = [0.01 * noise_pow, 3.0 * noise_pow]
+    lambda_split = 15  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
     }
 
-    recurse = 4
-    res = _tune(params_algo, algo, d_grid, recurse)
-    return res
+    recurse = 2
+    return _tune(params_algo, algo, d_grid, recurse)
 
 
-def _tune(params_algo, algo, d_grid, recurse):
+def _tune(params_algo, algo, d_grid, recurse, prec=None):
     recurse = recurse - 1
     sz = []
     params_name = d_grid.keys()
-    y_vec = []
+    axis_vec = []
     for key_ in params_name:
         r_range = d_grid[key_][0]
         split = d_grid[key_][1]
-        sz.append(split)
-        y = torch.linspace(r_range[0], r_range[1], split)
-        y_vec.append(y)
+        y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
+        axis_vec.append(y)
+        sz.append(len(y))
 
-    g = torch.full(sz, -torch.inf)
+    cost_map = torch.full(sz, torch.nan)
 
-    nb_iter = len(list(numpy.ndindex(g.shape)))
+    nb_iter = len(list(numpy.ndindex(cost_map.shape)))
     it = 0
-    for i0 in numpy.ndindex(g.shape):
+    for id_map in numpy.ndindex(cost_map.shape):
         it += 1
         print("-------------------------------------------------")
         print("Iteration {} of {}".format(it, nb_iter))
         for j in range(len(sz)):
-            q = i0[j]
+            q = id_map[j]
             kj = list(params_name)[j]
-            params_algo[kj] = y_vec[j][q].item()
+            params_algo[kj] = axis_vec[j][q].item()
             print(f"set {kj} to {params_algo[kj]}")
 
         step_coeff = params_algo['step_coeff']
@@ -123,33 +126,82 @@ def _tune(params_algo, algo, d_grid, recurse):
 
         r_psnr = r['test_psnr']
         if not math.isnan(r_psnr):
-            g[i0] = r_psnr
+            cost_map[id_map] = r_psnr
         print(f"iter {it} out of {nb_iter} (psnr {r['test_psnr']}, recurse {recurse})")
 
-    #g = torch.randn(sz)
+    # for tests only
+    #cost_map = torch.rand(cost_map.shape)
 
-    max_j = torch.argmax(g.view(-1))
-    max_i = torch.unravel_index(max_j, g.shape)
+    max_j = torch.argmax(cost_map.view(-1))
+    max_i = torch.unravel_index(max_j, cost_map.shape)
+
+    if prec is None:
+        prec = [{'cost': cost_map, 'coord': axis_vec}]
+    else:
+        prec.append({'cost': cost_map, 'coord': axis_vec})
 
     if recurse == 0:
         res = {}
         for j in range(len(sz)):
             kj = list(params_name)[j]
-            val_j = y_vec[j][max_i[j]]
+            val_j = axis_vec[j][max_i[j]]
             res[kj] = val_j
-        return res
+        return res, prec, list(d_grid.keys())
 
     d_grid2 = d_grid.copy()
     for j in range(len(sz)):
         kj = list(params_name)[j]
-        i0 = max_i[j]
-        i_prec = max(0, i0.item() - 1)
-        i_next = min(sz[j] - 1, i0.item() + 1)
-        y_min = y_vec[j][i_prec]
-        y_max = y_vec[j][i_next]
+        id_map = max_i[j]
+        i_prec = max(0, id_map.item() - 1)
+        i_next = min(sz[j] - 1, id_map.item() + 1)
+        y_min = axis_vec[j][i_prec]
+        y_max = axis_vec[j][i_next]
         # change range
         d_grid2[kj][0][0] = y_min.item()
         d_grid2[kj][0][1] = y_max.item()
 
-    return _tune(params_algo, algo, d_grid2, recurse)
+    return _tune(params_algo, algo, d_grid2, recurse, prec=prec)
+
+
+def tune_scatter_2d(d_tune, keys):
+    v_min = numpy.min(list(map(lambda el: torch.min(el['cost']), d_tune)))
+    v_max = numpy.max(list(map(lambda el: torch.max(el['cost']), d_tune)))
+
+    s = 8.0
+    for rec in range(len(d_tune)):
+        coord = d_tune[rec]['coord']
+        cost = d_tune[rec]['cost']
+
+        x = []
+        y = []
+        z = []
+        for id_xy in numpy.ndindex(cost.shape):
+            x.append(coord[0][id_xy[0]])
+            y.append(coord[1][id_xy[1]])
+            z.append(cost[id_xy])
+        pyplot.scatter(x, y, c=z, s=s, cmap='copper', vmin=v_min, vmax=v_max)
+        s *= 0.7
+
+    pyplot.xlabel(keys[0])
+    pyplot.ylabel(keys[1])
+    pyplot.colorbar()
+    pyplot.show()
+
+
+
+
+def tune_plot_1d(d_tune, keys):
+    for rec in range(len(d_tune)):
+        coord = d_tune[rec]['coord']
+        cost = d_tune[rec]['cost']
+
+        x = []
+        y = []
+        for id_xy in numpy.ndindex(cost.shape):
+            x.append(coord[0][id_xy[0]])
+            y.append(cost[id_xy])
+        pyplot.plot(x, y)
+
+    pyplot.xlabel(keys[0])
+    pyplot.show()
 

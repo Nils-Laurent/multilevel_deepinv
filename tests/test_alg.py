@@ -20,7 +20,7 @@ from multilevel.coarse_model import CoarseModel
 from physics.radon import Tomography
 from tests.utils import standard_multilevel_param
 
-from utils.gen_mat import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
+from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
 
 
