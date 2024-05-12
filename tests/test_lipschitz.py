@@ -35,13 +35,21 @@ def measure_lipschitz(denoiser, sigma_vec, device, sigma_noise):
         deepinv.utils.plot(x0)
 
     reg_l2 = JacobianSpectralNorm(max_iter=10, tol=1e-3, eval_mode=False)
-    g = GaussianNoise(sigma=sigma_noise)
+    if sigma_noise is not None:
+        g0 = GaussianNoise(sigma=sigma_noise)
+    else:
+        g0 = None
     lipschitz = []
     for sigma in sigma_vec:
         sigma_data = {'sigma': sigma, 'cst': None}
         lip_vec = []
         print("sigma =", sigma)
         for x0 in dataset:
+            if g0 is None:
+                g = GaussianNoise(sigma=sigma)
+            else:
+                g = g0
+
             y = g(x0)
             x = y.clone().requires_grad_()
             # out = 1/(sigma**2) * (denoiser(x, sigma=sigma) - x)

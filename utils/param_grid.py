@@ -62,10 +62,10 @@ def tune_grid_all(data_in, params_exp, device):
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [0.01 * noise_pow, 1.0 * noise_pow]
-    lambda_split = 9  # should be around 20
-    sigma_range = [0.035, 0.2]
-    sigma_split = 7  # should be around 15
+    lambda_range = [0.001 * noise_pow, 1.0 * noise_pow]
+    lambda_split = 11  # should be around 11
+    sigma_range = [0.01, 0.14]
+    sigma_split = 13  # should be around 13
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -180,7 +180,7 @@ def tune_scatter_2d(d_tune, keys):
             y.append(coord[1][id_xy[1]])
             z.append(cost[id_xy])
         pyplot.scatter(x, y, c=z, s=s, cmap='copper', vmin=v_min, vmax=v_max)
-        s *= 0.7
+        s *= 0.5
 
     pyplot.xlabel(keys[0])
     pyplot.ylabel(keys[1])

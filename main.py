@@ -38,7 +38,6 @@ def test_settings(data_in, params_exp, device, benchmark=False):
 
     #grid search : noise level = 0.1
     #r_inpainting: {'res_tv': {'lambda': tensor(0.1413)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1175)}}
-    #r_blur:  {'res_tv': {'lambda': tensor(0.0478)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1587)}}
 
     if problem == 'inpainting':
         lambda_tv = 1.413 * noise_pow
@@ -46,9 +45,13 @@ def test_settings(data_in, params_exp, device, benchmark=False):
         g_param = 0.1175
         # g_param = 0.05  # sigma denoiser
     elif problem == 'blur':
-        lambda_tv = 0.0478 * noise_pow
-        lambda_red = 0.134 * noise_pow
-        g_param = 0.1587  # sigma denoiser
+    # ============= blur gridsearch =================
+    #grid search : noise level = 0.1, blur pow = 2.0
+    #p_red * = {'lambda': tensor(0.0149), 'g_param': tensor(0.1679)}
+    #p_tv * = {'lambda': tensor(0.0498)}
+        lambda_tv = 0.498 * noise_pow
+        lambda_red = 0.149 * noise_pow
+        g_param = 0.1679  # sigma denoiser
     elif problem == 'tomography':
         lambda_tv = 0.0478 * noise_pow
         lambda_red = 0.134 * noise_pow
@@ -165,13 +168,14 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
 
             img = t[0].unsqueeze(0).to(device)
             test_settings(img, params_exp, device=device, benchmark=benchmark)
+            break
 
 def main_tune():
     pb_list = ['inpainting', 'blur']
 
     for pb in pb_list:
         r_pb = main_test(pb, tune=True)
-        file_pb = save_grid_tune_info(data=r_pb, suffix='blur')
+        file_pb = save_grid_tune_info(data=r_pb, suffix=pb)
         data = load_variables_from_npy(file_pb)
 
         data_red = data['data_red']
@@ -190,16 +194,18 @@ def main_tune():
         data = load_variables_from_npy(file_pb)
         print(f"{pb}:")
         print(f"p_red* = {data['res_red']}")
-        print(f"p_tv* = {data['res_red']}")
+        print(f"p_tv* = {data['res_tv']}")
 
 def main_lipschitz():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     denoiser = DRUNet(device=device)
-    #sigma_vec = [0.02, 0.1]
     sigma_vec = [0.02 + n * 0.001 for n in range(0, 200)]
 
-    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.1)
-    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.2)
+    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.1)
+    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.2)
+
+    # sigma_noise is None => denoiser match the true noise level
+    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=None)
 
 def main_fft_img():
     pass
@@ -209,6 +215,7 @@ if __name__ == "__main__":
     main_tune()
 
     # 2 quick tests + benchmark
+    #main_test('inpainting', test_dataset=False)
     #main_test('blur', test_dataset=False, benchmark=True)
     #main_test('inpainting', test_dataset=False, benchmark=True)
 
