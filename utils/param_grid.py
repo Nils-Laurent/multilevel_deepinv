@@ -63,9 +63,9 @@ def tune_grid_all(data_in, params_exp, device):
 
 def tune_grid_red(params_algo, algo, noise_pow):
     lambda_range = [0.001 * noise_pow, 1.0 * noise_pow]
-    lambda_split = 11  # should be around 11
+    lambda_split = 7  # should be around 11
     sigma_range = [0.08, 0.21]
-    sigma_split = 13  # should be around 13
+    sigma_split = 7  # should be around 13
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -78,7 +78,7 @@ def tune_grid_red(params_algo, algo, noise_pow):
 
 def tune_grid_tv(params_algo, algo, noise_pow):
     lambda_range = [0.01 * noise_pow, 2.0 * noise_pow]
-    lambda_split = 15  # should be around 15
+    lambda_split = 7  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -88,7 +88,7 @@ def tune_grid_tv(params_algo, algo, noise_pow):
     return _tune(params_algo, algo, d_grid, recurse)
 
 
-def _tune(params_algo, algo, d_grid, recurse, prec=None):
+def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
     recurse = recurse - 1
     sz = []
     params_name = d_grid.keys()
@@ -96,7 +96,12 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None):
     for key_ in params_name:
         r_range = d_grid[key_][0]
         split = d_grid[key_][1]
-        y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
+        if log is True:
+            a = numpy.log10(r_range[0])
+            b = numpy.log10(r_range[1])
+            y = torch.logspace(a, b, split)[1:-1]
+        else:
+            y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
         axis_vec.append(y)
         sz.append(len(y))
 
@@ -119,6 +124,7 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None):
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
         try:
+            continue
             r = algo(params_algo.copy())
         except:
             print("Skip iteration: algorithm failed to run with current parameters")
@@ -130,7 +136,7 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None):
         print(f"iter {it} out of {nb_iter} (psnr {r['test_psnr']}, recurse {recurse})")
 
     # for tests only
-    #cost_map = torch.rand(cost_map.shape)
+    cost_map = torch.rand(cost_map.shape)
 
     max_j = torch.argmax(cost_map.view(-1))
     max_i = torch.unravel_index(max_j, cost_map.shape)
@@ -182,6 +188,8 @@ def tune_scatter_2d(d_tune, keys):
         pyplot.scatter(x, y, c=z, s=s, cmap='copper', vmin=v_min, vmax=v_max)
         s *= 0.5
 
+    pyplot.xscale('log')
+    pyplot.yscale('log')
     pyplot.xlabel(keys[0])
     pyplot.ylabel(keys[1])
     pyplot.colorbar()
@@ -202,6 +210,7 @@ def tune_plot_1d(d_tune, keys):
             y.append(cost[id_xy])
         pyplot.plot(x, y)
 
+    pyplot.xscale('log')
     pyplot.xlabel(keys[0])
     pyplot.show()
 

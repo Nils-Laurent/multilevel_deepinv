@@ -37,25 +37,29 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     #grid search : noise level = 0.1
-    # inpainting
-    # p_red* = {'lambda': tensor(0.0121), 'g_param': tensor(0.0917)}
-    # p_tv* = {'lambda': tensor(0.1444)}
-    # blur:
-    # p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1215)}
-    # p_tv* = {'lambda': tensor(0.0529)}
+
+    #inpainting:
+    #p_tv* = {'lambda': tensor(0.1310)}
+    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.0935)}
+    #blur:
+    #p_tv* = {'lambda': tensor(0.0457)}
+    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1360)}
+    #tomography:
+    #p_tv* = {'lambda': tensor(0.0162)}
+    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1983)}
 
     if problem == 'inpainting':
-        lambda_tv = 1.444 * noise_pow
-        lambda_red = 0.121 * noise_pow
-        g_param = 0.0917
-    elif problem == 'blur':
-        lambda_tv = 0.529 * noise_pow
+        lambda_tv = 1.310 * noise_pow
         lambda_red = 0.111 * noise_pow
-        g_param = 0.1215  # sigma denoiser
+        g_param = 0.0935
+    elif problem == 'blur':
+        lambda_tv = 0.457 * noise_pow
+        lambda_red = 0.111 * noise_pow
+        g_param = 0.1360  # sigma denoiser
     elif problem == 'tomography':
-        lambda_tv = 0.229 * noise_pow
-        lambda_red = 0.051 * noise_pow
-        g_param = 0.1215  # sigma denoiser
+        lambda_tv = 0.162 * noise_pow
+        lambda_red = 0.111 * noise_pow
+        g_param = 0.1983  # sigma denoiser
     else:
         raise NotImplementedError("not implem")
 
@@ -144,7 +148,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
         params_exp['noise_pow'] = 0.1
     elif problem == 'tomography':
         params_exp[problem] = 0.6
-        params_exp['noise_pow'] = 0.1
+        params_exp['noise_pow'] = 0.2
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 2.0
         params_exp['noise_pow'] = 0.1
@@ -168,7 +172,9 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
             break
 
 def main_tune():
-    pb_list = ['tomography', 'inpainting', 'blur']
+    #pb_list = ['tomography', 'inpainting', 'blur']
+    #pb_list = ['inpainting', 'blur']
+    pb_list = ['inpainting']
 
     for pb in pb_list:
         r_pb = main_test(pb, tune=True)

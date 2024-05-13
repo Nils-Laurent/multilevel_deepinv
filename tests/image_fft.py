@@ -7,6 +7,16 @@ import deepinv
 from deepinv.utils.demo import load_dataset
 from utils.paths import dataset_path
 
+def image_fft(img):
+    img_sum = torch.sum(img, dim=1, keepdim=True)
+    f_img = torch.fft.fft2(img_sum, dim=(2, 3))
+    f_img = torch.fft.fftshift(f_img, dim=(2, 3))
+
+    return f_img
+
+def prop_fft_spectrum(img):
+    f_img = image_fft(img)
+
 
 def plot_fft_dataset(dataset):
     original_data_dir = dataset_path()
