@@ -37,25 +37,25 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     #grid search : noise level = 0.1
-    #r_inpainting: {'res_tv': {'lambda': tensor(0.1413)}, 'res_red': {'lambda': tensor(0.0134), 'g_param': tensor(0.1175)}}
+    # inpainting
+    # p_red* = {'lambda': tensor(0.0121), 'g_param': tensor(0.0917)}
+    # p_tv* = {'lambda': tensor(0.1444)}
+    # blur:
+    # p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1215)}
+    # p_tv* = {'lambda': tensor(0.0529)}
 
     if problem == 'inpainting':
-        lambda_tv = 1.413 * noise_pow
-        lambda_red = 0.134 * noise_pow
-        g_param = 0.1175
-        # g_param = 0.05  # sigma denoiser
+        lambda_tv = 1.444 * noise_pow
+        lambda_red = 0.121 * noise_pow
+        g_param = 0.0917
     elif problem == 'blur':
-    # ============= blur gridsearch =================
-    #grid search : noise level = 0.1, blur pow = 2.0
-    #p_red * = {'lambda': tensor(0.0149), 'g_param': tensor(0.1679)}
-    #p_tv * = {'lambda': tensor(0.0498)}
-        lambda_tv = 0.498 * noise_pow
-        lambda_red = 0.149 * noise_pow
-        g_param = 0.1679  # sigma denoiser
+        lambda_tv = 0.529 * noise_pow
+        lambda_red = 0.111 * noise_pow
+        g_param = 0.1215  # sigma denoiser
     elif problem == 'tomography':
-        lambda_tv = 0.0478 * noise_pow
-        lambda_red = 0.134 * noise_pow
-        g_param = 0.1587  # sigma denoiser
+        lambda_tv = 0.229 * noise_pow
+        lambda_red = 0.051 * noise_pow
+        g_param = 0.1215  # sigma denoiser
     else:
         raise NotImplementedError("not implem")
 
@@ -90,11 +90,11 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(p_red.copy())
-    ra.RED_GD(single_level_params(p_red.copy()))
+    #ra.RED_GD(single_level_params(p_red.copy()))
 
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.RED_GD(p_red.copy())
-    ra.RED_GD(single_level_params(p_red.copy()))
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #ra.RED_GD(p_red.copy())
+    #ra.RED_GD(single_level_params(p_red.copy()))
 
     #                    DPIR
     # ____________________________________________
@@ -120,7 +120,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
     p_tv = single_level_params(p_tv.copy())
-    ra.TV_PGD(p_tv)
+    #ra.TV_PGD(p_tv)
 
 
 def main_test(problem, test_dataset=True, tune=False, benchmark=False):
@@ -130,10 +130,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
     dataset_name = 'set3c'
     original_data_dir = dataset_path()
     img_size = 256 if torch.cuda.is_available() else 64
-    #if tune is True:
-    #    img_size = 32
 
-    max_lv = 2
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
     )
@@ -171,7 +168,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
             break
 
 def main_tune():
-    pb_list = ['inpainting', 'blur']
+    pb_list = ['tomography', 'inpainting', 'blur']
 
     for pb in pb_list:
         r_pb = main_test(pb, tune=True)
@@ -216,6 +213,8 @@ if __name__ == "__main__":
 
     # 2 quick tests + benchmark
     #main_test('inpainting', test_dataset=False)
+    #main_test('blur', test_dataset=False)
+    #main_test('tomography', test_dataset=False)
     #main_test('blur', test_dataset=False, benchmark=True)
     #main_test('inpainting', test_dataset=False, benchmark=True)
 
