@@ -1,3 +1,8 @@
+import sys
+
+if "/.fork" in sys.prefix:
+    sys.path.append('/projects/UDIP/nils_src/deepinv')
+
 import matplotlib
 import torch
 from deepinv.models import DRUNet
@@ -45,8 +50,8 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     #p_tv* = {'lambda': tensor(0.0457)}
     #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1360)}
     #tomography:
-    #p_tv* = {'lambda': tensor(0.0162)}
-    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1983)}
+    #p_tv* = {'lambda': tensor(0.0030)}
+    #p_red* = {'lambda': tensor(0.0008), 'g_param': tensor(0.1741)}
 
     if problem == 'inpainting':
         lambda_tv = 1.310 * noise_pow
@@ -55,11 +60,11 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     elif problem == 'blur':
         lambda_tv = 0.457 * noise_pow
         lambda_red = 0.111 * noise_pow
-        g_param = 0.1360  # sigma denoiser
+        g_param = 0.1360
     elif problem == 'tomography':
-        lambda_tv = 0.162 * noise_pow
-        lambda_red = 0.111 * noise_pow
-        g_param = 0.1983  # sigma denoiser
+        lambda_tv = 0.03 * noise_pow
+        lambda_red = 0.008 * noise_pow
+        g_param = 0.1741
     else:
         raise NotImplementedError("not implem")
 
@@ -94,11 +99,11 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(p_red.copy())
-    #ra.RED_GD(single_level_params(p_red.copy()))
+    ra.RED_GD(single_level_params(p_red.copy()))
 
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #ra.RED_GD(p_red.copy())
-    #ra.RED_GD(single_level_params(p_red.copy()))
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    ra.RED_GD(p_red.copy())
+    ra.RED_GD(single_level_params(p_red.copy()))
 
     #                    DPIR
     # ____________________________________________
@@ -124,7 +129,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
     p_tv = single_level_params(p_tv.copy())
-    #ra.TV_PGD(p_tv)
+    ra.TV_PGD(p_tv)
 
 
 def main_test(problem, test_dataset=True, tune=False, benchmark=False):
@@ -148,7 +153,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
         params_exp['noise_pow'] = 0.1
     elif problem == 'tomography':
         params_exp[problem] = 0.6
-        params_exp['noise_pow'] = 0.2
+        params_exp['noise_pow'] = 0.1
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 2.0
         params_exp['noise_pow'] = 0.1
@@ -172,13 +177,14 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
             break
 
 def main_tune():
-    #pb_list = ['tomography', 'inpainting', 'blur']
-    #pb_list = ['inpainting', 'blur']
-    pb_list = ['inpainting']
+    pb_list = ['inpainting', 'blur', 'tomography']
 
     for pb in pb_list:
         r_pb = main_test(pb, tune=True)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb)
+
+    for pb in pb_list:
+        file_pb = grid_search_npy_filename(pb)
         data = load_variables_from_npy(file_pb)
 
         data_red = data['data_red']
@@ -210,10 +216,8 @@ def main_lipschitz():
     # sigma_noise is None => denoiser match the true noise level
     measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=None)
 
-def main_fft_img():
-    pass
-
 if __name__ == "__main__":
+    print(sys.prefix)
     # 1 perform grid search
     main_tune()
 
@@ -232,7 +236,7 @@ if __name__ == "__main__":
 
     #test_drunet_scale()
 
-    #plot_fft_dataset('set3c')
+    #plot_fft_dataset()
     #main_lipschitz()
 
     # test_rastrigin()

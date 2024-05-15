@@ -62,10 +62,10 @@ def tune_grid_all(data_in, params_exp, device):
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [0.001 * noise_pow, 1.0 * noise_pow]
-    lambda_split = 7  # should be around 11
-    sigma_range = [0.08, 0.21]
-    sigma_split = 7  # should be around 13
+    lambda_range = [1E-9 * noise_pow, 10.0 * noise_pow]
+    lambda_split = 11  # should be around 11
+    sigma_range = [0.08, 0.31]
+    sigma_split = 13  # should be around 13
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -77,8 +77,8 @@ def tune_grid_red(params_algo, algo, noise_pow):
 
 
 def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [0.01 * noise_pow, 2.0 * noise_pow]
-    lambda_split = 7  # should be around 15
+    lambda_range = [1E-9 * noise_pow, 10.0 * noise_pow]
+    lambda_split = 15  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -89,6 +89,8 @@ def tune_grid_tv(params_algo, algo, noise_pow):
 
 
 def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
+    TEST_FLAG = False
+
     recurse = recurse - 1
     sz = []
     params_name = d_grid.keys()
@@ -124,7 +126,9 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
         try:
-            continue
+            if TEST_FLAG is True:
+                continue
+
             r = algo(params_algo.copy())
         except:
             print("Skip iteration: algorithm failed to run with current parameters")
@@ -136,7 +140,8 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         print(f"iter {it} out of {nb_iter} (psnr {r['test_psnr']}, recurse {recurse})")
 
     # for tests only
-    cost_map = torch.rand(cost_map.shape)
+    if TEST_FLAG is True:
+        cost_map = torch.rand(cost_map.shape)
 
     max_j = torch.argmax(cost_map.view(-1))
     max_i = torch.unravel_index(max_j, cost_map.shape)
@@ -194,8 +199,6 @@ def tune_scatter_2d(d_tune, keys):
     pyplot.ylabel(keys[1])
     pyplot.colorbar()
     pyplot.show()
-
-
 
 
 def tune_plot_1d(d_tune, keys):
