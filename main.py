@@ -19,7 +19,7 @@ from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 
 from tests.drunet_scale import test_drunet_scale
-from tests.image_fft import plot_fft_dataset
+from tests.utils_frequency import plot_spectr_ratio
 from tests.test_lipschitz import measure_lipschitz
 from multilevel.info_transfer import BlackmannHarris
 from tests.rastrigin import eval_rastrigin, test_rastrigin
@@ -44,27 +44,28 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     #grid search : noise level = 0.1
 
     #inpainting:
-    #p_tv* = {'lambda': tensor(0.1310)}
-    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.0935)}
+    #p_red* = {'lambda': tensor(0.0100), 'g_param': tensor(0.0904)}
+    #p_tv* = {'lambda': tensor(0.1357)}
     #blur:
-    #p_tv* = {'lambda': tensor(0.0457)}
-    #p_red* = {'lambda': tensor(0.0111), 'g_param': tensor(0.1360)}
+    #p_red* = {'lambda': tensor(0.0040), 'g_param': tensor(0.1022)}
+    #p_tv* = {'lambda': tensor(0.0471)}
     #tomography:
-    #p_tv* = {'lambda': tensor(0.0030)}
-    #p_red* = {'lambda': tensor(0.0008), 'g_param': tensor(0.1741)}
+    #p_red* = {'lambda': tensor(0.0003), 'g_param': tensor(0.0904)}
+    #p_tv* = {'lambda': tensor(0.0018)}
+
 
     if problem == 'inpainting':
-        lambda_tv = 1.310 * noise_pow
-        lambda_red = 0.111 * noise_pow
-        g_param = 0.0935
+        lambda_red = 0.100 * noise_pow
+        g_param = 0.0904
+        lambda_tv = 1.357 * noise_pow
     elif problem == 'blur':
-        lambda_tv = 0.457 * noise_pow
-        lambda_red = 0.111 * noise_pow
-        g_param = 0.1360
+        lambda_red = 0.040 * noise_pow
+        g_param = 0.1022
+        lambda_tv = 0.471 * noise_pow
     elif problem == 'tomography':
-        lambda_tv = 0.03 * noise_pow
-        lambda_red = 0.008 * noise_pow
-        g_param = 0.1741
+        lambda_red = 0.003 * noise_pow
+        g_param = 0.0904
+        lambda_tv = 0.018 * noise_pow
     else:
         raise NotImplementedError("not implem")
 
@@ -99,16 +100,16 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(p_red.copy())
-    ra.RED_GD(single_level_params(p_red.copy()))
+    #ra.RED_GD(single_level_params(p_red.copy()))
 
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.RED_GD(p_red.copy())
-    ra.RED_GD(single_level_params(p_red.copy()))
+    #ra.RED_GD(p_red.copy())
+    #ra.RED_GD(single_level_params(p_red.copy()))
 
     #                    DPIR
     # ____________________________________________
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.DPIR(single_level_params(p_red))
+    #ra.DPIR(single_level_params(p_red))
 
     #                    PGD
     # ____________________________________________
@@ -129,7 +130,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
     p_tv = single_level_params(p_tv.copy())
-    ra.TV_PGD(p_tv)
+    #ra.TV_PGD(p_tv)
 
 
 def main_test(problem, test_dataset=True, tune=False, benchmark=False):
@@ -153,7 +154,7 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
         params_exp['noise_pow'] = 0.1
     elif problem == 'tomography':
         params_exp[problem] = 0.6
-        params_exp['noise_pow'] = 0.1
+        params_exp['noise_pow'] = 0.2
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 2.0
         params_exp['noise_pow'] = 0.1
@@ -174,12 +175,12 @@ def main_test(problem, test_dataset=True, tune=False, benchmark=False):
 
             img = t[0].unsqueeze(0).to(device)
             test_settings(img, params_exp, device=device, benchmark=benchmark)
-            break
 
 def main_tune():
     pb_list = ['inpainting', 'blur', 'tomography']
 
     for pb in pb_list:
+        break
         r_pb = main_test(pb, tune=True)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb)
 
@@ -219,12 +220,12 @@ def main_lipschitz():
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    main_tune()
+    #main_tune()
 
     # 2 quick tests + benchmark
     #main_test('inpainting', test_dataset=False)
     #main_test('blur', test_dataset=False)
-    #main_test('tomography', test_dataset=False)
+    main_test('tomography', test_dataset=False)
     #main_test('blur', test_dataset=False, benchmark=True)
     #main_test('inpainting', test_dataset=False, benchmark=True)
 
@@ -236,7 +237,7 @@ if __name__ == "__main__":
 
     #test_drunet_scale()
 
-    #plot_fft_dataset()
+    #plot_spectr_ratio()
     #main_lipschitz()
 
     # test_rastrigin()
