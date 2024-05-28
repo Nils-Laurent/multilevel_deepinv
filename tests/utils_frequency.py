@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
+import numpy
 
 import torch
 from deepinv.models import DRUNet
+from deepinv.physics import GaussianNoise
+from torch.utils.data import Subset
 from torchvision import transforms
 
 import deepinv
@@ -54,8 +57,9 @@ def img_domain_ratio(img, e_ratio):
 def sigma_domain_ratio(img, denoiser, sigma_vec):
     y_vec = []
     for sigma in sigma_vec:
-        d_img = denoiser(img, sigma)
-        y = img_domain_ratio(d_img, 0.9)
+        noise_model = GaussianNoise(sigma=sigma)
+        denoised_img = denoiser(noise_model(img), sigma)
+        y = img_domain_ratio(denoised_img, 0.9)
         y_vec.append(y)
 
     return y_vec
@@ -72,28 +76,59 @@ def sigma_psd_ratio(img, denoiser, sigma_vec):
 
 
 def plot_spectr_ratio():
-    sigma_vec = [0.02 + n * 0.01 for n in range(0, 98)]
-
+    #sigma_vec = numpy.logspace(numpy.log10(0.01), numpy.log10(0.4), 100)
+    sigma_vec = numpy.logspace(numpy.log10(0.01), numpy.log10(1.0), 100)
+    nb_img = 500 # should be at least 500 => 25 curves below/above 5%/95% quantile
+    #nb_img = 20
+    bp_thresh = 20
 
     original_data_dir = dataset_path()
-    img_size = 256
+    img_size = 178
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
     )
-    dataset = load_dataset('set3c', original_data_dir, transform=val_transform)
+    #dataset = load_dataset('set3c', original_data_dir, transform=val_transform)
+    dataset = load_dataset('celeba', original_data_dir, transform=val_transform)
+    dataset = Subset(dataset, range(0, nb_img))
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     denoiser = DRUNet(pretrained="download", train=False, device=device)
 
     id_img = 0
+    res_data = numpy.zeros((nb_img, len(sigma_vec)))
     for t in dataset:
         id_img += 1
+        print(f"processing img f{id_img}")
         img = t[0].unsqueeze(0).to(device)
         #y_vec = sigma_psd_ratio(img, denoiser, sigma_vec)
         y_vec = sigma_domain_ratio(img, denoiser, sigma_vec)
-        plt.plot(sigma_vec, y_vec)
+        if nb_img <= bp_thresh:
+            plt.plot(sigma_vec, y_vec)
+            continue
 
+        res_data[id_img - 1, :] = y_vec
+
+    if nb_img <= bp_thresh:
+        plt.xlabel("sigma")
+        plt.ylabel("range")
+        plt.show()
+        return
+
+    y5 = numpy.quantile(res_data, q=0.05, axis=0)
+    y25 = numpy.quantile(res_data, q=0.25, axis=0)
+    y50 = numpy.quantile(res_data, q=0.5, axis=0)
+    y75 = numpy.quantile(res_data, q=0.75, axis=0)
+    y95 = numpy.quantile(res_data, q=0.95, axis=0)
+
+    y_mean = numpy.mean(res_data, axis=0)
+
+    fig, ax = plt.subplots()
+    ax.fill_between(sigma_vec, y5, y95, alpha=0.1, color='goldenrod')
+    ax.fill_between(sigma_vec, y25, y75, alpha=0.1, color='darkorchid')
+    ax.plot(sigma_vec, y50, color='darkorchid')
+    ax.plot(sigma_vec, y_mean, color='gray')
+    plt.xlabel("sigma")
+    plt.ylabel("range")
     plt.show()
-
 
 def plot_img_spectr_magnitude(img):
     m_img = torch.abs(image_fft(img))

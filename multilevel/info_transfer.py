@@ -62,7 +62,11 @@ class DownsamplingTransfer(InfoTransfer):
 
         k0 = def_filter.get_filter()
         filt_2d = self.set_2d_filter(k0, x.dtype)
-        self.op = deepinv.physics.Downsampling(x.shape[1:], filter=filt_2d, factor=2, device=x.device, padding="circular")
+        if len(x.shape) == 3:
+            shape = x.shape
+        else:
+            shape = x.shape[1:]
+        self.op = deepinv.physics.Downsampling(shape, filter=filt_2d, factor=2, device=x.device, padding="circular")
 
     def set_2d_filter(self, k0, dtype):
         k0 = k0 / torch.sum(k0)
