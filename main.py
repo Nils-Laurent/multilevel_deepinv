@@ -1,7 +1,13 @@
+import cProfile
+import torch.profiler as profiler
+import os
 import sys
 from itertools import product
 
 from torch.utils.data import Subset
+
+from tests.utils_frequency import plot_spectr_ratio
+from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -27,53 +33,45 @@ from tests.utils import physics_from_exp, data_from_user_input
 from tests.utils import standard_multilevel_param, single_level_params
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.param_grid import tune_grid_all, tune_scatter_2d, tune_plot_1d
-from utils.paths import dataset_path
+from utils.paths import dataset_path, get_out_dir
 
 
 def test_settings(data_in, params_exp, device, benchmark=False):
     noise_pow = params_exp["noise_pow"]
     problem = params_exp['problem']
+
+    if type(data_in) == torch.Tensor:
+        print("Single image : using torch.manual_seed")
+        params_exp["manual_seed"] = True
+        #torch.manual_seed(0)
+
     print("def_noise:", noise_pow)
 
-    g = GaussianNoise(sigma=noise_pow)
+    tensor_np = torch.tensor(noise_pow).to(device)
+    g = GaussianNoise(sigma=tensor_np)
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    #grid search : noise level = 0.1
-
-    #inpainting:
-    #p_red* = {'lambda': tensor(0.0100), 'g_param': tensor(0.0904)}
-    #p_tv* = {'lambda': tensor(0.1357)}
-    #blur:
-    #p_red* = {'lambda': tensor(0.0040), 'g_param': tensor(0.1022)}
-    #p_tv* = {'lambda': tensor(0.0471)}
-    #tomography:
-    #p_red* = {'lambda': tensor(0.0003), 'g_param': tensor(0.0904)}
-    #p_tv* = {'lambda': tensor(0.0018)}
-
-
     if problem == 'inpainting':
-        lambda_red = 0.100 * noise_pow
-        g_param = 0.0904
-        lambda_tv = 1.357 * noise_pow
+        hp_red, hp_tv = inpainting_hyper_param(noise_pow)
     elif problem == 'blur':
-        lambda_red = 0.040 * noise_pow
-        g_param = 0.1022
-        #lambda_tv = 0.471 * noise_pow
-        lambda_tv = 0.2 * noise_pow
+        hp_red, hp_tv = blur_hyper_param(noise_pow)
     elif problem == 'tomography':
-        lambda_red = 0.003 * noise_pow
-        g_param = 0.0904
-        lambda_tv = 0.018 * noise_pow
+        hp_red, hp_tv = tomography_hyper_param(noise_pow)
     else:
         raise NotImplementedError("not implem")
+
+    lambda_tv = hp_tv['lambda']
+    lambda_red = hp_red['lambda']
+    g_param = hp_red['g_param']
 
     print("lambda_tv:", lambda_tv)
     print("lambda_red:", lambda_red)
 
     lip_g = 160.0  # DRUnet lipschitz
 
-    iters_fine = 2000
+    iters_fine = 200
+    #iters_fine = 200 should be 500
     lc = 3
     iters_vec = [lc, lc, lc, iters_fine]
     if device == "cpu":
@@ -98,20 +96,43 @@ def test_settings(data_in, params_exp, device, benchmark=False):
 
     param_init = {'init_ml_x0': [80] * len(iters_vec)}
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    #ra.RED_GD(p_red.copy())
+
+    #out_dir = get_out_dir()
+    #out_f = os.path.join(out_dir, 'cprofile_data')
+    #prof = torch.profiler.profile(
+    #    schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
+    #    on_trace_ready=torch.profiler.tensorboard_trace_handler(out_f),
+    #    with_modules=True)
+    #prof.start()
+    #for step in range(1 + 1 + 3):
+    #    prof.step()
+    #    ra.RED_GD(p_red.copy())
+    #prof.stop()
+    #cProfile.runctx(
+    #    statement='ra.RED_GD(param)',
+    #    globals={'param' : p_red.copy(), 'ra': ra},
+    #    locals={},
+    #    filename=out_f
+    #)
+
     #ra.RED_GD(single_level_params(p_red.copy()))
 
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     #ra.RED_GD(p_red.copy())
     #ra.RED_GD(single_level_params(p_red.copy()))
 
     #                    DPIR
     # ____________________________________________
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     #ra.DPIR(single_level_params(p_red))
 
     #                    PGD
     # ____________________________________________
+
+    # adjust parameters : proximal gradient descent
+    params_algo['iml_max_iter'] = 1
+    params_algo['scale_coherent_grad'] = True
+
     p_tv = params_algo.copy()
     p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec)
     p_tv['lambda'] = lambda_tv
@@ -123,11 +144,11 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     p_tv['step_coeff'] = 1.9  # convex setting
     p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
 
-    # todo: attention!! TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente!!
+    # /!\ sans torch.manual_seed, TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #ra.TV_PGD(p_tv)
-    p_tv['prox_crit'] = 1e-7
-    p_tv['prox_max_it'] = 2000
+    ra.TV_PGD(p_tv)
+    p_tv['prox_crit'] = 1e-6
+    p_tv['prox_max_it'] = 1000
     p_tv = single_level_params(p_tv.copy())
     ra.TV_PGD(p_tv)
 
@@ -184,29 +205,6 @@ def main_test(
             test_settings(img, params_exp, device=device, benchmark=benchmark)
             break
 
-def illustr_flou():
-    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    img_size = 256 if torch.cuda.is_available() else 64
-
-    from PIL import Image
-    from torchvision.transforms import ToTensor
-
-    problem = 'blur'
-    # inpainting: proportion of pixels to keep
-    params_exp = {'problem': problem, 'shape': (3, img_size, img_size)}
-    params_exp[problem + '_pow'] = 3.0
-    params_exp['noise_pow'] = 0.1
-
-    image = Image.open("./images/4.2.03_mandrill.tiff")
-    params_exp['img_name'] = "mandrill"
-    img = ToTensor()(image).unsqueeze(0).to(device)
-    test_settings(img, params_exp, device=device, benchmark=False)
-
-    image = Image.open("./images/4.2.07_peppers.tiff")
-    params_exp['img_name'] = "peppers"
-    img = ToTensor()(image).unsqueeze(0).to(device)
-    test_settings(img, params_exp, device=device, benchmark=False)
-
 
 def main_tune(plot_and_exit=False):
     pb_list = ['inpainting', 'blur', 'tomography']
@@ -232,16 +230,17 @@ def main_tune(plot_and_exit=False):
 
 def main_tune_plot(pb_list, noise_pow_vec):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
+        print("main_tune_plot", pb, noise_pow)
         file_pb = grid_search_npy_filename(suffix=pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
 
         data_red = data['data_red']
         keys_red = data['keys_red']
-        tune_scatter_2d(data_red, keys_red)
+        tune_scatter_2d(data_red, keys_red, fig_name=f"{pb}_{noise_pow}_scatter2d")
 
         data_tv = data['data_tv']
         keys_tv = data['keys_tv']
-        tune_plot_1d(data_tv, keys_tv)
+        tune_plot_1d(data_tv, keys_tv, fig_name=f"{pb}_{noise_pow}_plot1d")
 
 def main_lipschitz():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
@@ -257,14 +256,18 @@ def main_lipschitz():
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    #main_tune(plot_and_exit=False)
+    #main_tune(plot_and_exit=True)
+
+    # CPROFILE
+    #main_test('inpainting', test_dataset=False, benchmark=False, noise_pow=0.1)
 
     # 2 quick tests + benchmark
+    #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
+    #main_test('blur', test_dataset=False, benchmark=True, noise_pow=0.1)
+    main_test('tomography', test_dataset=False, noise_pow=0.3)
+    #main_test('tomography', test_dataset=False, benchmark=True, noise_pow=0.3)
+
     #main_test('inpainting', dataset_name='celeba', nb_subset=30)
-    #main_test('blur', test_dataset=False)
-    #main_test('tomography', test_dataset=False)
-    #main_test('blur', test_dataset=False, benchmark=True)
-    #main_test('inpainting', test_dataset=False, benchmark=True)
 
     # 3 database tests
     #main_test('blur', test_dataset=True)

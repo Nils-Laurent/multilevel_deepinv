@@ -53,6 +53,9 @@ class RunAlgorithm:
             param_init = {}
         self.param_init = param_init
 
+        b = ("manual_seed" in params_exp.keys()) and (params_exp["manual_seed"] is True)
+        self.manual_seed = b
+
     def PNP_PGD(self, params_algo):
         alg_name = "PNP_PGD"
         denoiser = DRUNet(pretrained="download", train=False, device=self.device)
@@ -78,7 +81,7 @@ class RunAlgorithm:
         prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
 
         def F_fn(x, cur_data_fidelity, cur_prior, cur_params, y, physics):
-            return cur_data_fidelity.d(physics.A(x), y) + cur_params['lambda'] * cur_prior.g(x)
+            return cur_data_fidelity.d(physics.A(x).contiguous(), y.contiguous()) + cur_params['lambda'] * cur_prior.g(x)
 
         iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
@@ -99,6 +102,9 @@ class RunAlgorithm:
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
 
     def run_algorithm(self, iteration, prior, params_algo, alg_name):
+        if self.manual_seed is True:
+            torch.manual_seed(0)
+
         if isinstance(self.physics, Tomography):
             f_init = lambda x, physics: {'est': [physics.A_adjoint(x)], 'cost': None}
         else:

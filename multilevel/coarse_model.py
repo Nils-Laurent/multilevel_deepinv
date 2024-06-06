@@ -87,7 +87,6 @@ class CoarseModel(torch.nn.Module):
             else:
                 filt = self.projection(fph.filter)
             self.physics = Blur(filter=filt, padding=fph.padding, device=x_coarse.device)
-            #self.physics = Blur(filter=filt, padding=fph.padding, device=fph.device)
         elif isinstance(self.fph, Tomography):
             theta_c = self.fph.radon.theta
             size_c = x_coarse.shape[-2]

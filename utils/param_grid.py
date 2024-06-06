@@ -1,9 +1,22 @@
-from functools import reduce
+from os.path import join
 
+import numpy as np
 from matplotlib import pyplot
+import matplotlib
+
+from utils.paths import get_out_dir
+
+matplotlib.use("pgf")
+matplotlib.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+})
+from matplotlib import rcParams
+rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
 
 import math
-import matplotlib
 import torch
 import numpy
 from deepinv.physics import GaussianNoise
@@ -51,11 +64,11 @@ def tune_grid_all(data_in, params_exp, device):
 
     ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
 
-    # TUNE RED
-    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
-
     # TUNE TV
     res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
+
+    # TUNE RED
+    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
 
     return {'res_tv': res_tv, 'data_tv': data_tv, 'keys_tv': keys_tv,
             'res_red': res_red, 'data_red': data_red, 'keys_red': keys_red}
@@ -174,24 +187,27 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
     return _tune(params_algo, algo, d_grid2, recurse, prec=prec)
 
 
-def tune_scatter_2d(d_tune, keys):
+def tune_scatter_2d(d_tune, keys, fig_name=None):
     v_min = numpy.min(list(map(lambda el: torch.min(el['cost']), d_tune)))
     v_max = numpy.max(list(map(lambda el: torch.max(el['cost']), d_tune)))
 
-    s = 8.0
+    pyplot.figure()
+    s = 4.0
+
+    x = []
+    y = []
+    z = []
     for rec in range(len(d_tune)):
         coord = d_tune[rec]['coord']
         cost = d_tune[rec]['cost']
-
-        x = []
-        y = []
-        z = []
+        #s *= 0.5
         for id_xy in numpy.ndindex(cost.shape):
             x.append(coord[0][id_xy[0]])
             y.append(coord[1][id_xy[1]])
             z.append(cost[id_xy])
-        pyplot.scatter(x, y, c=z, s=s, cmap='copper', vmin=v_min, vmax=v_max)
-        s *= 0.5
+
+    pyplot.scatter(x, y, c=z, s=s, cmap='copper')
+    #pyplot.scatter(x, y, c=z, s=s, cmap='copper', norm=matplotlib.colors.LogNorm())
 
     pyplot.xscale('log')
     pyplot.yscale('log')
@@ -199,9 +215,15 @@ def tune_scatter_2d(d_tune, keys):
     pyplot.ylabel(keys[1])
     pyplot.colorbar()
     pyplot.show()
+    if not fig_name is None:
+        out_path = get_out_dir()
+        #pyplot.savefig(join(out_path, (fig_name + ".pgf")))
+        pyplot.savefig(join(out_path, (fig_name + ".png")))
+    pyplot.close('all')
 
 
-def tune_plot_1d(d_tune, keys):
+def tune_plot_1d(d_tune, keys, fig_name=None):
+    pyplot.figure()
     for rec in range(len(d_tune)):
         coord = d_tune[rec]['coord']
         cost = d_tune[rec]['cost']
@@ -216,4 +238,8 @@ def tune_plot_1d(d_tune, keys):
     pyplot.xscale('log')
     pyplot.xlabel(keys[0])
     pyplot.show()
-
+    if not fig_name is None:
+        out_path = get_out_dir()
+        #pyplot.savefig(join(out_path, (fig_name + ".pgf")))
+        pyplot.savefig(join(out_path, (fig_name + ".png")))
+    pyplot.close('all')
