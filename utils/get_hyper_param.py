@@ -16,9 +16,6 @@ def inpainting_hyper_param(noise_pow):
     else:
         raise NotImplementedError()
 
-    p_red['lambda'] = p_red['lambda']/noise_pow
-    p_tv['lambda'] = p_tv['lambda']/noise_pow
-
     return p_red, p_tv
 
 def blur_hyper_param(noise_pow):
@@ -38,9 +35,6 @@ def blur_hyper_param(noise_pow):
     else:
         raise NotImplementedError()
 
-    p_red['lambda'] = p_red['lambda']/noise_pow
-    p_tv['lambda'] = p_tv['lambda']/noise_pow
-
     return p_red, p_tv
 
 def tomography_hyper_param(noise_pow):
@@ -59,8 +53,5 @@ def tomography_hyper_param(noise_pow):
         p_tv  = {'lambda': 0.0067}
     else:
         raise NotImplementedError()
-
-    p_red['lambda'] = p_red['lambda']/noise_pow
-    p_tv['lambda'] = p_tv['lambda']/noise_pow
 
     return p_red, p_tv

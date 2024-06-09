@@ -2,49 +2,33 @@ import cProfile
 import torch.profiler as profiler
 import os
 import sys
-from itertools import product
-
+import torch
 from torch.utils.data import Subset
-
-from tests.utils_frequency import plot_spectr_ratio
-from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
+from torchvision import transforms
+from itertools import product
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
 
-import torch
-from deepinv.models import DRUNet
-from torchvision import transforms
-
-# install deepinv using the command below
-#   python -m pip install git+https://github.com/deepinv/deepinv.git#egg=deepinv
-# uninstall with :
-#   python -m pip uninstall deepinv
-# update by uninstall + install + restart IDE
-
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-
-from tests.test_lipschitz import measure_lipschitz
-from multilevel.info_transfer import BlackmannHarris
+from tests.parameters import get_parameters_tv, get_parameters_red
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
-from tests.utils import standard_multilevel_param, single_level_params
+from tests.utils import single_level_params
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
-from utils.param_grid import tune_grid_all, tune_scatter_2d, tune_plot_1d
+from utils.gridsearch import tune_grid_all
+from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d
 from utils.paths import dataset_path, get_out_dir
 
 
 def test_settings(data_in, params_exp, device, benchmark=False):
-    noise_pow = params_exp["noise_pow"]
-    problem = params_exp['problem']
-
     if type(data_in) == torch.Tensor:
         print("Single image : using torch.manual_seed")
         params_exp["manual_seed"] = True
-        #torch.manual_seed(0)
 
+    noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
     tensor_np = torch.tensor(noise_pow).to(device)
@@ -52,50 +36,28 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    if problem == 'inpainting':
-        hp_red, hp_tv = inpainting_hyper_param(noise_pow)
-    elif problem == 'blur':
-        hp_red, hp_tv = blur_hyper_param(noise_pow)
-    elif problem == 'tomography':
-        hp_red, hp_tv = tomography_hyper_param(noise_pow)
-    else:
-        raise NotImplementedError("not implem")
-
-    lambda_tv = hp_tv['lambda']
-    lambda_red = hp_red['lambda']
-    g_param = hp_red['g_param']
-
-    print("lambda_tv:", lambda_tv)
-    print("lambda_red:", lambda_red)
-
-    lip_g = 160.0  # DRUnet lipschitz
-
-    iters_fine = 200
-    #iters_fine = 200 should be 500
-    lc = 3
-    iters_vec = [lc, lc, lc, iters_fine]
-    if device == "cpu":
-        iters_fine = 5
-        iters_vec = [2, 2, iters_fine]
-
-    params_algo = {
-        'cit': BlackmannHarris(),
-        'iml_max_iter': 8,
-        'scale_coherent_grad': True
-    }
-
-    #                    RED
-    # ____________________________________________
-    p_red = params_algo.copy()
-    p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
-    p_red['g_param'] = g_param
-    p_red['lip_g'] = lip_g  # denoiser Lipschitz constant
-    p_red['lambda'] = lambda_red
-    p_red['step_coeff'] = 0.9  # no convex setting
-    p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * lip_g)
-
-    param_init = {'init_ml_x0': [80] * len(iters_vec)}
+    # ============== RED ==============
+    p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    ra.RED_GD(p_red)
+    p_red, param_init = get_parameters_red(params_exp)
+    ra.RED_GD(single_level_params(p_red))
+
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #ra.RED_GD(p_red.copy())
+    #ra.RED_GD(single_level_params(p_red.copy()))
+
+    # ============== DPIR ==============
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    ra.DPIR(single_level_params(p_red.copy()))
+
+    # ============== PGD ==============
+    # /!\ sans torch.manual_seed, TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente
+    p_tv = get_parameters_tv(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    ra.TV_PGD(p_tv)
+    p_tv = get_parameters_tv(params_exp)
+    ra.TV_PGD(single_level_params(p_tv))
 
     #out_dir = get_out_dir()
     #out_f = os.path.join(out_dir, 'cprofile_data')
@@ -114,43 +76,6 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     #    locals={},
     #    filename=out_f
     #)
-
-    #ra.RED_GD(single_level_params(p_red.copy()))
-
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #ra.RED_GD(p_red.copy())
-    #ra.RED_GD(single_level_params(p_red.copy()))
-
-    #                    DPIR
-    # ____________________________________________
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #ra.DPIR(single_level_params(p_red))
-
-    #                    PGD
-    # ____________________________________________
-
-    # adjust parameters : proximal gradient descent
-    params_algo['iml_max_iter'] = 1
-    params_algo['scale_coherent_grad'] = True
-
-    p_tv = params_algo.copy()
-    p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec)
-    p_tv['lambda'] = lambda_tv
-    p_tv['lip_g'] = 1.0  # denoiser Lipschitz constant
-    p_tv['prox_crit'] = 1e-6
-    p_tv['prox_max_it'] = 1000
-    p_tv['params_multilevel'][0]['gamma_moreau'] = [1.1] * len(iters_vec)  # smoothing parameter
-    p_tv['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
-    p_tv['step_coeff'] = 1.9  # convex setting
-    p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
-
-    # /!\ sans torch.manual_seed, TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.TV_PGD(p_tv)
-    p_tv['prox_crit'] = 1e-6
-    p_tv['prox_max_it'] = 1000
-    p_tv = single_level_params(p_tv.copy())
-    ra.TV_PGD(p_tv)
 
 
 def main_test(
@@ -242,17 +167,6 @@ def main_tune_plot(pb_list, noise_pow_vec):
         keys_tv = data['keys_tv']
         tune_plot_1d(data_tv, keys_tv, fig_name=f"{pb}_{noise_pow}_plot1d")
 
-def main_lipschitz():
-    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    denoiser = DRUNet(device=device)
-    sigma_vec = [0.02 + n * 0.001 for n in range(0, 200)]
-
-    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.1)
-    #measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=0.2)
-
-    # sigma_noise is None => denoiser match the true noise level
-    measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=None)
-
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
@@ -262,9 +176,10 @@ if __name__ == "__main__":
     #main_test('inpainting', test_dataset=False, benchmark=False, noise_pow=0.1)
 
     # 2 quick tests + benchmark
+    main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('blur', test_dataset=False, benchmark=True, noise_pow=0.1)
-    main_test('tomography', test_dataset=False, noise_pow=0.3)
+    #main_test('tomography', test_dataset=False, noise_pow=0.2)
     #main_test('tomography', test_dataset=False, benchmark=True, noise_pow=0.3)
 
     #main_test('inpainting', dataset_name='celeba', nb_subset=30)
@@ -274,8 +189,5 @@ if __name__ == "__main__":
     #main_test('inpainting', test_dataset=True)
 
     #main_test('tomography', test_dataset=False)
-
-    #plot_spectr_ratio()
-    #main_lipschitz()
 
     # test_rastrigin()

@@ -1,29 +1,12 @@
-from os.path import join
-
-import numpy as np
-from matplotlib import pyplot
-import matplotlib
-
-from utils.paths import get_out_dir
-
-matplotlib.use("pgf")
-matplotlib.rcParams.update({
-    "pgf.texsystem": "pdflatex",
-    'font.family': 'serif',
-    'text.usetex': True,
-    'pgf.rcfonts': False,
-})
-from matplotlib import rcParams
-rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
+from tests.parameters import get_parameters_red, get_parameters_tv
 
 import math
 import torch
 import numpy
 from deepinv.physics import GaussianNoise
 
-from multilevel.info_transfer import BlackmannHarris
 from tests.test_alg import RunAlgorithm
-from tests.utils import physics_from_exp, data_from_user_input, standard_multilevel_param
+from tests.utils import physics_from_exp, data_from_user_input
 
 
 def tune_grid_all(data_in, params_exp, device):
@@ -34,40 +17,14 @@ def tune_grid_all(data_in, params_exp, device):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    iters_fine = 200
-    it_coarse = 3
-    iters_vec = [it_coarse, it_coarse, it_coarse, iters_fine]
-
-    params_algo = {
-        'cit': BlackmannHarris(),
-        'iml_max_iter': 8,
-        'scale_coherent_grad': True
-    }
-
-    p_red = params_algo.copy()
-    p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
-    p_red['step_coeff'] = 0.9  # no convex setting
-    p_red['lip_g'] = 200  # denoiser Lipschitz constant
-
-    param_init = {'init_ml_x0': [80] * len(iters_vec)}
-    ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-
-    # parameters for tv
-    p_tv = params_algo.copy()
-    p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec)
-    p_tv['lip_g'] = 1.0  # denoiser Lipschitz constant
-    p_tv['prox_crit'] = 1e-6
-    p_tv['prox_max_it'] = 1000
-    p_tv['params_multilevel'][0]['gamma_moreau'] = [1.1] * len(iters_vec)  # smoothing parameter
-    p_tv['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
-    p_tv['step_coeff'] = 1.9  # convex setting
-
-    ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
-
     # TUNE TV
+    p_tv = get_parameters_tv(params_exp)
+    ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
     res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
 
     # TUNE RED
+    p_red, param_init = get_parameters_red(params_exp)
+    ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
     res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
 
     return {'res_tv': res_tv, 'data_tv': data_tv, 'keys_tv': keys_tv,
@@ -77,8 +34,8 @@ def tune_grid_all(data_in, params_exp, device):
 def tune_grid_red(params_algo, algo, noise_pow):
     lambda_range = [1E-9 * noise_pow, 10.0 * noise_pow]
     lambda_split = 11  # should be around 11
-    sigma_range = [0.08, 0.31]
-    sigma_split = 13  # should be around 13
+    sigma_range = [0.005, 0.31]
+    sigma_split = 17  # should be around 17
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -185,61 +142,3 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         d_grid2[kj][0][1] = y_max.item()
 
     return _tune(params_algo, algo, d_grid2, recurse, prec=prec)
-
-
-def tune_scatter_2d(d_tune, keys, fig_name=None):
-    v_min = numpy.min(list(map(lambda el: torch.min(el['cost']), d_tune)))
-    v_max = numpy.max(list(map(lambda el: torch.max(el['cost']), d_tune)))
-
-    pyplot.figure()
-    s = 4.0
-
-    x = []
-    y = []
-    z = []
-    for rec in range(len(d_tune)):
-        coord = d_tune[rec]['coord']
-        cost = d_tune[rec]['cost']
-        #s *= 0.5
-        for id_xy in numpy.ndindex(cost.shape):
-            x.append(coord[0][id_xy[0]])
-            y.append(coord[1][id_xy[1]])
-            z.append(cost[id_xy])
-
-    pyplot.scatter(x, y, c=z, s=s, cmap='copper')
-    #pyplot.scatter(x, y, c=z, s=s, cmap='copper', norm=matplotlib.colors.LogNorm())
-
-    pyplot.xscale('log')
-    pyplot.yscale('log')
-    pyplot.xlabel(keys[0])
-    pyplot.ylabel(keys[1])
-    pyplot.colorbar()
-    pyplot.show()
-    if not fig_name is None:
-        out_path = get_out_dir()
-        #pyplot.savefig(join(out_path, (fig_name + ".pgf")))
-        pyplot.savefig(join(out_path, (fig_name + ".png")))
-    pyplot.close('all')
-
-
-def tune_plot_1d(d_tune, keys, fig_name=None):
-    pyplot.figure()
-    for rec in range(len(d_tune)):
-        coord = d_tune[rec]['coord']
-        cost = d_tune[rec]['cost']
-
-        x = []
-        y = []
-        for id_xy in numpy.ndindex(cost.shape):
-            x.append(coord[0][id_xy[0]])
-            y.append(cost[id_xy])
-        pyplot.plot(x, y)
-
-    pyplot.xscale('log')
-    pyplot.xlabel(keys[0])
-    pyplot.show()
-    if not fig_name is None:
-        out_path = get_out_dir()
-        #pyplot.savefig(join(out_path, (fig_name + ".pgf")))
-        pyplot.savefig(join(out_path, (fig_name + ".png")))
-    pyplot.close('all')
