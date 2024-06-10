@@ -18,20 +18,24 @@ class MultiLevelIteration(OptimIterator):
 
         model = CoarseModel(prior, data_fidelity, physics, ml_params)
         diff = model(X, y, grad=self.grad_fn)
-        step = 1.0
 
+        x0 = X['est'][0]
         if self.fine_iteration.has_cost:
             # backtracking
             def cost_fn(x):
                 return self.F_fn(x, data_fidelity, prior, params, y, physics)
 
-            x0 = X['est'][0]
+            step = 1.0
             nb = 0
             while cost_fn(x0 + step * diff) > cost_fn(x0):
                 step = step / 2
                 nb += 1
-        x_bt = X['est'][0] + step * diff
-        Y = {'est': [x_bt]}
+            print('Cost fn: ', cost_fn(x0))
+            print(f"nb = {nb}")
+            x_bt = x0 + step * diff
+            Y = {'est': [x_bt], 'cost': cost_fn(x_bt)}
+        else:
+            Y = {'est': [x0 + diff]}
 
         return Y
 

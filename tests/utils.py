@@ -1,17 +1,12 @@
-import copy
-
 import torch
-import glob
 from torch.utils.data import DataLoader, Dataset
 
 from deepinv.physics import Inpainting, Blur
-from deepinv.physics.blur import gaussian_blur
-from deepinv.datasets import generate_dataset, HDF5Dataset
+from deepinv.physics.blur import gaussian_blur, BlurFFT
+from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
 
-from multilevel.iterator import MultiLevelIteration, MultiLevelParams
-from physics.radon import Tomography
-from utils.paths import measurements_path
+from multilevel_utils.radon import Tomography
 
 
 def physics_from_exp(params_exp, noise_model, device):
@@ -36,7 +31,8 @@ def physics_from_exp(params_exp, noise_model, device):
             power = params_exp[problem + '_pow']
             print("def_blur_pow:", power)
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
-            physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='reflect')
+            #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
+            physics = BlurFFT(img_size=params_exp['shape'], filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
         case _:
             raise NotImplementedError("Problem " + problem + " not supported")
 

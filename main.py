@@ -41,6 +41,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(p_red)
     p_red, param_init = get_parameters_red(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(single_level_params(p_red))
 
     #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
@@ -57,6 +58,7 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.TV_PGD(p_tv)
     p_tv = get_parameters_tv(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.TV_PGD(single_level_params(p_tv))
 
     #out_dir = get_out_dir()
@@ -85,12 +87,15 @@ def main_test(
         benchmark=False,
         noise_pow=0.1,
         dataset_name='set3c',
-        nb_subset=None):
+        nb_subset=None,
+        img_size=None):
+    #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
     original_data_dir = dataset_path()
-    img_size = 256 if torch.cuda.is_available() else 64
+    if img_size is None:
+        img_size = 256 if torch.cuda.is_available() else 64
 
     val_transform = transforms.Compose(
         [transforms.CenterCrop(img_size), transforms.ToTensor()]
@@ -102,15 +107,13 @@ def main_test(
 
     # inpainting: proportion of pixels to keep
     params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': (3, img_size, img_size)}
+    params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = 0.5
-        params_exp['noise_pow'] = noise_pow
     elif problem == 'tomography':
         params_exp[problem] = 0.6
-        params_exp['noise_pow'] = noise_pow
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 2.0
-        params_exp['noise_pow'] = noise_pow
     else:
         raise NotImplementedError()
 
@@ -150,8 +153,8 @@ def main_tune(plot_and_exit=False):
         file_pb = grid_search_npy_filename(pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
         print(f"{pb}:")
-        print(f"p_red* = {data['res_red']}")
-        print(f"p_tv* = {data['res_tv']}")
+        print(f"p_red = {data['res_red']}")
+        print(f"p_tv = {data['res_tv']}")
 
 def main_tune_plot(pb_list, noise_pow_vec):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
@@ -170,13 +173,17 @@ def main_tune_plot(pb_list, noise_pow_vec):
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    #main_tune(plot_and_exit=True)
+    #main_tune(plot_and_exit=False)
+    #main_test('inpainting', img_size=1024, dataset_name='astro_ml', test_dataset=False, benchmark=True, noise_pow=0.1)
+    #main_test('blur', img_size=512, dataset_name='astro_ml', test_dataset=False, benchmark=True, noise_pow=0.05)
+    # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
+    main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
 
     # CPROFILE
     #main_test('inpainting', test_dataset=False, benchmark=False, noise_pow=0.1)
 
     # 2 quick tests + benchmark
-    main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
+    #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('blur', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('tomography', test_dataset=False, noise_pow=0.2)

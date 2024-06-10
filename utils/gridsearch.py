@@ -13,7 +13,8 @@ def tune_grid_all(data_in, params_exp, device):
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
-    g = GaussianNoise(sigma=noise_pow)
+    tensor_np = torch.tensor(noise_pow).to(device)
+    g = GaussianNoise(sigma=tensor_np)
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
@@ -32,8 +33,8 @@ def tune_grid_all(data_in, params_exp, device):
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 10.0 * noise_pow]
-    lambda_split = 11  # should be around 11
+    lambda_range = [1E-9 * noise_pow, 15.0 * noise_pow]
+    lambda_split = 13  # should be around 11
     sigma_range = [0.005, 0.31]
     sigma_split = 17  # should be around 17
 
@@ -47,8 +48,8 @@ def tune_grid_red(params_algo, algo, noise_pow):
 
 
 def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 10.0 * noise_pow]
-    lambda_split = 15  # should be around 15
+    lambda_range = [1E-9 * noise_pow, 15.0 * noise_pow]
+    lambda_split = 17  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -95,6 +96,7 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         lip_g = params_algo['lip_g']
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
+        r = algo(params_algo.copy())
         try:
             if TEST_FLAG is True:
                 continue

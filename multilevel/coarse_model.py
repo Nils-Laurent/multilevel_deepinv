@@ -1,13 +1,13 @@
 import torch
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur
+from deepinv.physics import Inpainting, Blur, BlurFFT
 import deepinv.optim as optim
 
 # multilevel imports
 from multilevel.info_transfer import DownsamplingTransfer
 from multilevel.coarse_gradient_descent import CGDIteration
 import multilevel.iterator as multi_level
-from physics.radon import Tomography
+from multilevel_utils.radon import Tomography
 
 
 class CoarseModel(torch.nn.Module):
@@ -87,6 +87,13 @@ class CoarseModel(torch.nn.Module):
             else:
                 filt = self.projection(fph.filter)
             self.physics = Blur(filter=filt, padding=fph.padding, device=x_coarse.device)
+        elif isinstance(self.fph, BlurFFT):
+            fph = self.fph
+            if fph.filter.shape[2] < 4 or fph.filter.shape[3] < 4 :
+                filt = fph.filter
+            else:
+                filt = self.projection(fph.filter)
+            self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
         elif isinstance(self.fph, Tomography):
             theta_c = self.fph.radon.theta
             size_c = x_coarse.shape[-2]

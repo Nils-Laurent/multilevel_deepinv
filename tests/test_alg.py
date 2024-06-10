@@ -5,7 +5,6 @@ from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet
-from deepinv.optim.prior import Zero, L1Prior
 from deepinv.optim import PnP
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
@@ -17,7 +16,7 @@ from multilevel.prior import TVPrior
 import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
-from physics.radon import Tomography
+from multilevel_utils.radon import Tomography
 from tests.utils import standard_multilevel_param
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr

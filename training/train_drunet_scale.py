@@ -4,7 +4,7 @@ from deepinv.models import DRUNet, ArtifactRemoval
 from deepinv.physics import GaussianNoise
 from deepinv.physics.generator import SigmaGenerator
 
-from models.drunet_scale import DRUNetScale
+from multilevel.drunet_scale import DRUNetScale
 from training.drunet_utils import get_transforms, load_data
 from training.drunet_scale_utils import create_physics, ScaleModel
 from utils.paths import checkpoint_path
