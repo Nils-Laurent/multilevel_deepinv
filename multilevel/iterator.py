@@ -30,8 +30,6 @@ class MultiLevelIteration(OptimIterator):
             while cost_fn(x0 + step * diff) > cost_fn(x0):
                 step = step / 2
                 nb += 1
-            print('Cost fn: ', cost_fn(x0))
-            print(f"nb = {nb}")
             x_bt = x0 + step * diff
             Y = {'est': [x_bt], 'cost': cost_fn(x_bt)}
         else:

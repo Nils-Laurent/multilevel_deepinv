@@ -1,6 +1,3 @@
-import cProfile
-import torch.profiler as profiler
-import os
 import sys
 import torch
 from torch.utils.data import Subset
@@ -20,13 +17,12 @@ from tests.utils import single_level_params
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d
-from utils.paths import dataset_path, get_out_dir
+from utils.paths import dataset_path
 
 
 def test_settings(data_in, params_exp, device, benchmark=False):
-    if type(data_in) == torch.Tensor:
-        print("Single image : using torch.manual_seed")
-        params_exp["manual_seed"] = True
+    print("Using torch.manual_seed")
+    params_exp["manual_seed"] = True
 
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
@@ -44,40 +40,22 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     ra.RED_GD(single_level_params(p_red))
 
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #ra.RED_GD(p_red.copy())
-    #ra.RED_GD(single_level_params(p_red.copy()))
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    ra.RED_GD(p_red.copy())
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    ra.RED_GD(single_level_params(p_red.copy()))
 
     # ============== DPIR ==============
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.DPIR(single_level_params(p_red.copy()))
 
     # ============== PGD ==============
-    # /!\ sans torch.manual_seed, TV et TV multilevel n'ont pas la même cost car la réalisation de bruit est différente
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.TV_PGD(p_tv)
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     ra.TV_PGD(single_level_params(p_tv))
-
-    #out_dir = get_out_dir()
-    #out_f = os.path.join(out_dir, 'cprofile_data')
-    #prof = torch.profiler.profile(
-    #    schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1),
-    #    on_trace_ready=torch.profiler.tensorboard_trace_handler(out_f),
-    #    with_modules=True)
-    #prof.start()
-    #for step in range(1 + 1 + 3):
-    #    prof.step()
-    #    ra.RED_GD(p_red.copy())
-    #prof.stop()
-    #cProfile.runctx(
-    #    statement='ra.RED_GD(param)',
-    #    globals={'param' : p_red.copy(), 'ra': ra},
-    #    locals={},
-    #    filename=out_f
-    #)
 
 
 def main_test(
@@ -89,7 +67,6 @@ def main_test(
         dataset_name='set3c',
         nb_subset=None,
         img_size=None):
-    #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
@@ -126,6 +103,8 @@ def main_test(
         id_img = 0
         for t in dataset:
             id_img += 1
+            if id_img == 1:
+                continue
             name_id = dataset_name + "_" + str(id_img)
             params_exp['img_name'] = name_id
 
@@ -174,27 +153,17 @@ if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
     #main_tune(plot_and_exit=False)
-    #main_test('inpainting', img_size=1024, dataset_name='astro_ml', test_dataset=False, benchmark=True, noise_pow=0.1)
-    #main_test('blur', img_size=512, dataset_name='astro_ml', test_dataset=False, benchmark=True, noise_pow=0.05)
-    # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
-    main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
-
-    # CPROFILE
-    #main_test('inpainting', test_dataset=False, benchmark=False, noise_pow=0.1)
 
     # 2 quick tests + benchmark
     #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
-    #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
     #main_test('blur', test_dataset=False, benchmark=True, noise_pow=0.1)
-    #main_test('tomography', test_dataset=False, noise_pow=0.2)
-    #main_test('tomography', test_dataset=False, benchmark=True, noise_pow=0.3)
-
-    #main_test('inpainting', dataset_name='celeba', nb_subset=30)
+    #main_test('tomography', test_dataset=False, benchmark=True, noise_pow=0.2)
 
     # 3 database tests
-    #main_test('blur', test_dataset=True)
-    #main_test('inpainting', test_dataset=True)
+    main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
+    main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
+    main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
 
-    #main_test('tomography', test_dataset=False)
-
-    # test_rastrigin()
+    # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
+    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
+    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)

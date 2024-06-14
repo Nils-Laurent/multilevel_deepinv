@@ -49,7 +49,6 @@ def get_parameters_tv(params_exp):
     p_tv['params_multilevel'][0]['gamma_moreau'][-1] = 1.0  # fine smoothing parameter
     p_tv['step_coeff'] = 1.9  # convex setting
     p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
-    p_tv['scale_coherent_grad'] = True
 
     return p_tv
 
