@@ -9,6 +9,7 @@ from deepinv.optim import PnP
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import ScorePrior
+from deepinv.utils.logger import MetricLogger
 from torch.utils.data import DataLoader
 
 # multilevel imports
@@ -168,8 +169,9 @@ class RunAlgorithm:
         print("run", alg_name)
 
         if isinstance(self.data, DataLoader):
+            m = MetricLogger()
             test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
-                model, self.data, self.physics, device=self.device, online_measurements=True,
+                model, self.data, self.physics, device=self.device, online_measurements=True, metric_logger=m
             )
             dict_res = {
                 "test_psnr": test_psnr,
@@ -189,7 +191,7 @@ class RunAlgorithm:
                 print(alg_name, ": init_psnr = ", init_psnr)
                 print(alg_name, ": init_std_psnr = ", init_std_psnr)
 
-            return dict_res
+            return m
         else:
             model.eval()
             # Assumes self.data is an image of the form torch.Tensor

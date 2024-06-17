@@ -4,6 +4,8 @@ from torch.utils.data import Subset
 from torchvision import transforms
 from itertools import product
 
+from gen_fig.fig_metric_logger import GenFigMetricLogger
+
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
 
@@ -32,30 +34,34 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
+    z = GenFigMetricLogger()
+
     # ============== RED ==============
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    ra.RED_GD(p_red)
+    z.add_logger(ra.RED_GD(p_red), 'RED ML init')
+    z.gen_fig('psnr')
+
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    ra.RED_GD(single_level_params(p_red))
+    z.add_logger(ra.RED_GD(single_level_params(p_red)), 'RED init')
 
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.RED_GD(p_red.copy())
+    z.add_logger(ra.RED_GD(p_red.copy()), 'RED ML')
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.RED_GD(single_level_params(p_red.copy()))
+    z.add_logger(ra.RED_GD(single_level_params(p_red.copy())), 'RED')
 
     # ============== DPIR ==============
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.DPIR(single_level_params(p_red.copy()))
+    z.add_logger(ra.DPIR(single_level_params(p_red.copy())), 'DPIR')
 
     # ============== PGD ==============
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.TV_PGD(p_tv)
+    z.add_logger(ra.TV_PGD(p_tv), 'FB TV ML')
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    ra.TV_PGD(single_level_params(p_tv))
+    z.add_logger(ra.TV_PGD(single_level_params(p_tv)), 'FB TV')
 
 
 def main_test(
@@ -158,10 +164,11 @@ if __name__ == "__main__":
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
 
     # 3 database tests
+    main_test('blur', img_size=256, benchmark=True, noise_pow=0.1)
     #main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
     #main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
     #main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
 
     # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
-    main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
+    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
     #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
