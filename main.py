@@ -72,11 +72,9 @@ def main_test(
 
     original_data_dir = dataset_path()
     if img_size is None:
-        img_size = 256 if torch.cuda.is_available() else 64
-
-    val_transform = transforms.Compose(
-        [transforms.CenterCrop(img_size), transforms.ToTensor()]
-    )
+        val_transform = transforms.Compose([transforms.ToTensor()])
+    else:
+        val_transform = transforms.Compose([transforms.CenterCrop(img_size), transforms.ToTensor()])
 
     dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
     if nb_subset is not None:
@@ -90,7 +88,7 @@ def main_test(
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
-        params_exp[problem + '_pow'] = 2.0
+        params_exp[problem + '_pow'] = 4.0
     else:
         raise NotImplementedError()
 
@@ -103,8 +101,8 @@ def main_test(
         id_img = 0
         for t in dataset:
             id_img += 1
-            if id_img == 1:
-                continue
+            #if id_img == 1:
+            #    continue
             name_id = dataset_name + "_" + str(id_img)
             params_exp['img_name'] = name_id
 
@@ -155,15 +153,15 @@ if __name__ == "__main__":
     #main_tune(plot_and_exit=False)
 
     # 2 quick tests + benchmark
-    #main_test('inpainting', test_dataset=False, benchmark=True, noise_pow=0.1)
-    #main_test('blur', test_dataset=False, benchmark=True, noise_pow=0.1)
-    #main_test('tomography', test_dataset=False, benchmark=True, noise_pow=0.2)
+    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
+    #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
+    #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
 
     # 3 database tests
-    main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
-    main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
-    main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
+    #main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
+    #main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
+    #main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
 
     # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
-    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
-    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
+    main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
+    #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)

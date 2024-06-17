@@ -79,8 +79,18 @@ class RunAlgorithm:
         alg_name = "TV_PGD"
         prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
 
-        def F_fn(x, cur_data_fidelity, cur_prior, cur_params, y, physics):
-            return cur_data_fidelity.d(physics.A(x).contiguous(), y.contiguous()) + cur_params['lambda'] * cur_prior.g(x)
+        def F_fn(x, data_fidelity, prior, cur_params, y, physics):
+            prior_value = prior(x, cur_params["g_param"], reduce=False)
+            if prior_value.dim() == 0:
+                reg_value = cur_params["lambda"] * prior_value
+            else:
+                if isinstance(cur_params["lambda"], float):
+                    reg_value = (cur_params["lambda"] * prior_value).sum()
+                else:
+                    reg_value = (
+                        cur_params["lambda"].flatten() * prior_value.flatten()
+                    ).sum()
+            return data_fidelity(x, y, physics) + reg_value
 
         iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
@@ -104,27 +114,30 @@ class RunAlgorithm:
         if self.manual_seed is True:
             torch.manual_seed(0)
 
-        if isinstance(self.physics, Tomography):
-            f_init = lambda x, physics: {'est': [physics.A_adjoint(x)], 'cost': None}
-        else:
-            f_init = lambda x, physics: {'est': [x], 'cost': None}
+        #if isinstance(self.physics, Tomography):
+        #    f_init = lambda x, physics: {'est': [physics.A_adjoint(x)], 'cost': None}
+        #else:
+        #    f_init = lambda x, physics: {'est': [x], 'cost': None}
+        f_init = False
 
         params_init = self.param_init
-        if 'x0' in params_init.keys():
-            x0 = params_init['x0']
-            f_init = lambda x, physics: {'est': [x0], 'cost': None}
-        elif 'init_ml_x0' in params_init.keys():
+        if 'init_ml_x0' in params_init.keys():
             alg_name = alg_name + "_x0ML"
             params_algo_init = params_algo.copy()
             standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
             ml_params = MultiLevelParams(params_algo_init)
-            def init_ml_x0(y, physics):
+            def init_ml_x0(y, physics, F_fn=None):
                 cm = CoarseModel(prior, self.data_fidelity, physics, ml_params)
                 if isinstance(physics, Tomography):
                     x0 = cm.init_ml_x0({'est': [physics.A_adjoint(y)]}, y)
                 else:
                     x0 = cm.init_ml_x0({'est': [y]}, y)
-                return {'est': [x0], 'cost': None}
+
+                if F_fn is None:
+                    return {'est': [x0]}
+
+                cost = F_fn(x0, self.data_fidelity, prior, ml_params, y, physics)
+                return {'est': [x0], 'cost': cost}
 
             f_init = init_ml_x0
 
@@ -189,7 +202,11 @@ class RunAlgorithm:
             # ==================== Save results ====================
             print("saving:", f_prefix)
 
-            x0 = f_init(y, self.physics)['est'][0]
+            if not (f_init is False):
+                x0 = f_init(y, self.physics)['est'][0]
+            else:
+                x0 = y
+
             dict_img = {
                 "x_ref": x_ref,
                 "y": y,

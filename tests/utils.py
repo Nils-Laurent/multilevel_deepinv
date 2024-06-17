@@ -32,7 +32,7 @@ def physics_from_exp(params_exp, noise_model, device):
             print("def_blur_pow:", power)
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
             #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
-            physics = BlurFFT(img_size=params_exp['shape'], filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
+            physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
         case _:
             raise NotImplementedError("Problem " + problem + " not supported")
 
