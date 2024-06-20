@@ -33,10 +33,10 @@ def tune_grid_all(data_in, params_exp, device):
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 15.0 * noise_pow]
-    lambda_split = 13  # should be around 11
+    lambda_range = [1E-9 * noise_pow, 20.0 * noise_pow]
+    lambda_split = 5  # should be around 11
     sigma_range = [0.005, 0.31]
-    sigma_split = 17  # should be around 17
+    sigma_split = 7  # should be around 17
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -48,8 +48,8 @@ def tune_grid_red(params_algo, algo, noise_pow):
 
 
 def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 15.0 * noise_pow]
-    lambda_split = 17  # should be around 15
+    lambda_range = [1E-9 * noise_pow, 20.0 * noise_pow]
+    lambda_split = 7  # should be around 15
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -96,20 +96,21 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         lip_g = params_algo['lip_g']
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
-        r = algo(params_algo.copy())
-        try:
-            if TEST_FLAG is True:
-                continue
-
-            r = algo(params_algo.copy())
-        except:
-            print("Skip iteration: algorithm failed to run with current parameters")
+        #try:
+        if TEST_FLAG is True:
             continue
 
-        r_psnr = r['test_psnr']
-        if not math.isnan(r_psnr):
-            cost_map[id_map] = r_psnr
-        print(f"iter {it} out of {nb_iter} (psnr {r['test_psnr']}, recurse {recurse})")
+        r = algo(params_algo.copy())
+        #except:
+        #    print("Skip iteration: algorithm failed to run with current parameters")
+        #    continue
+
+        r_psnr = numpy.mean(r.final_values('psnr'))
+        t_psnr = torch.tensor(r_psnr)
+        cost_map[id_map] = t_psnr
+        #if not math.isnan(r_psnr):
+        #    cost_map[id_map] = t_psnr
+        print(f"iter {it} out of {nb_iter} (psnr {r_psnr}, recurse {recurse})")
 
     # for tests only
     if TEST_FLAG is True:

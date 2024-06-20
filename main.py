@@ -4,7 +4,7 @@ from torch.utils.data import Subset
 from torchvision import transforms
 from itertools import product
 
-from gen_fig.fig_metric_logger import GenFigMetricLogger
+from gen_fig.fig_metric_logger import GenFigMetricLogger, MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbML
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -39,29 +39,30 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     # ============== RED ==============
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(p_red), 'RED ML init')
-    z.gen_fig('psnr')
+    z.add_logger(ra.RED_GD(p_red), MRedMLInit().key)
 
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(single_level_params(p_red)), 'RED init')
+    z.add_logger(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
 
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(p_red.copy()), 'RED ML')
+    z.add_logger(ra.RED_GD(p_red.copy()), MRedML().key)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(single_level_params(p_red.copy())), 'RED')
+    z.add_logger(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
 
     # ============== DPIR ==============
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.DPIR(single_level_params(p_red.copy())), 'DPIR')
+    z.add_logger(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
 
     # ============== PGD ==============
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.TV_PGD(p_tv), 'FB TV ML')
+    z.add_logger(ra.TV_PGD(p_tv), MFbML().key)
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.TV_PGD(single_level_params(p_tv)), 'FB TV')
+    z.add_logger(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
+
+    z.gen_fig('psnr')
 
 
 def main_test(
@@ -118,15 +119,17 @@ def main_test(
 
 
 def main_tune(plot_and_exit=False):
-    pb_list = ['inpainting', 'blur', 'tomography']
-    noise_pow_vec = [0.05, 0.1, 0.2, 0.3]
+    #pb_list = ['inpainting', 'blur', 'tomography']
+    pb_list = ['inpainting', 'blur']
+    #noise_pow_vec = [0.05, 0.1, 0.2, 0.3]
+    noise_pow_vec = [0.2]
 
     if plot_and_exit is True:
         main_tune_plot(pb_list, noise_pow_vec)
         return
 
     for pb, noise_pow in product(pb_list, noise_pow_vec):
-        r_pb = main_test(pb, noise_pow=noise_pow, tune=True)
+        r_pb = main_test(pb, dataset_name='set3c', img_size=256, noise_pow=noise_pow, tune=True)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb + str(noise_pow))
 
     print("_____________________________")
@@ -157,6 +160,7 @@ if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
     #main_tune(plot_and_exit=False)
+    #main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
     #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
@@ -164,9 +168,9 @@ if __name__ == "__main__":
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
 
     # 3 database tests
-    main_test('blur', img_size=256, benchmark=True, noise_pow=0.1)
+    #main_test('blur', img_size=256, benchmark=True, noise_pow=0.1)
     #main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
-    #main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
+    main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
     #main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
 
     # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
