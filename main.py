@@ -1,4 +1,6 @@
 import sys
+
+import numpy
 import torch
 from torch.utils.data import Subset
 from torchvision import transforms
@@ -19,7 +21,7 @@ from tests.utils import single_level_params
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d
-from utils.paths import dataset_path
+from utils.paths import dataset_path, get_out_dir
 
 
 def test_settings(data_in, params_exp, device, benchmark=False):
@@ -62,7 +64,12 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     z.add_logger(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
 
-    z.gen_fig('psnr')
+    if not(type(data_in) == torch.Tensor):
+        print("saving data")
+        numpy.save(get_out_dir() + "/psnr_data", [z])
+        print("generating psnr figure [...]")
+        z.gen_fig('psnr')
+        print("end")
 
 
 def main_test(
@@ -73,7 +80,9 @@ def main_test(
         noise_pow=0.1,
         dataset_name='set3c',
         nb_subset=None,
-        img_size=None):
+        img_size=None,
+        target=None
+):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
@@ -95,7 +104,7 @@ def main_test(
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
-        params_exp[problem + '_pow'] = 4.0
+        params_exp[problem + '_pow'] = 3.6
     else:
         raise NotImplementedError()
 
@@ -108,14 +117,14 @@ def main_test(
         id_img = 0
         for t in dataset:
             id_img += 1
-            #if id_img == 1:
-            #    continue
+            if not (target is None) and id_img != target:
+                continue
+
             name_id = dataset_name + "_" + str(id_img)
             params_exp['img_name'] = name_id
 
             img = t[0].unsqueeze(0).to(device)
             test_settings(img, params_exp, device=device, benchmark=benchmark)
-            break
 
 
 def main_tune(plot_and_exit=False):
@@ -159,20 +168,21 @@ def main_tune_plot(pb_list, noise_pow_vec):
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    #main_tune(plot_and_exit=False)
-    #main_tune(plot_and_exit=True)
+    main_tune(plot_and_exit=False)
+    main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
-    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
+    #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
+    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, noise_pow=0.1, target=1)
     #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
 
-    # 3 database tests
-    #main_test('blur', img_size=256, benchmark=True, noise_pow=0.1)
-    #main_test('blur', dataset_name='DIV2K', noise_pow=0.1)
-    main_test('inpainting', dataset_name='DIV2K', noise_pow=0.1)
+    # 3 datasets
+    #main_test('inpainting', img_size=256, noise_pow=0.1)
+    #main_test('inpainting', img_size=256, benchmark=True, noise_pow=0.1)
+    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1)
     #main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
 
-    # FIG GUILLAUME : blur_pow = 4.0, noise = 0.01, hyper params noise 0.05,
+    # FIG GUILLAUME : noise = 0.01, blur_pow = 3.6 ?
     #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
-    #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.05)
+    #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)

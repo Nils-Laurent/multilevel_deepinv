@@ -33,7 +33,7 @@ def tune_grid_all(data_in, params_exp, device):
 
 
 def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 20.0 * noise_pow]
+    lambda_range = [1E-9 * noise_pow, 30.0 * noise_pow]
     lambda_split = 5  # should be around 11
     sigma_range = [0.005, 0.31]
     sigma_split = 7  # should be around 17
@@ -48,7 +48,7 @@ def tune_grid_red(params_algo, algo, noise_pow):
 
 
 def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 20.0 * noise_pow]
+    lambda_range = [1E-9 * noise_pow, 30.0 * noise_pow]
     lambda_split = 7  # should be around 15
 
     d_grid = {

@@ -19,6 +19,9 @@ def get_parameters_red(params_exp):
     p_red['iml_max_iter'] = 8
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
+    # Test ML on last iterations
+    #for idx in range(iters_fine - 125, iters_fine - 100):
+    #    p_red['multilevel_step'][idx] = True
     p_red['g_param'] = g_param
     p_red['lip_g'] = lip_g  # denoiser Lipschitz constant
     p_red['lambda'] = lambda_red

@@ -12,16 +12,16 @@ def select_param(noise_pow, noise_vec, p_red, p_tv):
     return p_red, p_tv
 
 def inpainting_hyper_param(noise_pow):
-    noise_vec = [0.05, 0.1, 0.2, 0.3]
+    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
     p_red = [
-        {'lambda': 0.0050, 'g_param': 0.0921}, # not gridsearh
+        {'lambda': 0.0020, 'g_param': 0.0921}, # not gridsearh
         {'lambda': 0.0050, 'g_param': 0.0921},
         {'lambda': 0.0100, 'g_param': 0.0904},
         {'lambda': 0.0200, 'g_param': 0.0913},
         {'lambda': 0.0300, 'g_param': 0.0904},
     ]
     p_tv = [
-        {'lambda': 0.0477}, # not gridsearh
+        {'lambda': 0.0177}, # not gridsearh
         {'lambda': 0.0477},
         {'lambda': 0.1357},
         {'lambda': 0.3053},

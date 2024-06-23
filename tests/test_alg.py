@@ -226,4 +226,4 @@ class RunAlgorithm:
             gen_mat_images(dict_img, f_prefix, params_algo)
             gen_mat_cost(dict_metrics, f_prefix, params_algo)
 
-            return x_est, met
+            return met

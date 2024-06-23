@@ -98,6 +98,7 @@ class GenFigMetricLogger:
             #ax.fill_between(sigma_vec, y25, y75, alpha=0.1, color='darkorchid')
         pyplot.xlabel("x")
         pyplot.ylabel("y")
+        pyplot.legend(loc="lower right")
         pyplot.show()
 
         out_path = get_out_dir()
