@@ -1,4 +1,7 @@
+import deepinv.optim.optim_iterators
+import numpy
 import torch
+from deepinv.optim.optim_iterators import GDIteration
 from torch.utils.data import DataLoader, Dataset
 
 from deepinv.physics import Inpainting, Blur
@@ -6,7 +9,9 @@ from deepinv.physics.blur import gaussian_blur, BlurFFT
 from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
 
+from gen_fig.fig_metric_logger import GenFigMetricLogger
 from multilevel_utils.radon import Tomography
+from utils.paths import get_out_dir
 
 
 def physics_from_exp(params_exp, noise_model, device):
@@ -85,27 +90,6 @@ def data_from_user_input(input_data, physics, params_exp, problem_name, device):
     return data
 
 
-def single_level_params(params_ml):
-    params = params_ml.copy()
-    params['n_levels'] = 1
-    params['level'] = 1
-    params['iters'] = params_ml['params_multilevel'][0]['iters'][-1]
-
-    return params
-
-def standard_multilevel_param(params, it_vec):
-    levels = len(it_vec)
-    ml_dict = {"iters": it_vec}
-    params['params_multilevel'] = [ml_dict]
-    params['level'] = levels
-    params['n_levels'] = levels
-
-    iml_max_iter = params['iml_max_iter']
-    params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
-
-    return params
-
-
 from prettytable import PrettyTable
 def count_parameters(model, pr=True, namenet=''):
     table = PrettyTable(["Modules", "Parameters"])
@@ -126,3 +110,20 @@ def count_parameters(model, pr=True, namenet=''):
 
     return total_params, total_params_dict
 
+
+class ResultManager:
+    def __init__(self, b_dataset=True):
+        self.b_dataset = b_dataset
+        self.generator = GenFigMetricLogger()
+
+    def post_process(self, output, key):
+        if self.b_dataset is True:
+            self.generator.add_logger(output, key)
+
+    def finalize(self):
+        if self.b_dataset is True:
+            print("saving data")
+            numpy.save(get_out_dir() + "/psnr_data", [self.generator])
+            print("generating psnr figure [...]")
+            self.generator.gen_fig('psnr')
+            print("end")

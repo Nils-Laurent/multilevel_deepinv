@@ -6,7 +6,8 @@ from torch.utils.data import Subset
 from torchvision import transforms
 from itertools import product
 
-from gen_fig.fig_metric_logger import GenFigMetricLogger, MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbML
+from gen_fig.fig_metric_logger import GenFigMetricLogger
+from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbML, MPnPML, MPnP
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -14,15 +15,13 @@ if "/.fork" in sys.prefix:
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-from tests.parameters import get_parameters_tv, get_parameters_red
+from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp, single_level_params
 from tests.test_alg import RunAlgorithm
-from tests.utils import physics_from_exp, data_from_user_input
-from tests.utils import single_level_params
+from tests.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d
 from utils.paths import dataset_path, get_out_dir
-
 
 def test_settings(data_in, params_exp, device, benchmark=False):
     print("Using torch.manual_seed")
@@ -36,40 +35,45 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    z = GenFigMetricLogger()
+    b_dataset = not(type(data_in) == torch.Tensor)
+    rm = ResultManager(b_dataset=b_dataset)
 
     # ============== RED ==============
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(p_red), MRedMLInit().key)
+    rm.post_process(ra.RED_GD(p_red), MRedMLInit().key)
 
     p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
+    rm.post_process(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
 
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(p_red.copy()), MRedML().key)
+    rm.post_process(ra.RED_GD(p_red.copy()), MRedML().key)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
+    rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
+
+    # ============== PnP ==============
+    p_pnp = get_parameters_pnp(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
+    p_pnp = get_parameters_pnp(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
 
     # ============== DPIR ==============
+    p_red, param_init = get_parameters_red(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
+    rm.post_process(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
 
     # ============== PGD ==============
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.TV_PGD(p_tv), MFbML().key)
+    rm.post_process(ra.TV_PGD(p_tv), MFbML().key)
     p_tv = get_parameters_tv(params_exp)
     ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    z.add_logger(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
+    rm.post_process(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
 
-    if not(type(data_in) == torch.Tensor):
-        print("saving data")
-        numpy.save(get_out_dir() + "/psnr_data", [z])
-        print("generating psnr figure [...]")
-        z.gen_fig('psnr')
-        print("end")
+    rm.finalize()
 
 
 def main_test(
@@ -111,27 +115,27 @@ def main_test(
     if tune is True:
         return tune_grid_all(dataset, params_exp, device)
 
-    if test_dataset is True:
-        test_settings(dataset, params_exp, device=device, benchmark=benchmark)
-    else:
-        id_img = 0
-        for t in dataset:
-            id_img += 1
-            if not (target is None) and id_img != target:
-                continue
+    with torch.no_grad():
+        if test_dataset is True:
+            test_settings(dataset, params_exp, device=device, benchmark=benchmark)
+        else:
+            id_img = 0
+            for t in dataset:
+                id_img += 1
+                if not (target is None) and id_img != target:
+                    continue
 
-            name_id = dataset_name + "_" + str(id_img)
-            params_exp['img_name'] = name_id
+                name_id = dataset_name + "_" + str(id_img)
+                params_exp['img_name'] = name_id
 
-            img = t[0].unsqueeze(0).to(device)
-            test_settings(img, params_exp, device=device, benchmark=benchmark)
+                img = t[0].unsqueeze(0).to(device)
+                test_settings(img, params_exp, device=device, benchmark=benchmark)
 
 
 def main_tune(plot_and_exit=False):
     #pb_list = ['inpainting', 'blur', 'tomography']
     pb_list = ['inpainting', 'blur']
-    #noise_pow_vec = [0.05, 0.1, 0.2, 0.3]
-    noise_pow_vec = [0.2]
+    noise_pow_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
 
     if plot_and_exit is True:
         main_tune_plot(pb_list, noise_pow_vec)
@@ -168,11 +172,11 @@ def main_tune_plot(pb_list, noise_pow_vec):
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    main_tune(plot_and_exit=False)
-    main_tune(plot_and_exit=True)
+    #main_tune(plot_and_exit=False)
+    #main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
-    #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
+    main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
     #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, noise_pow=0.1, target=1)
     #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)

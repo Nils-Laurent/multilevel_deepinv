@@ -21,22 +21,22 @@ def tune_grid_all(data_in, params_exp, device):
     # TUNE TV
     p_tv = get_parameters_tv(params_exp)
     ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
-    res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD, noise_pow)
+    res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
 
     # TUNE RED
     p_red, param_init = get_parameters_red(params_exp)
     ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD, noise_pow)
+    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD)
 
     return {'res_tv': res_tv, 'data_tv': data_tv, 'keys_tv': keys_tv,
             'res_red': res_red, 'data_red': data_red, 'keys_red': keys_red}
 
 
-def tune_grid_red(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 30.0 * noise_pow]
-    lambda_split = 5  # should be around 11
-    sigma_range = [0.005, 0.31]
-    sigma_split = 7  # should be around 17
+def tune_grid_red(params_algo, algo):
+    lambda_range = [1E-6, 100.0]
+    lambda_split = 11  # should be around 11
+    sigma_range = [0.005, 0.51]
+    sigma_split = 9  # should be around 9
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -47,9 +47,9 @@ def tune_grid_red(params_algo, algo, noise_pow):
     return _tune(params_algo, algo, d_grid, recurse)
 
 
-def tune_grid_tv(params_algo, algo, noise_pow):
-    lambda_range = [1E-9 * noise_pow, 30.0 * noise_pow]
-    lambda_split = 7  # should be around 15
+def tune_grid_tv(params_algo, algo):
+    lambda_range = [1E-5, 300.0]
+    lambda_split = 11  # should be around 11
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -72,7 +72,9 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
         if log is True:
             a = numpy.log10(r_range[0])
             b = numpy.log10(r_range[1])
-            y = torch.logspace(a, b, split)[1:-1]
+            y = torch.logspace(a, b, steps=split, base=10.0)[1:-1]
+            print(f"parameter range: key = {key_}")
+            print(f"value = {y}")
         else:
             y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
         axis_vec.append(y)

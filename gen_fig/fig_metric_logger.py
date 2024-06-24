@@ -8,6 +8,18 @@ from utils.paths import get_out_dir
 from dataclasses import dataclass
 
 @dataclass
+class MPnP:
+    key = 'PnP'
+    color = 'purple'
+    linestyle = '--'
+    label = key
+@dataclass
+class MPnPML:
+    key = 'PnP_ML'
+    color = 'purple'
+    linestyle = '-'
+    label = key
+@dataclass
 class MRed:
     key = 'RED'
     color = 'red'

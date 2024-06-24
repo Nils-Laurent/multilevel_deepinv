@@ -1,6 +1,16 @@
+from deepinv.optim.optim_iterators import GDIteration
+
+from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris
-from tests.utils import standard_multilevel_param
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
+
+def get_parameters_pnp(params_exp):
+    p_red, p_init_red = get_parameters_red(params_exp)
+    p_pnp = p_red
+    p_pnp['coarse_iterator'] = CPGDIteration
+    # todo : gridsearch lambda, g_param
+
+    return p_pnp
 
 def get_parameters_red(params_exp):
     params_algo, hp_red, hp_tv = get_param_algo_(params_exp)
@@ -54,6 +64,29 @@ def get_parameters_tv(params_exp):
     p_tv['stepsize'] = p_tv['step_coeff'] / (1.0 + lambda_tv)
 
     return p_tv
+
+def standard_multilevel_param(params, it_vec):
+    levels = len(it_vec)
+    ml_dict = {"iters": it_vec}
+    params['params_multilevel'] = [ml_dict]
+    params['level'] = levels
+    params['n_levels'] = levels
+    params['coarse_iterator'] = GDIteration
+
+    iml_max_iter = params['iml_max_iter']
+    params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
+
+    return params
+
+
+def single_level_params(params_ml):
+    params = params_ml.copy()
+    params['n_levels'] = 1
+    params['level'] = 1
+    params['iters'] = params_ml['params_multilevel'][0]['iters'][-1]
+
+    return params
+
 
 def get_param_algo_(params_exp):
     noise_pow = params_exp["noise_pow"]

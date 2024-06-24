@@ -4,11 +4,11 @@ import torch
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
-from deepinv.models import DRUNet
+from deepinv.models import DRUNet, GSDRUNet
 from deepinv.optim import PnP
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
-from deepinv.optim.prior import ScorePrior
+from deepinv.optim.prior import ScorePrior, RED
 from deepinv.utils.logger import MetricLogger
 from torch.utils.data import DataLoader
 
@@ -18,7 +18,7 @@ import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
-from tests.utils import standard_multilevel_param
+from tests.parameters import standard_multilevel_param
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
@@ -68,12 +68,24 @@ class RunAlgorithm:
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
-        denoiser = DRUNet(pretrained="download", train=False, device=self.device)
-        prior = ScorePrior(denoiser)
+        #denoiser = DRUNet(pretrained="download", train=False, device=self.device)
+        #prior = ScorePrior(denoiser)
+        net = DRUNet(pretrained="download", train=False, device=self.device)
+        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        prior = RED(denoiser)
         iteration = GDIteration(has_cost=False)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
 
+        return self.run_algorithm(iteration, prior, params_algo, alg_name)
+
+    def PnP_PGD(self, params_algo):
+        alg_name = "PnP_PGD"
+        denoiser = GSDRUNet(pretrained="download", train=False, device=self.device)
+        prior = PnP(denoiser)
+        iteration = PGDIteration(has_cost=False)
+        if 'level' in params_algo.keys() and params_algo['level'] > 1:
+            iteration = MultiLevelIteration(iteration)
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
 
     def TV_PGD(self, params_algo, use_cost=True):
@@ -193,7 +205,7 @@ class RunAlgorithm:
 
             return m
         else:
-            model.eval()
+            #model.eval()
             # Assumes self.data is an image of the form torch.Tensor
             x_ref = self.data
             y = self.physics(x_ref)  # A(x) + noise

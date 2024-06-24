@@ -1,4 +1,5 @@
 import torch
+from deepinv.optim import PnP
 from deepinv.optim.optim_iterators import GDIteration
 from deepinv.physics import Inpainting, Blur, BlurFFT
 import deepinv.optim as optim
@@ -54,7 +55,9 @@ class CoarseModel(torch.nn.Module):
     def grad(self, x, y, physics, params):
         grad_f = self.f.grad(x, y, physics)
 
-        if hasattr(self.g, 'denoiser'):
+        if type(self.g) == PnP:
+            grad_g = x - self.g.denoiser(x, sigma=params.g_param())
+        elif hasattr(self.g, 'denoiser'):
             grad_g = self.g.grad(x, sigma_denoiser=params.g_param())
         elif hasattr(self.g, 'moreau_grad'):
             grad_g = self.g.moreau_grad(x, gamma=params.gamma_moreau())
@@ -125,6 +128,7 @@ class CoarseModel(torch.nn.Module):
 
     def forward(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
+        coarse_iter_class = self.pc.coarse_iterator()
 
         if self.ph.scale_coherent_gradient() is True:
             if grad is None:
@@ -137,10 +141,11 @@ class CoarseModel(torch.nn.Module):
 
             # Coarse gradient (first order coherent)
             grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc) + v
+            level_iteration = coarse_iter_class(coarse_correction=v)
         else:
             grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc)
+            level_iteration = coarse_iter_class()
 
-        level_iteration = CGDIteration(coherent_grad_fn=grad_coarse)
         if self.pc.level > 1:
             model = CoarseModel(self.g, self.f, self.physics, self.pc)
             diff = model({'est': [x0]}, y, grad=grad_coarse)

@@ -82,6 +82,9 @@ class MultiLevelParams:
     def multilevel_step(self):
         return self._get_scalar('multilevel_step')
 
+    def coarse_iterator(self):
+        return self._get_class('coarse_iterator')
+
     # ============================== MULTILEVEL ==============================
 
     def gamma_moreau(self):
@@ -94,6 +97,12 @@ class MultiLevelParams:
     # internal functions
     def _get_scalar(self, key):
         return self._get_scalar_init(key, self.params)
+
+    def _get_class(self, key):
+        r_class = self.params[key]
+        if isinstance(r_class, list):
+            r_class = r_class[0]
+        return r_class
 
     @staticmethod
     def _get_scalar_init(key, params):
@@ -117,7 +126,7 @@ class MultiLevelParams:
         self.params['lambda'] = self.lambda_r() / 4
         step_coeff = self._get_scalar('step_coeff')
         if 'gamma_moreau' in self.params.keys():
-            self.params['stepsize'] = step_coeff / (self.g_lipschitz * self.gamma_moreau() + self.f_lipschitz)
+            self.params['stepsize'] = step_coeff / (self.g_lipschitz / self.gamma_moreau() + self.f_lipschitz)
         else:
             self.params['stepsize'] = step_coeff / (self.g_lipschitz * self.lambda_r() + self.f_lipschitz)
 

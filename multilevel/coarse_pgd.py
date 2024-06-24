@@ -1,9 +1,9 @@
 import torch
-from deepinv.optim.optim_iterators import GDIteration
+from deepinv.optim.optim_iterators import PGDIteration
 from deepinv.optim.optim_iterators.utils import gradient_descent_step
 
 
-class CGDIteration(GDIteration):
+class CPGDIteration(PGDIteration):
     r"""
     Iterator for Coarse Gradient Descent.
     """
@@ -24,13 +24,10 @@ class CGDIteration(GDIteration):
         :return: Dictionary `{"est": (x, ), "cost": F}` containing the updated current iterate and the estimated current cost.
         """
         x_prev = X["est"][0]
-        grad = cur_params["stepsize"] * (
-            self.g_step(x_prev, cur_prior, cur_params)
-            + self.f_step(x_prev, cur_data_fidelity, cur_params, y, physics)
-        )
+        z = self.f_step(x_prev, cur_data_fidelity, cur_params, y, physics)
 
         if not(self.coarse_correction is None):
-            grad += cur_params["stepsize"] * self.coarse_correction
+            z += cur_params["stepsize"] * self.coarse_correction
 
-        x = gradient_descent_step(x_prev, grad)
+        x = self.g_step(z, cur_prior, cur_params)
         return {"est": (x,), "cost": None}
