@@ -1,3 +1,4 @@
+from gen_fig.fig_metric_logger import MRedMLInit, MFbML
 from tests.parameters import get_parameters_red, get_parameters_tv
 
 import math
@@ -18,18 +19,24 @@ def tune_grid_all(data_in, params_exp, device):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    # TUNE TV
-    p_tv = get_parameters_tv(params_exp)
-    ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
-    res_tv, data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
+    with torch.no_grad():
+        # TUNE TV
+        p_tv = get_parameters_tv(params_exp)
+        ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
+        data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
 
-    # TUNE RED
-    p_red, param_init = get_parameters_red(params_exp)
-    ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-    res_red, data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD)
+        # TUNE RED
+        p_red, param_init = get_parameters_red(params_exp)
+        ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
+        data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD)
 
-    return {'res_tv': res_tv, 'data_tv': data_tv, 'keys_tv': keys_tv,
-            'res_red': res_red, 'data_red': data_red, 'keys_red': keys_red}
+
+    res = {
+        MFbML().key: {'axis': keys_tv, 'tensors': data_tv},
+        MRedMLInit().key: {'axis': keys_red, 'tensors': data_red},
+    }
+
+    return res
 
 
 def tune_grid_red(params_algo, algo):
@@ -132,7 +139,8 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
             kj = list(params_name)[j]
             val_j = axis_vec[j][max_i[j]]
             res[kj] = val_j
-        return res, prec, list(d_grid.keys())
+        #return res, prec, list(d_grid.keys())
+        return prec, list(d_grid.keys())
 
     d_grid2 = d_grid.copy()
     for j in range(len(sz)):

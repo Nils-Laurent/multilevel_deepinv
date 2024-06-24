@@ -20,7 +20,7 @@ from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all
-from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d
+from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d, print_gridsearch_max
 from utils.paths import dataset_path, get_out_dir
 
 def test_settings(data_in, params_exp, device, benchmark=False):
@@ -151,32 +151,34 @@ def main_tune(plot_and_exit=False):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         file_pb = grid_search_npy_filename(pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
-        print(f"{pb}:")
-        print(f"p_red = {data['res_red']}")
-        print(f"p_tv = {data['res_tv']}")
+        #print(f"{pb}:")
+        #print(f"p_red = {data['res_red']}")
+        #print(f"p_tv = {data['res_tv']}")
 
 def main_tune_plot(pb_list, noise_pow_vec):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
-        print("main_tune_plot", pb, noise_pow)
+        #print("main_tune_plot", pb, noise_pow)
         file_pb = grid_search_npy_filename(suffix=pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
 
-        data_red = data['data_red']
-        keys_red = data['keys_red']
-        tune_scatter_2d(data_red, keys_red, fig_name=f"{pb}_{noise_pow}_scatter2d")
-
-        data_tv = data['data_tv']
-        keys_tv = data['keys_tv']
-        tune_plot_1d(data_tv, keys_tv, fig_name=f"{pb}_{noise_pow}_plot1d")
+        for key_ in data.keys():
+            axis = data[key_]['axis']
+            tensors = data[key_]['tensors']
+            if len(axis) == 2:
+                tune_scatter_2d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_scatter2d")
+                print_gridsearch_max(tensors, axis, f"{pb}_{noise_pow}_{key_}_scatter2d")
+            else:
+                tune_plot_1d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_plot1d")
+                print_gridsearch_max(tensors, axis, f"{pb}_{noise_pow}_{key_}_scatter2d")
 
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    #main_tune(plot_and_exit=False)
-    #main_tune(plot_and_exit=True)
+    main_tune(plot_and_exit=False)
+    main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
-    main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
+    #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
     #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, noise_pow=0.1, target=1)
     #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)

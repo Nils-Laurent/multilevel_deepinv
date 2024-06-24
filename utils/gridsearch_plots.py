@@ -72,3 +72,20 @@ def tune_plot_1d(d_tune, keys, fig_name=None):
         #pyplot.savefig(join(out_path, (fig_name + ".pgf")))
         pyplot.savefig(join(out_path, (fig_name + ".png")))
     pyplot.close('all')
+
+def print_gridsearch_max(d_tune, keys, name):
+
+    psnr_tensor = d_tune[-1]['cost']
+    coord_vec = d_tune[-1]['coord']
+
+    max_v = torch.max(psnr_tensor.view(-1))
+    max_j = torch.argmax(psnr_tensor.view(-1))
+    max_i = torch.unravel_index(max_j, psnr_tensor.shape)
+
+    print(f"{name} PSNR = {max_v}")
+    print("{", end="")
+    it = 0
+    for k in keys:
+        print(f"{k}: {coord_vec[it][max_i[it]]}, ", end="")
+        it += 1
+    print("}")
