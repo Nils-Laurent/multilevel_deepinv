@@ -18,7 +18,7 @@ import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
-from tests.parameters import standard_multilevel_param, prior_lipschitz, red_prior_param
+from tests.parameters import standard_multilevel_param
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
@@ -58,13 +58,9 @@ class RunAlgorithm:
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
-        #denoiser = DRUNet(pretrained="download", train=False, device=self.device)
         net = DRUNet(pretrained="download", train=False, device=self.device)
-        #denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
-        denoiser = net
-        #prior = ScorePrior(denoiser)
-        prior_class = red_prior_param()
-        prior = prior_class(denoiser)
+        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        prior = RED(denoiser)
         iteration = GDIteration(has_cost=False)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)

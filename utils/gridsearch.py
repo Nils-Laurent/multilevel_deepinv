@@ -160,7 +160,6 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
             kj = list(params_name)[j]
             val_j = axis_vec[j][max_i[j]]
             res[kj] = val_j
-        #return res, prec, list(d_grid.keys())
         return prec, list(d_grid.keys())
 
     d_grid2 = d_grid.copy()

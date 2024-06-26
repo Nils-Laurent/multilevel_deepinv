@@ -1,7 +1,7 @@
-from deepinv.optim.optim_iterators import GDIteration
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
 from deepinv.models import DRUNet
 
+from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
@@ -11,18 +11,19 @@ def get_parameters_pnp(params_exp):
     params_algo, hp_red, hp_tv = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
 
-    # todo : gridsearch lambda, g_param
-    p_pnp['g_param'] = 0.05
-    lambda_pnp = 1.0
-
     iters_fine = 200
     iters_coarse = 3
     iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
     p_pnp['iml_max_iter'] = 8
-    p_pnp['coarse_iterator'] = CPGDIteration
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec)
+    p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
+
+    # todo : gridsearch lambda, g_param
+    p_pnp['g_param'] = 0.05
+    lambda_pnp = 1.0
+
     p_pnp['lambda'] = lambda_pnp
     p_pnp['step_coeff'] = 0.9  # no convex setting
     p_pnp['stepsize'] = p_pnp['step_coeff'] / (1.0 + lambda_pnp * p_pnp['lip_g'])
@@ -37,10 +38,6 @@ def get_parameters_red(params_exp):
     p_red['g_param'] = hp_red['g_param']
     lambda_red = hp_red['lambda']
 
-    if red_prior_param() is ScorePrior:
-        noise_pow = params_exp["noise_pow"]
-        lambda_red = lambda_red * noise_pow**2
-
     print("lambda_red:", lambda_red)
 
     iters_fine = 200
@@ -49,7 +46,7 @@ def get_parameters_red(params_exp):
     p_red['iml_max_iter'] = 8
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec)
-    p_red['lip_g'] = prior_lipschitz(red_prior_param(), p_red, DRUNet)
+    p_red['lip_g'] = prior_lipschitz(RED, p_red, DRUNet)
     p_red['lambda'] = lambda_red
     p_red['step_coeff'] = 0.9  # no convex setting
     p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
@@ -87,7 +84,7 @@ def standard_multilevel_param(params, it_vec):
     params['params_multilevel'] = [ml_dict]
     params['level'] = levels
     params['n_levels'] = levels
-    params['coarse_iterator'] = GDIteration
+    params['coarse_iterator'] = CGDIteration
 
     iml_max_iter = params['iml_max_iter']
     params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
@@ -148,9 +145,3 @@ def prior_lipschitz(prior, param, denoiser=None):
         return 1.0
 
     raise ValueError("Unsupported prior")
-
-
-def red_prior_param():
-    #return ScorePrior
-    return RED
-

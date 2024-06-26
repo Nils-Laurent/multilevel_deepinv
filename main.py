@@ -51,12 +51,12 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
 
     # ============== PnP ==============
-    #p_pnp = get_parameters_pnp(params_exp)
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
-    #p_pnp = get_parameters_pnp(params_exp)
-    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    #rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
+    p_pnp = get_parameters_pnp(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
+    p_pnp = get_parameters_pnp(params_exp)
+    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
 
     # ============== DPIR ==============
     p_red, param_init = get_parameters_red(params_exp)
@@ -132,10 +132,9 @@ def main_test(
 
 def main_tune(plot_and_exit=False):
     #pb_list = ['inpainting', 'blur', 'tomography']
-    #pb_list = ['inpainting', 'blur']
     #noise_pow_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
-    pb_list = ['inpainting']
-    noise_pow_vec = [0.01]
+    pb_list = ['inpainting', 'blur']
+    noise_pow_vec = [0.01, 0.1, 0.2]
 
     if plot_and_exit is True:
         main_tune_plot(pb_list, noise_pow_vec)
@@ -151,13 +150,9 @@ def main_tune(plot_and_exit=False):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         file_pb = grid_search_npy_filename(pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
-        #print(f"{pb}:")
-        #print(f"p_red = {data['res_red']}")
-        #print(f"p_tv = {data['res_tv']}")
 
 def main_tune_plot(pb_list, noise_pow_vec):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
-        #print("main_tune_plot", pb, noise_pow)
         file_pb = grid_search_npy_filename(suffix=pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
 
@@ -193,11 +188,11 @@ def main_tune_plot(pb_list, noise_pow_vec):
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    #main_tune(plot_and_exit=False)
-    #main_tune(plot_and_exit=True)
+    main_tune(plot_and_exit=False)
+    main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
-    main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
+    #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
     #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, noise_pow=0.1, target=1)
     #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
     #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
