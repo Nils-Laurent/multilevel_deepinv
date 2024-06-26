@@ -1,5 +1,5 @@
-from gen_fig.fig_metric_logger import MRedMLInit, MFbML
-from tests.parameters import get_parameters_red, get_parameters_tv
+from gen_fig.fig_metric_logger import MRedMLInit, MFbML, MPnPML
+from tests.parameters import get_parameters_red, get_parameters_tv, get_parameters_pnp
 
 import math
 import torch
@@ -20,6 +20,11 @@ def tune_grid_all(data_in, params_exp, device):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     with torch.no_grad():
+        # TUNE PNP
+        p_pnp = get_parameters_pnp(params_exp)
+        ra_pnp = RunAlgorithm(data, physics, params_exp, device=device)
+        data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
+
         # TUNE TV
         p_tv = get_parameters_tv(params_exp)
         ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
@@ -34,13 +39,29 @@ def tune_grid_all(data_in, params_exp, device):
     res = {
         MFbML().key: {'axis': keys_tv, 'tensors': data_tv},
         MRedMLInit().key: {'axis': keys_red, 'tensors': data_red},
+        MPnPML().key: {'axis': keys_pnp, 'tensors': data_pnp}
     }
 
     return res
 
 
 def tune_grid_red(params_algo, algo):
-    lambda_range = [1E-6, 100.0]
+    lambda_range = [1E-5, 300.0]
+    lambda_split = 11  # should be around 11
+    sigma_range = [0.005, 0.51]
+    sigma_split = 9  # should be around 9
+
+    d_grid = {
+        'lambda': [lambda_range, lambda_split],
+        'g_param': [sigma_range, sigma_split],
+    }
+
+    recurse = 2
+    return _tune(params_algo, algo, d_grid, recurse)
+
+
+def tune_grid_pnp(params_algo, algo):
+    lambda_range = [1E-5, 300.0]
     lambda_split = 11  # should be around 11
     sigma_range = [0.005, 0.51]
     sigma_split = 9  # should be around 9

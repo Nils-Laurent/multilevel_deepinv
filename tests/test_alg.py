@@ -5,10 +5,10 @@ from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
 from deepinv.models import DRUNet, GSDRUNet
-from deepinv.optim import PnP
+from multilevel_utils.fixed_gsdrunet import GSDRUNet
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
-from deepinv.optim.prior import ScorePrior, RED
+from deepinv.optim.prior import ScorePrior, RED, PnP
 from deepinv.utils.logger import MetricLogger
 from torch.utils.data import DataLoader
 
@@ -18,7 +18,7 @@ import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
-from tests.parameters import standard_multilevel_param
+from tests.parameters import standard_multilevel_param, prior_lipschitz, red_prior_param
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
@@ -56,23 +56,15 @@ class RunAlgorithm:
         b = ("manual_seed" in params_exp.keys()) and (params_exp["manual_seed"] is True)
         self.manual_seed = b
 
-    def PNP_PGD(self, params_algo):
-        alg_name = "PNP_PGD"
-        denoiser = DRUNet(pretrained="download", train=False, device=self.device)
-        prior = PnP(denoiser)
-        iteration = PGDIteration(has_cost=False)
-        if 'level' in params_algo.keys() and params_algo['level'] > 1:
-            raise NotImplementedError("PnP ML not yet implem.")
-
-        return self.run_algorithm(iteration, prior, params_algo, alg_name)
-
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
         #denoiser = DRUNet(pretrained="download", train=False, device=self.device)
-        #prior = ScorePrior(denoiser)
         net = DRUNet(pretrained="download", train=False, device=self.device)
-        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
-        prior = RED(denoiser)
+        #denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        denoiser = net
+        #prior = ScorePrior(denoiser)
+        prior_class = red_prior_param()
+        prior = prior_class(denoiser)
         iteration = GDIteration(has_cost=False)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
@@ -205,7 +197,7 @@ class RunAlgorithm:
 
             return m
         else:
-            #model.eval()
+            model.eval()
             # Assumes self.data is an image of the form torch.Tensor
             x_ref = self.data
             y = self.physics(x_ref)  # A(x) + noise
