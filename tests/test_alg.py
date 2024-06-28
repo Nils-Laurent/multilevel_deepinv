@@ -127,6 +127,7 @@ class RunAlgorithm:
             params_algo_init = params_algo.copy()
             standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
             ml_params = MultiLevelParams(params_algo_init)
+
             def init_ml_x0(y, physics, F_fn=None):
                 cm = CoarseModel(prior, self.data_fidelity, physics, ml_params)
                 if isinstance(physics, Tomography):

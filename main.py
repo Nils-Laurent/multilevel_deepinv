@@ -1,14 +1,19 @@
 import sys
 
 import torch
-from torch.utils.data import Subset
+from torch.utils.data import Subset, Dataset
 from torchvision import transforms
 from itertools import product
 
 from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbML, MPnPML, MPnP
+from utils.measure_data import create_measure_data, load_measure_data
+from utils._create_measure_data_old import create_measure_data_
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
+
+import matplotlib
+matplotlib.use('module://backend_interagg')
 
 import deepinv
 from deepinv.physics import GaussianNoise
@@ -21,17 +26,19 @@ from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d, print_gridsearch_max
 from utils.paths import dataset_path, get_out_dir
 
-def test_settings(data_in, params_exp, device, benchmark=False):
-    print("Using torch.manual_seed")
-    params_exp["manual_seed"] = True
+def test_settings(data_in, params_exp, device, benchmark=False, physics=None):
+    #print("Using torch.manual_seed")
+    #params_exp["manual_seed"] = True
 
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
     tensor_np = torch.tensor(noise_pow).to(device)
     g = GaussianNoise(sigma=tensor_np)
-    physics, problem_name = physics_from_exp(params_exp, g, device)
-    data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
+    exp_physics, problem_name = physics_from_exp(params_exp, g, device)
+    data = data_from_user_input(data_in, exp_physics, params_exp, problem_name, device)
+    if physics is None:
+        physics = exp_physics
 
     b_dataset = not(type(data_in) == torch.Tensor)
     rm = ResultManager(b_dataset=b_dataset)
@@ -51,12 +58,12 @@ def test_settings(data_in, params_exp, device, benchmark=False):
     rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
 
     # ============== PnP ==============
-    p_pnp = get_parameters_pnp(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
-    p_pnp = get_parameters_pnp(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
+    #p_pnp = get_parameters_pnp(params_exp)
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
+    #p_pnp = get_parameters_pnp(params_exp)
+    #ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
 
     # ============== DPIR ==============
     p_red, param_init = get_parameters_red(params_exp)
@@ -83,7 +90,8 @@ def main_test(
         dataset_name='set3c',
         nb_subset=None,
         img_size=None,
-        target=None
+        target=None,
+        use_file_data=True,
 ):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
@@ -93,10 +101,6 @@ def main_test(
         val_transform = transforms.Compose([transforms.ToTensor()])
     else:
         val_transform = transforms.Compose([transforms.CenterCrop(img_size), transforms.ToTensor()])
-
-    dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
-    if nb_subset is not None:
-        dataset = Subset(dataset, range(0, nb_subset))
 
     # inpainting: proportion of pixels to keep
     params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': (3, img_size, img_size)}
@@ -110,15 +114,27 @@ def main_test(
     else:
         raise NotImplementedError()
 
+    physics = None
+    if use_file_data:
+        data, physics = load_measure_data(params_exp)
+    else:
+        dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
+        if nb_subset is not None:
+            dataset = Subset(dataset, range(0, nb_subset))
+        data = dataset
+
+        if tune is True:
+            return tune_grid_all(dataset, params_exp, device)
+
     if tune is True:
-        return tune_grid_all(dataset, params_exp, device)
+        return None
 
     with torch.no_grad():
         if test_dataset is True:
-            test_settings(dataset, params_exp, device=device, benchmark=benchmark)
-        else:
+            test_settings(data, params_exp, device=device, benchmark=benchmark, physics=physics)
+        elif isinstance(data, Dataset):
             id_img = 0
-            for t in dataset:
+            for t in data:
                 id_img += 1
                 if not (target is None) and id_img != target:
                     continue
@@ -166,30 +182,14 @@ def main_tune_plot(pb_list, noise_pow_vec):
                 tune_plot_1d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_plot1d")
                 print_gridsearch_max(tensors, axis, f"{pb}_{noise_pow}_{key_}_plot1d")
 
-#def mini_test():
-#    import numpy
-#    import pylatex
-#    from pylatex import Plot
-#
-#
-#    doc = pylatex.Document()
-#    with doc.create(pylatex.TikZ()):
-#        plot_options = 'height=4cm, width=6cm, grid=major'
-#        with doc.create(pylatex.Axis(options=plot_options)) as plot:
-#            t = numpy.arange(0.0, 2.0, 0.01)
-#            s = 1 + numpy.sin(2 * numpy.pi * t)
-#            c = [(ti, si) for (ti, si) in zip(t, s)]
-#            plot.append(Plot(name='estimate', coordinates=c))
-#
-#    out_f = "test"
-#    doc.generate_tex(filepath=out_f)
-
 
 if __name__ == "__main__":
     print(sys.prefix)
     # 1 perform grid search
-    main_tune(plot_and_exit=False)
-    main_tune(plot_and_exit=True)
+    #create_measure_data('inpainting', dataset_name='set3c', noise_pow=0.1, img_size=256)
+    main_test('inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1)
+    #main_tune(plot_and_exit=False)
+    #main_tune(plot_and_exit=True)
 
     # 2 quick tests + benchmark
     #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)

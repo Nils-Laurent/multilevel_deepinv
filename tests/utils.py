@@ -21,20 +21,17 @@ def physics_from_exp(params_exp, noise_model, device):
     match problem:
         case 'inpainting':
             def_mask = params_exp[problem]
-            print("def_mask:", def_mask)
             problem_full = problem + "_" + str(def_mask) + "_" + str(noise_pow)
             physics = Inpainting(params_exp['shape'], mask=def_mask, noise_model=noise_model, device=device)
         case 'tomography':
             prop = params_exp[problem]
             def_angles = int(180*prop)
-            print("angle prop:", prop)
             problem_full = problem + "_" + str(prop) + "_" + str(noise_pow)
             physics = Tomography(
                 angles=def_angles, img_width=params_exp['shape'][-2], noise_model=noise_model, device=device
             )
         case 'blur':
             power = params_exp[problem + '_pow']
-            print("def_blur_pow:", power)
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
             #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
             physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
@@ -61,9 +58,11 @@ class CH5Dataset(HDF5Dataset):
 
 def data_from_user_input(input_data, physics, params_exp, problem_name, device):
     if isinstance(input_data, torch.Tensor):
-        data = input_data
+        return input_data
     elif isinstance(input_data, Dataset):
         return DataLoader(input_data, shuffle=True)
+    elif isinstance(input_data, DataLoader):
+        return input_data
     else:
         raise NotImplementedError()
         #save_dir = measurements_path().joinpath(params_exp['set_name'], problem_name)
@@ -86,8 +85,6 @@ def data_from_user_input(input_data, physics, params_exp, problem_name, device):
         #        data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
         #data = DataLoader(data_bis, shuffle=True, batch_size=1)
         ##data = DataLoader(data_bis, shuffle=False)
-
-    return data
 
 
 from prettytable import PrettyTable
@@ -125,5 +122,6 @@ class ResultManager:
             print("saving data")
             numpy.save(get_out_dir() + "/psnr_data", [self.generator])
             print("generating psnr figure [...]")
-            self.generator.gen_fig('psnr')
+            #self.generator.gen_fig('psnr')
+            self.generator.gen_tex('psnr')
             print("end")
