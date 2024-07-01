@@ -171,8 +171,10 @@ class RunAlgorithm:
 
         if isinstance(self.data, DataLoader):
             m = MetricLogger()
+            online = self.params_exp['online']
             test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
-                model, self.data, self.physics, device=self.device, online_measurements=True, metric_logger=m
+                model, self.data, self.physics,
+                device=self.device, online_measurements=online, metric_logger=m, time_iter=self.time_iter
             )
             dict_res = {
                 "test_psnr": test_psnr,

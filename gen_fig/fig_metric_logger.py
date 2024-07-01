@@ -105,9 +105,12 @@ class GenFigMetricLogger:
     def gen_tex(self, metric, fig_name, x_axis=None):
         doc = Document()
         doc.preamble.append(Command('usepgfplotslibrary', 'fillbetween'))
+        x_label = x_axis
+        if x_axis is None:
+            x_label = 'iterations'
 
         with (doc.create(TikZ())):
-            ax_options = 'height=10cm, width=16cm, grid=major, xlabel=iterations, ylabel=PSNR, legend pos=south east'
+            ax_options = f'height=10cm, width=16cm, grid=major, xlabel={x_label}, ylabel=PSNR, legend pos=south east'
             with doc.create(Axis(options=ax_options)) as ax:
                 index = 0
                 for method_key, g in self.data.items():
@@ -122,6 +125,10 @@ class GenFigMetricLogger:
                     mx, my = mat.shape
                     if x_axis is None:
                         x_vec = range(my)
+                    else:
+                        x_mat = g.metric_matrix(x_axis)
+                        x_vec = numpy.median(mat, axis=0)
+                        x_vec = numpy.cumsum(x_vec) / 1000  # ms to seconds
                     y5 = numpy.quantile(mat, q=0.05, axis=0)
                     c5 = [(xi, yi) for (xi, yi) in zip(x_vec, y5)]
                     y95 = numpy.quantile(mat, q=0.95, axis=0)
@@ -143,7 +150,10 @@ class GenFigMetricLogger:
                     plot_options = f"mark=none, color={method.color}, {method.linestyle}"
                     ax.append(Plot(name=method.label, coordinates=c, options=plot_options))
 
-        out_f = join(get_out_dir(), fig_name + "_" + metric).__str__()
+        full_name = fig_name + "_" + metric
+        if not(x_axis is None):
+            full_name += "_" + x_axis
+        out_f = join(get_out_dir(), full_name).__str__()
         doc.generate_tex(filepath=out_f)
 
     #def gen_fig(self, metric):

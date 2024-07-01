@@ -117,7 +117,7 @@ class ResultManager:
         if self.b_dataset is True:
             self.generator.add_logger(output, key)
 
-    def finalize(self, method_keep, params_exp):
+    def finalize(self, method_keep, params_exp, benchmark):
         list_key_keep = [x().key for x in method_keep]
         if self.b_dataset is True:
             print("saving data")
@@ -130,5 +130,7 @@ class ResultManager:
             noise_pow = params_exp['noise_pow']
             set_name = params_exp['set_name']
             fig_name = f"{set_name}_n{noise_pow}_{pb}"
+            if benchmark is True:
+                self.generator.gen_tex('psnr', fig_name, x_axis='time')
             self.generator.gen_tex('psnr', fig_name)
             print("end")

@@ -67,9 +67,9 @@ def create_measure_data(
     torch.save(data, data_file)
 
 
-def load_measure_data(params_exp):
-    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    print(device)
+def load_measure_data(params_exp, device):
+    #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
+    #print(device)
 
     # inpainting: proportion of pixels to keep
     noise_pow = params_exp['noise_pow']
@@ -82,9 +82,9 @@ def load_measure_data(params_exp):
     ph0, problem_name = physics_from_exp(params_exp, g, device)
     measurement_dir = measurements_path()
     degrad_name = dataset_name + "_" + problem_name
-    data_file = measurement_dir / degrad_name / (degrad_name + ".pth")
+    file_name = measurement_dir / degrad_name / (degrad_name + ".pth")
 
-    file_data = torch.load(data_file)
+    file_data = torch.load(file_name)
     state_list2 = file_data['states']
     degrad2 = file_data['tuples']
 

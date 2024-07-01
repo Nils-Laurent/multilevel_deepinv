@@ -87,7 +87,7 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     if MFbML in list_method:
         rm.post_process(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
 
-    rm.finalize(list_method, params_exp)
+    rm.finalize(list_method, params_exp, benchmark)
 
 
 def main_test(
@@ -126,8 +126,10 @@ def main_test(
 
     physics = None
     if use_file_data:
-        data, physics = load_measure_data(params_exp)
+        params_exp['online'] = False
+        data, physics = load_measure_data(params_exp, device)
     else:
+        params_exp['online'] = True
         dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
         if nb_subset is not None:
             dataset = Subset(dataset, range(0, nb_subset))
@@ -177,6 +179,7 @@ def main_tune(plot_and_exit=False):
         file_pb = grid_search_npy_filename(pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
 
+
 def main_tune_plot(pb_list, noise_pow_vec):
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         file_pb = grid_search_npy_filename(suffix=pb + str(noise_pow))
@@ -201,7 +204,7 @@ if __name__ == "__main__":
     # 1 perform grid search
     #create_measure_data('inpainting', dataset_name='set3c', noise_pow=0.1, img_size=256)
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.1, img_size=256)
-    main_test('blur', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp)
+    main_test('blur', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, benchmark=True)
     #main_tune(plot_and_exit=False)
     #main_tune(plot_and_exit=True)
 
