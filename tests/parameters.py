@@ -8,7 +8,7 @@ from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomo
 
 
 def get_parameters_pnp(params_exp):
-    params_algo, hp_red, hp_tv = get_param_algo_(params_exp)
+    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
 
     iters_fine = 200
@@ -20,9 +20,9 @@ def get_parameters_pnp(params_exp):
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
-    # todo : gridsearch lambda, g_param
-    p_pnp['g_param'] = 0.05
-    lambda_pnp = 1.0
+    p_pnp['g_param'] = hp_pnp['g_param']
+    lambda_pnp = hp_pnp['lambda']
+    print("lambda_pnp:", lambda_pnp)
 
     p_pnp['lambda'] = lambda_pnp
     p_pnp['step_coeff'] = 0.9  # no convex setting
@@ -32,12 +32,11 @@ def get_parameters_pnp(params_exp):
 
 
 def get_parameters_red(params_exp):
-    params_algo, hp_red, hp_tv = get_param_algo_(params_exp)
+    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
     p_red = params_algo.copy()
 
     p_red['g_param'] = hp_red['g_param']
     lambda_red = hp_red['lambda']
-
     print("lambda_red:", lambda_red)
 
     iters_fine = 200
@@ -55,10 +54,9 @@ def get_parameters_red(params_exp):
     return p_red, param_init
 
 def get_parameters_tv(params_exp):
-    params_algo, hp_red, hp_tv = get_param_algo_(params_exp)
+    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
     p_tv = params_algo.copy()
     lambda_tv = hp_tv['lambda']
-
     print("lambda_tv:", lambda_tv)
 
     iters_fine = 200
@@ -108,11 +106,11 @@ def get_param_algo_(params_exp):
     print("def_noise:", noise_pow)
 
     if problem == 'inpainting':
-        hp_red, hp_tv = inpainting_hyper_param(noise_pow)
+        hp_red, hp_pnp, hp_tv = inpainting_hyper_param(noise_pow)
     elif problem == 'blur':
-        hp_red, hp_tv = blur_hyper_param(noise_pow)
+        hp_red, hp_pnp, hp_tv = blur_hyper_param(noise_pow)
     elif problem == 'tomography':
-        hp_red, hp_tv = tomography_hyper_param(noise_pow)
+        hp_red, hp_pnp, hp_tv = tomography_hyper_param(noise_pow)
     else:
         raise NotImplementedError("not implem")
 
@@ -121,7 +119,7 @@ def get_param_algo_(params_exp):
         'scale_coherent_grad': True
     }
 
-    return params_algo, hp_red, hp_tv
+    return params_algo, hp_red, hp_pnp, hp_tv
 
 
 def red_drunet_lipschitz():

@@ -65,6 +65,8 @@ class MFbML:
 
 def methods_obj():
     t_res = [
+        MPnP(),
+        MPnPML(),
         MRed(),
         MRedML(),
         MRedInit(),
@@ -85,14 +87,22 @@ class GenFigMetricLogger:
     def __init__(self):
         self.data = {}
         self.methods = methods_obj()
+        self.keys_keep = self.methods
 
     def add_logger(self, x, mkey):
         self.data[mkey] = x
 
+    def keep_method(self, list_keys):
+        res = {}
+        for k_ in list_keys:
+            res[k_] = self.keys_keep[k_]
+
+        self.keys_keep = res
+
     def is_valid_key(self, mkey):
         return mkey in self.methods.keys()
 
-    def gen_tex(self, metric, x_axis=None):
+    def gen_tex(self, metric, fig_name, x_axis=None):
         doc = Document()
         doc.preamble.append(Command('usepgfplotslibrary', 'fillbetween'))
 
@@ -102,6 +112,8 @@ class GenFigMetricLogger:
                 index = 0
                 for method_key, g in self.data.items():
                     if not g.has_key(metric) or not self.is_valid_key(method_key):
+                        continue
+                    if not (method_key in self.keys_keep.keys()):
                         continue
                     index += 1
 
@@ -131,7 +143,7 @@ class GenFigMetricLogger:
                     plot_options = f"mark=none, color={method.color}, {method.linestyle}"
                     ax.append(Plot(name=method.label, coordinates=c, options=plot_options))
 
-        out_f = join(get_out_dir(), metric).__str__()
+        out_f = join(get_out_dir(), fig_name + "_" + metric).__str__()
         doc.generate_tex(filepath=out_f)
 
     #def gen_fig(self, metric):

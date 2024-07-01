@@ -117,11 +117,18 @@ class ResultManager:
         if self.b_dataset is True:
             self.generator.add_logger(output, key)
 
-    def finalize(self):
+    def finalize(self, method_keep, params_exp):
+        list_key_keep = [x().key for x in method_keep]
         if self.b_dataset is True:
             print("saving data")
             numpy.save(get_out_dir() + "/psnr_data", [self.generator])
             print("generating psnr figure [...]")
-            #self.generator.gen_fig('psnr')
-            self.generator.gen_tex('psnr')
+            self.generator.keep_method(list_key_keep)
+
+            name = params_exp
+            pb = params_exp['problem']
+            noise_pow = params_exp['noise_pow']
+            set_name = params_exp['set_name']
+            fig_name = f"{set_name}_n{noise_pow}_{pb}"
+            self.generator.gen_tex('psnr', fig_name)
             print("end")
