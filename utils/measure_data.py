@@ -8,6 +8,7 @@ from torchvision import transforms
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
 
+from torch.utils.data import Subset, Dataset
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
@@ -25,13 +26,13 @@ def create_measure_data(
     print(device)
 
     original_data_dir = dataset_path()
-    if img_size is None:
-        val_transform = transforms.Compose([transforms.ToTensor()])
-    else:
+    val_transform = transforms.Compose([transforms.ToTensor()])
+    if not(img_size is None) and type(img_size) is int:
         val_transform = transforms.Compose([transforms.CenterCrop(img_size), transforms.ToTensor()])
+        img_size = (3, img_size, img_size)
 
     # inpainting: proportion of pixels to keep
-    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': (3, img_size, img_size)}
+    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size}
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = 0.5
@@ -67,7 +68,7 @@ def create_measure_data(
     torch.save(data, data_file)
 
 
-def load_measure_data(params_exp, device):
+def load_measure_data(params_exp, device, subset_size=None, target=None):
     #device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     #print(device)
 
@@ -94,7 +95,20 @@ def load_measure_data(params_exp, device):
         ph.load_state_dict(state_list2[item])
         physics_list.append(ph)
 
-    res_dataloader = DataLoader(DegradDataset(degrad2))
+    dataset = DegradDataset(degrad2)
+
+    if (not (subset_size is None)) or (not (target is None)):
+        if subset_size is None:
+            subset_size = 1
+
+        offset = target
+        if target is None:
+            offset = 0
+
+        dataset = Subset(dataset, range(offset, offset + subset_size))
+        physics_list = physics_list[offset:offset + subset_size]
+
+    res_dataloader = DataLoader(dataset)
 
     return res_dataloader, physics_list
 

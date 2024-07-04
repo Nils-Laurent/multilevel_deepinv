@@ -164,5 +164,7 @@ class CoarseModel(torch.nn.Module):
         )
         x_est_coarse = model(y, self.physics)
 
+        assert not torch.isnan(x_est_coarse).any()
+
         return self.prolongation(x_est_coarse - x0)
 

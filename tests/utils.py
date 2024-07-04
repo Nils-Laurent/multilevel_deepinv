@@ -120,17 +120,18 @@ class ResultManager:
     def finalize(self, method_keep, params_exp, benchmark):
         list_key_keep = [x().key for x in method_keep]
         if self.b_dataset is True:
-            print("saving data")
-            numpy.save(get_out_dir() + "/psnr_data", [self.generator])
-            print("generating psnr figure [...]")
-            self.generator.keep_method(list_key_keep)
-
-            name = params_exp
             pb = params_exp['problem']
             noise_pow = params_exp['noise_pow']
             set_name = params_exp['set_name']
             fig_name = f"{set_name}_n{noise_pow}_{pb}"
+
+            print("saving data")
+            numpy.save(get_out_dir() + f"/{fig_name}_data", [self.generator])
+            print("generating psnr figure [...]")
+            self.generator.keep_method(list_key_keep)
             if benchmark is True:
-                self.generator.gen_tex('psnr', fig_name, x_axis='time')
-            self.generator.gen_tex('psnr', fig_name)
+                self.generator.gen_tex('psnr', fig_name, 'median', x_axis='time')
+                self.generator.gen_tex('psnr', fig_name, 'mean', x_axis='time')
+            self.generator.gen_tex('psnr', fig_name, 'median')
+            self.generator.gen_tex('psnr', fig_name, 'mean')
             print("end")

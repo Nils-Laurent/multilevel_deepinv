@@ -1,5 +1,5 @@
-from gen_fig.fig_metric_logger import MRedMLInit, MFbML, MPnPML
-from tests.parameters import get_parameters_red, get_parameters_tv, get_parameters_pnp
+from gen_fig.fig_metric_logger import MRedMLInit, MFbMLGD, MPnPML
+from tests.parameters import get_parameters_red, get_parameters_tv, get_parameters_pnp_prox
 
 import math
 import torch
@@ -21,7 +21,7 @@ def tune_grid_all(data_in, params_exp, device):
 
     with torch.no_grad():
         # TUNE PNP
-        p_pnp = get_parameters_pnp(params_exp)
+        p_pnp = get_parameters_pnp_prox(params_exp)
         ra_pnp = RunAlgorithm(data, physics, params_exp, device=device)
         data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
 
@@ -37,7 +37,7 @@ def tune_grid_all(data_in, params_exp, device):
 
 
     res = {
-        MFbML().key: {'axis': keys_tv, 'tensors': data_tv},
+        MFbMLGD().key: {'axis': keys_tv, 'tensors': data_tv},
         MRedMLInit().key: {'axis': keys_red, 'tensors': data_red},
         MPnPML().key: {'axis': keys_pnp, 'tensors': data_pnp}
     }

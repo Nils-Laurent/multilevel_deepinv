@@ -1,23 +1,24 @@
 import sys
 
 import torch
-from torch.utils.data import Subset, Dataset
+from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
-from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbML, MPnPML, MPnP
+from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx
 from utils.measure_data import create_measure_data, load_measure_data
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
 
 import matplotlib
-matplotlib.use('module://backend_interagg')
+#matplotlib.use('module://backend_interagg')
 
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp, single_level_params
+from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp_prox, single_level_params, \
+    get_parameters_tv_coarse_pgd
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
@@ -44,47 +45,52 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     rm = ResultManager(b_dataset=b_dataset)
 
     # ============== RED ==============
-    p_red, param_init = get_parameters_red(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     if MRedMLInit in list_method:
+        p_red, param_init = get_parameters_red(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
         rm.post_process(ra.RED_GD(p_red), MRedMLInit().key)
-
-    p_red, param_init = get_parameters_red(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
     if MRedInit in list_method:
+        p_red, param_init = get_parameters_red(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
         rm.post_process(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
 
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     if MRedML in list_method:
+        p_red, param_init = get_parameters_red(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.RED_GD(p_red.copy()), MRedML().key)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     if MRed in list_method:
+        p_red, param_init = get_parameters_red(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
 
     # ============== PnP ==============
-    p_pnp = get_parameters_pnp(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     if MPnPML in list_method:
+        p_pnp = get_parameters_pnp_prox(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
-    p_pnp = get_parameters_pnp(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     if MPnP in list_method:
+        p_pnp = get_parameters_pnp_prox(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
 
     # ============== DPIR ==============
-    p_red, param_init = get_parameters_red(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
     if MDPIR in list_method:
+        p_red, param_init = get_parameters_red(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
 
     # ============== PGD ==============
-    p_tv = get_parameters_tv(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    if MFbMLProx in list_method:
+        p_tv = get_parameters_tv_coarse_pgd(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+        rm.post_process(ra.TV_PGD(p_tv), MFbMLProx().key)
+    if MFbMLGD in list_method:
+        p_tv = get_parameters_tv(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+        rm.post_process(ra.TV_PGD(p_tv), MFbMLGD().key)
     if MFb in list_method:
-        rm.post_process(ra.TV_PGD(p_tv), MFbML().key)
-    p_tv = get_parameters_tv(params_exp)
-    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-    if MFbML in list_method:
+        p_tv = get_parameters_tv(params_exp)
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
         rm.post_process(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
 
     rm.finalize(list_method, params_exp, benchmark)
@@ -97,23 +103,23 @@ def main_test(
         benchmark=False,
         noise_pow=0.1,
         dataset_name='set3c',
-        nb_subset=None,
+        subset_size=None,
         img_size=None,
         target=None,
         use_file_data=True,
-        m_vec = None
+        m_vec=None,
 ):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
     original_data_dir = dataset_path()
-    if img_size is None:
-        val_transform = transforms.Compose([transforms.ToTensor()])
-    else:
+    val_transform = transforms.Compose([transforms.ToTensor()])
+    if not(img_size is None) and type(img_size) is int:
         val_transform = transforms.Compose([transforms.CenterCrop(img_size), transforms.ToTensor()])
+        img_size = (3, img_size, img_size)
 
     # inpainting: proportion of pixels to keep
-    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': (3, img_size, img_size)}
+    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size}
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = 0.5
@@ -127,12 +133,12 @@ def main_test(
     physics = None
     if use_file_data:
         params_exp['online'] = False
-        data, physics = load_measure_data(params_exp, device)
+        data, physics = load_measure_data(params_exp, device, subset_size=subset_size, target=target)
     else:
         params_exp['online'] = True
         dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
-        if nb_subset is not None:
-            dataset = Subset(dataset, range(0, nb_subset))
+        if subset_size is not None:
+            dataset = Subset(dataset, range(0, subset_size))
         data = dataset
 
         if tune is True:
@@ -147,15 +153,16 @@ def main_test(
         elif isinstance(data, Dataset):
             id_img = 0
             for t in data:
-                id_img += 1
                 if not (target is None) and id_img != target:
+                    id_img += 1
                     continue
 
                 name_id = dataset_name + "_" + str(id_img)
                 params_exp['img_name'] = name_id
 
                 img = t[0].unsqueeze(0).to(device)
-                test_settings(img, params_exp, device=device, benchmark=benchmark)
+                test_settings(img, params_exp, device=device, benchmark=benchmark, list_method=m_vec)
+                id_img += 1
 
 
 def main_tune(plot_and_exit=False):
@@ -198,15 +205,38 @@ def main_tune_plot(pb_list, noise_pow_vec):
 
 if __name__ == "__main__":
     print(sys.prefix)
-    m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbML]
-    m_vec_pnp = [MPnPML, MPnP, MDPIR, MFb, MFbML]
+    #set3c_shape = (3, 256, 256)
+    #div2k_shape = (3, 2040, 1356)
+    set3c_shape = 256
+    div2k_shape = 1024
+
+    m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
+    m_vec_pnp = [MPnPML, MPnP, MDPIR, MFb, MFbMLProx]
+    #m_vec_pnp = [MFbMLProx]
 
     # 1 perform grid search
-    #create_measure_data('inpainting', dataset_name='set3c', noise_pow=0.1, img_size=256)
-    #create_measure_data('blur', dataset_name='set3c', noise_pow=0.1, img_size=256)
-    main_test('blur', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, benchmark=True)
     #main_tune(plot_and_exit=False)
     #main_tune(plot_and_exit=True)
+
+    # 2 create degraded datasets
+    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.01, img_size=div2k_shape)
+    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.1, img_size=div2k_shape)
+    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
+
+    # 3 evaluate methods
+    #main_test('blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp, benchmark=True)
+    #main_test(
+    #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
+    #    benchmark=True, subset_size=None
+    #)
+    main_test(
+        'blur', img_size=set3c_shape, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
+        target=0, use_file_data=False
+    )
+    #main_test(
+    #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
+    #    benchmark=False
+    #)
 
     # 2 quick tests + benchmark
     #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)

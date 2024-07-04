@@ -73,11 +73,11 @@ class MultiLevelParams:
     def iml_max_iter(self):
         return self._get_scalar('iml_max_iter')
 
-    def stepsize(self):
-        return self._get_scalar('stepsize')
+    #def stepsize(self):
+    #    return self._get_scalar('stepsize')
 
-    def lambda_r(self):
-        return self._get_scalar('lambda')
+    #def lambda_r(self):
+    #    return self._get_scalar('lambda')
 
     def multilevel_step(self):
         return self._get_scalar('multilevel_step')
@@ -92,6 +92,12 @@ class MultiLevelParams:
 
     def iters(self):
         return self._get_from_ml('iters')
+
+    def lambda_r(self):
+        return self._get_from_ml('lambda')
+
+    def stepsize(self):
+        return self._get_from_ml('stepsize')
 
     # ========================== INTERNAL FUNCTIONS ==========================
     # internal functions
@@ -123,12 +129,16 @@ class MultiLevelParams:
         return ml_dict[key][self.level - 1]
 
     def _set_coarse(self):
-        self.params['lambda'] = self.lambda_r() / 4
-        step_coeff = self._get_scalar('step_coeff')
-        if 'gamma_moreau' in self.params.keys():
-            self.params['stepsize'] = step_coeff / (self.g_lipschitz / self.gamma_moreau() + self.f_lipschitz)
-        else:
-            self.params['stepsize'] = step_coeff / (self.g_lipschitz * self.lambda_r() + self.f_lipschitz)
+        self.params['lambda'] = self._get_from_ml('lambda')
+        self.params['stepsize'] = self._get_from_ml('stepsize')
+        #self.params['lambda'] = self.lambda_r() / 4
+        #step_coeff = self._get_scalar('step_coeff')
+        #if step_coeff is None:
+        #    self.params['stepsize'] = self._get_from_ml('step_size')
+        #elif 'gamma_moreau' in self.params.keys():
+        #    self.params['stepsize'] = step_coeff / (self.g_lipschitz / self.gamma_moreau() + self.f_lipschitz)
+        #else:
+        #    self.params['stepsize'] = step_coeff / (self.g_lipschitz * self.lambda_r() + self.f_lipschitz)
 
         if isinstance(self.params['params_multilevel'], dict):
             self.params['params_multilevel'] = [self.params['params_multilevel']]
