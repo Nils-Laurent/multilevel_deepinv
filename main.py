@@ -28,8 +28,9 @@ from utils.paths import dataset_path, get_out_dir
 
 
 def test_settings(data_in, params_exp, device, benchmark=False, physics=None, list_method=None):
-    #print("Using torch.manual_seed")
-    #params_exp["manual_seed"] = True
+    if isinstance(data_in, torch.Tensor):
+        print("Using torch.manual_seed")
+        params_exp["manual_seed"] = True
 
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
@@ -127,6 +128,8 @@ def main_test(
         params_exp[problem] = 0.6
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 3.6
+    elif problem == 'demosaicing':
+        params_exp[problem] = 0.5
     else:
         raise NotImplementedError()
 
@@ -212,7 +215,7 @@ if __name__ == "__main__":
 
     m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
     m_vec_pnp = [MPnPML, MPnP, MDPIR, MFb, MFbMLProx]
-    #m_vec_pnp = [MFbMLProx]
+    m_vec_pnp = [MPnPML, MPnP, MFb, MFbMLProx]
 
     # 1 perform grid search
     #main_tune(plot_and_exit=False)
@@ -223,32 +226,24 @@ if __name__ == "__main__":
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.1, img_size=div2k_shape)
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
-    # 3 evaluate methods
-    #main_test('blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp, benchmark=True)
+    # 3 CPU TEST
+    #m_vec_pnp = [MFb, MFbMLGD]
     #main_test(
     #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
-    #    benchmark=True, subset_size=None
+    #    benchmark=True, subset_size=20, use_file_data=False
     #)
+
+    # 3 evaluate methods on single image
     main_test(
         'blur', img_size=set3c_shape, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
-        target=0, use_file_data=False
+        target=0, use_file_data=False, benchmark=True
     )
     #main_test(
     #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
     #    benchmark=False
     #)
 
-    # 2 quick tests + benchmark
-    #main_test('inpainting', img_size=256, dataset_name='set3c', test_dataset=False,  noise_pow=0.1, target=2)
-    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', test_dataset=False, noise_pow=0.1, target=1)
-    #main_test('blur', img_size=1024, dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.05)
-    #main_test('tomography', dataset_name='DIV2K', test_dataset=False, benchmark=True, noise_pow=0.2)
-
-    # 3 datasets
-    #main_test('inpainting', img_size=256, noise_pow=0.1)
-    #main_test('inpainting', img_size=256, benchmark=True, noise_pow=0.1)
-    #main_test('inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1)
-    #main_test('tomography', dataset_name='DIV2K', noise_pow=0.1)
+    # 4 statistical tests
 
     # FIG GUILLAUME : noise = 0.01, blur_pow = 3.6 ?
     #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)

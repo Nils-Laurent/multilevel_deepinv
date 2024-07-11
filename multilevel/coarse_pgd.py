@@ -1,5 +1,6 @@
 import torch
 from deepinv.optim.optim_iterators import PGDIteration
+from deepinv.optim.optim_iterators.pgd import fStepPGD, gStepPGD
 from deepinv.optim.optim_iterators.utils import gradient_descent_step
 
 
@@ -11,6 +12,8 @@ class CPGDIteration(PGDIteration):
     def __init__(self, coarse_correction=None, **kwargs):
         super().__init__(**kwargs)
         self.coarse_correction = coarse_correction
+        self.g_step = gStepPGD(**kwargs)
+        self.f_step = fStepPGD(**kwargs)
 
     def forward(self, X, cur_data_fidelity, cur_prior, cur_params, y, physics):
         r"""
@@ -27,7 +30,7 @@ class CPGDIteration(PGDIteration):
         z = self.f_step(x_prev, cur_data_fidelity, cur_params, y, physics)
 
         if not(self.coarse_correction is None):
-            z += cur_params["stepsize"] * self.coarse_correction
+            z -= cur_params["stepsize"] * self.coarse_correction
 
         x = self.g_step(z, cur_prior, cur_params)
         return {"est": (x,), "cost": None}

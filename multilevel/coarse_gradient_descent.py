@@ -1,5 +1,6 @@
 import torch
 from deepinv.optim.optim_iterators import GDIteration
+from deepinv.optim.optim_iterators.gradient_descent import fStepGD, gStepGD
 from deepinv.optim.optim_iterators.utils import gradient_descent_step
 
 
@@ -11,6 +12,8 @@ class CGDIteration(GDIteration):
     def __init__(self, coarse_correction=None, **kwargs):
         super().__init__(**kwargs)
         self.coarse_correction = coarse_correction
+        self.g_step = gStepGD(**kwargs)
+        self.f_step = fStepGD(**kwargs)
 
     def forward(self, X, cur_data_fidelity, cur_prior, cur_params, y, physics):
         r"""
@@ -28,6 +31,7 @@ class CGDIteration(GDIteration):
             self.g_step(x_prev, cur_prior, cur_params)
             + self.f_step(x_prev, cur_data_fidelity, cur_params, y, physics)
         )
+        assert not torch.isnan(grad).any()
 
         if not(self.coarse_correction is None):
             grad += cur_params["stepsize"] * self.coarse_correction

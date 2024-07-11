@@ -67,11 +67,26 @@ class RunAlgorithm:
 
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
 
-    def PnP_PGD(self, params_algo):
+    def PnP_PGD(self, params_algo, use_cost=True):
         alg_name = "PnP_PGD"
         denoiser = GSDRUNet(pretrained="download", train=False, device=self.device)
         prior = PnP(denoiser)
-        iteration = PGDIteration(has_cost=False)
+
+        def F_fn(x, data_fidelity, prior, cur_params, y, physics):
+            denoiser = prior.denoiser
+            prior_value = denoiser.potential(x, cur_params["g_param"], reduce=False)  # should be phi_sigma
+            if prior_value.dim() == 0:
+                reg_value = cur_params["lambda"] * prior_value
+            else:
+                if isinstance(cur_params["lambda"], float):
+                    reg_value = (cur_params["lambda"] * prior_value).sum()
+                else:
+                    reg_value = (
+                        cur_params["lambda"].flatten() * prior_value.flatten()
+                    ).sum()
+            return data_fidelity(x, y, physics) + reg_value
+
+        iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
         return self.run_algorithm(iteration, prior, params_algo, alg_name)
@@ -81,7 +96,7 @@ class RunAlgorithm:
         prior = multilevel.prior.TVPrior(def_crit=params_algo["prox_crit"], n_it_max=params_algo["prox_max_it"])
 
         def F_fn(x, data_fidelity, prior, cur_params, y, physics):
-            prior_value = prior(x, cur_params["g_param"], reduce=False)
+            prior_value = prior(x, cur_params["g_param"], reduce=False)  # g_param ?
             if prior_value.dim() == 0:
                 reg_value = cur_params["lambda"] * prior_value
             else:
@@ -113,6 +128,7 @@ class RunAlgorithm:
 
     def run_algorithm(self, iteration, prior, params_algo, alg_name):
         if self.manual_seed is True:
+            print("Using torch.manual_seed(0)")
             torch.manual_seed(0)
 
         #if isinstance(self.physics, Tomography):

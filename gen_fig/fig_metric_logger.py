@@ -80,6 +80,7 @@ def methods_obj():
         MDPIR(),
         MFb(),
         MFbMLGD(),
+        MFbMLProx(),
     ]
 
     res = {}

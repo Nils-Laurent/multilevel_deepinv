@@ -8,6 +8,7 @@ import deepinv.optim as optim
 from multilevel.info_transfer import DownsamplingTransfer
 from multilevel.coarse_gradient_descent import CGDIteration
 import multilevel.iterator as multi_level
+from multilevel.prior import TVPrior
 from multilevel_utils.radon import Tomography
 
 
@@ -152,6 +153,9 @@ class CoarseModel(torch.nn.Module):
             x1 = x0 + self.pc.stepsize() * diff
         else:
             x1 = x0
+
+        if isinstance(self.g, TVPrior):
+            self.g.gamma_moreau = self.pc.gamma_moreau()  # compute gradient on Moreau envelope
 
         f_init = lambda def_y, def_ph: {'est': [x1], 'cost': None}
         model = optim.optim_builder(

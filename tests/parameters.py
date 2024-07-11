@@ -30,23 +30,17 @@ def get_parameters_pnp_prox(params_exp):
     iters_fine = 200
     iters_coarse = 3
     iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
-    p_pnp['iml_max_iter'] = 8
+    p_pnp['iml_max_iter'] = 12
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
-    #lambda_vec = p_pnp['params_multilevel'][0]['lambda']
-    lambda_vec = [lambda_pnp] * len(iters_vec)
+    lambda_vec = [lambda_pnp]  * len(iters_vec)
     stepsize_vec = [1.0/l for l in lambda_vec]
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
-    #p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
-    #p_pnp['stepsize'] = 1.0 / lambda_pnp
-    #p_pnp['step_coeff'] = None
-    #p_pnp['lambda'] = lambda_pnp
-
     return p_pnp
 
 
@@ -137,6 +131,8 @@ def single_level_params(params_ml):
     params['n_levels'] = 1
     params['level'] = 1
     params['iters'] = params_ml['params_multilevel'][0]['iters'][-1]
+    params['lambda'] = params_ml['params_multilevel'][0]['lambda'][-1]
+    params['stepsize'] = params_ml['params_multilevel'][0]['stepsize'][-1]
 
     return params
 

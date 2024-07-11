@@ -68,10 +68,11 @@ class TVPrior(Prior):
     :param int n_it_max: maximal number of iterations for the inner solver of the TV denoiser; default value: 1000.
     """
 
-    def __init__(self, def_crit=1e-6, n_it_max=1000, *args, **kwargs):
+    def __init__(self, def_crit=1e-6, n_it_max=1000, gamma_moreau=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.explicit_prior = True
         self.TVModel = TVDenoiser(crit=def_crit, n_it_max=n_it_max)
+        self.gamma_moreau = gamma_moreau
 
     def g(self, x, *args, **kwargs):
         r"""
@@ -130,3 +131,10 @@ class TVPrior(Prior):
         prox_dx = l12_prior.prox(dx, ths=1.0, gamma=gamma)
         m_grad = 1.0 / gamma * self.nabla_adjoint(dx - prox_dx)
         return m_grad
+
+    def grad(self, x, *args, **kwargs):
+        gamma = 1.0
+        if self.gamma_moreau is not None:
+            gamma = self.gamma_moreau
+
+        return self.moreau_grad(x, gamma=gamma)
