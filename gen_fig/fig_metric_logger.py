@@ -5,6 +5,8 @@ from matplotlib import pyplot
 from pylatex import Document, TikZ, Axis, Plot, NoEscape, Command
 import pylatex
 
+from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox, get_parameters_red, \
+    get_parameters_tv_coarse_pgd, get_parameters_tv
 from utils.paths import get_out_dir
 from dataclasses import dataclass
 
@@ -14,65 +16,83 @@ class MPnP:
     color = 'purple'
     linestyle = 'dashed'
     label = key
+    param_fn = get_parameters_pnp_prox
 @dataclass
 class MPnPML:
     key = 'PnP_ML'
     color = 'purple'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_pnp_prox
+@dataclass
+class MPnPML2:
+    key = 'PnP_ML2'
+    color = 'gray'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp
 @dataclass
 class MRed:
     key = 'RED'
     color = 'red'
     linestyle = 'dashed'
     label = key
+    param_fn = get_parameters_red
 @dataclass
 class MRedML:
     key = 'RED_ML'
     color = 'red'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_red
 @dataclass
 class MRedInit:
     key = 'RED_INIT'
     color = 'black'
     linestyle = 'dashed'
     label = key
+    param_fn = get_parameters_red
 @dataclass
 class MRedMLInit:
     key = 'RED_ML_INIT'
     color = 'black'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_red
 @dataclass
 class MDPIR:
     key = 'DPIR'
     color = 'green'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_red
 @dataclass
 class MFb:
     key = 'FB_TV'
     color = 'blue'
     linestyle = 'dashed'
     label = key
+    param_fn = get_parameters_tv
 @dataclass
 class MFbMLGD:
     key = 'FB_TV_ML'
     color = 'blue'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_tv
 @dataclass
 class MFbMLProx:
     key = 'FB_TV_ML_prox'
     color = 'blue'
     linestyle = 'solid'
     label = key
+    param_fn = get_parameters_tv_coarse_pgd
 
 def methods_obj():
     t_res = [
         MPnP(),
         MPnPML(),
+        MPnPML2(),
         MRed(),
         MRedML(),
         MRedInit(),

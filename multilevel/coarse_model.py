@@ -1,7 +1,7 @@
 import torch
 from deepinv.optim import PnP
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur, BlurFFT
+from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing
 import deepinv.optim as optim
 
 # multilevel imports
@@ -79,10 +79,13 @@ class CoarseModel(torch.nn.Module):
         return x0, x0_h, y
 
     def coarse_physics(self, x_coarse):
-        if isinstance(self.fph, Inpainting):
+        if isinstance(self.fph, Inpainting) or isinstance(self.fph, Demosaicing):
             m_fine = self.fph.mask.data
             m_coarse = self.projection(m_fine)
-            c_mask = torch.squeeze(m_coarse, 0)
+            if m_coarse.dim() == 4:
+                c_mask = torch.squeeze(m_coarse, 0)
+            else:
+                c_mask = m_coarse
             self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask, device=m_fine.device)
         elif isinstance(self.fph, Blur):
             fph = self.fph
@@ -115,7 +118,10 @@ class CoarseModel(torch.nn.Module):
             x0 = model.init_ml_x0({'est': [x0]}, y)
 
         f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
-        iteration = GDIteration(has_cost=False)
+        #iteration = GDIteration(has_cost=False)
+        iteration_class = self.pc.coarse_iterator()
+        iteration = iteration_class()
+
         model = optim.optim_builder(
             iteration,
             data_fidelity=self.f,

@@ -1,6 +1,9 @@
 import deepinv
 import torch
 
+from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx, \
+    MPnPML2
+
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
@@ -18,7 +21,7 @@ import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
-from tests.parameters import standard_multilevel_param
+from tests.parameters import standard_multilevel_param, single_level_params
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
 from utils.paths import gen_fname
@@ -34,7 +37,8 @@ class RunAlgorithm:
         param_init=None,
         r_model=False,
         trainable_params=None,
-        return_timer=False
+        return_timer=False,
+        def_name=None,
     ):
         self.data = data
         self.physics = physics
@@ -49,12 +53,30 @@ class RunAlgorithm:
         if trainable_params is None:
             self.trainable_params = []
 
+        b = ("manual_seed" in params_exp.keys()) and (params_exp["manual_seed"] is True)
+        self.manual_seed = b
+        self.alg_name = def_name
+
         if param_init is None:
             param_init = {}
         self.param_init = param_init
 
-        b = ("manual_seed" in params_exp.keys()) and (params_exp["manual_seed"] is True)
-        self.manual_seed = b
+    def set_init(self, param_init):
+        self.param_init = param_init
+
+    def run_algorithm(self, m_class, params_algo):
+        # set single level parameters
+        if m_class in [MFb, MRed, MRedInit, MPnP]:
+            params_algo = single_level_params(params_algo)
+
+        if m_class in [MRed, MRedML, MRedInit, MRedMLInit]:
+            return self.RED_GD(params_algo)
+        if m_class in [MFb, MFbMLProx, MFbMLGD]:
+            return self.TV_PGD(params_algo, use_cost=True)
+        if m_class in [MPnP, MPnPML]:
+            return self.PnP_PGD(params_algo, use_cost=True)
+        if m_class in [MPnPML2]:
+            return self.PnP(params_algo)
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
@@ -65,7 +87,17 @@ class RunAlgorithm:
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
 
-        return self.run_algorithm(iteration, prior, params_algo, alg_name)
+        return self._run_algorithm(iteration, prior, params_algo, alg_name)
+
+    def PnP(self, params_algo):
+        alg_name = "PnP"
+        denoiser = DRUNet(pretrained="download", device=self.device)
+        prior = PnP(denoiser)
+
+        iteration = PGDIteration()
+        if 'level' in params_algo.keys() and params_algo['level'] > 1:
+            iteration = MultiLevelIteration(iteration)
+        return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
     def PnP_PGD(self, params_algo, use_cost=True):
         alg_name = "PnP_PGD"
@@ -89,7 +121,7 @@ class RunAlgorithm:
         iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
-        return self.run_algorithm(iteration, prior, params_algo, alg_name)
+        return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
     def TV_PGD(self, params_algo, use_cost=True):
         alg_name = "TV_PGD"
@@ -112,7 +144,7 @@ class RunAlgorithm:
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
 
-        return self.run_algorithm(iteration, prior, params_algo, alg_name)
+        return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
     def DPIR(self, params_algo):
         alg_name = "DPIR"
@@ -124,9 +156,10 @@ class RunAlgorithm:
         # Specify the denoising prior
         prior = PnP(denoiser=DRUNet(pretrained="download", train=False, device=self.device))
         iteration = 'HQS'
-        return self.run_algorithm(iteration, prior, params_algo, alg_name)
+        return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
-    def run_algorithm(self, iteration, prior, params_algo, alg_name):
+    def _run_algorithm(self, iteration, prior, params_algo, alg_name_):
+        alg_name = self.alg_name
         if self.manual_seed is True:
             print("Using torch.manual_seed(0)")
             torch.manual_seed(0)
@@ -141,7 +174,7 @@ class RunAlgorithm:
         if 'init_ml_x0' in params_init.keys():
             alg_name = alg_name + "_x0ML"
             params_algo_init = params_algo.copy()
-            standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'])
+            #standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'], lambda_fine=params_algo['lambda'])
             ml_params = MultiLevelParams(params_algo_init)
 
             def init_ml_x0(y, physics, F_fn=None):

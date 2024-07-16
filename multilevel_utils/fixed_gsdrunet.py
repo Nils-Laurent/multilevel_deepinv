@@ -106,7 +106,6 @@ def GSDRUNet(
         nc=nc,
         act_mode=act_mode,
         pretrained=None,
-        train=train,
         device=device,
     )
     GSmodel = GSPnP(denoiser, alpha=alpha, train=train)

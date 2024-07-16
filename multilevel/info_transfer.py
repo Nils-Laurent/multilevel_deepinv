@@ -75,6 +75,9 @@ class DownsamplingTransfer(InfoTransfer):
         return k_filter
 
     def projection(self, x):
+        if x.dim() == 3:  # useful for projecting masks
+            x2 = x.unsqueeze(0)
+            return self.op.A(x2).squeeze(0)
         return self.op.A(x)
 
     def prolongation(self, x):

@@ -37,6 +37,5 @@ class CGDIteration(GDIteration):
             grad += cur_params["stepsize"] * self.coarse_correction
 
         x = gradient_descent_step(x_prev, grad)
-        assert not torch.isnan(x_prev).any()
         assert not torch.isnan(x).any()
         return {"est": (x,), "cost": None}

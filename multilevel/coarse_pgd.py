@@ -31,6 +31,10 @@ class CPGDIteration(PGDIteration):
 
         if not(self.coarse_correction is None):
             z -= cur_params["stepsize"] * self.coarse_correction
+        assert not torch.isnan(z).any()
 
-        x = self.g_step(z, cur_prior, cur_params)
+        if cur_params['coarse_prior'] is True:
+            x = self.g_step(z, cur_prior, cur_params)
+        else:
+            x = z
         return {"est": (x,), "cost": None}

@@ -18,6 +18,34 @@ def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
 
     return params
 
+def get_parameters_pnp(params_exp):
+    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
+    p_pnp = params_algo.copy()
+    p_pnp['scale_coherent_grad'] = False
+
+    p_pnp['g_param'] = hp_pnp['g_param']
+    lambda_pnp = hp_pnp['lambda']
+    print("lambda_pnp:", lambda_pnp)
+
+    iters_fine = 200
+    iters_coarse = 3
+    iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
+    p_pnp['iml_max_iter'] = 8
+
+    p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
+    p_pnp['coarse_iterator'] = CPGDIteration
+    p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
+
+    lambda_vec = p_pnp['params_multilevel'][0]['lambda']
+    stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
+
+    p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+
+    #param_init = p_pnp.copy()
+    #param_init['init_ml_x0'] = [80] * len(iters_vec)
+    param_init = {}
+    return p_pnp, param_init
+
 def get_parameters_pnp_prox(params_exp):
     params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
@@ -29,19 +57,25 @@ def get_parameters_pnp_prox(params_exp):
 
     iters_fine = 200
     iters_coarse = 3
-    iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
-    p_pnp['iml_max_iter'] = 12
+    #iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
+    iters_vec = [iters_coarse, iters_fine]
+    p_pnp['iml_max_iter'] = 8
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
+    p_pnp['coarse_prior'] = False
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     lambda_vec = [lambda_pnp]  * len(iters_vec)
     stepsize_vec = [1.0/l for l in lambda_vec]
+    stepsize_vec[0:-1] = [2.0] * (len(iters_vec) - 1)
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
-    return p_pnp
+    #param_init = p_pnp.copy()
+    #param_init['init_ml_x0'] = [80] * len(iters_vec)
+    param_init = {}
+    return p_pnp, param_init
 
 
 def get_parameters_red(params_exp):
@@ -69,7 +103,8 @@ def get_parameters_red(params_exp):
     #p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
     #p_red['lambda'] = lambda_red
 
-    param_init = {'init_ml_x0': [80] * len(iters_vec)}
+    param_init = p_red.copy()
+    param_init['init_ml_x0'] = [80] * len(iters_vec)
     return p_red, param_init
 
 def get_parameters_tv(params_exp):
@@ -81,8 +116,9 @@ def get_parameters_tv(params_exp):
     print("lambda_tv:", lambda_tv)
 
     iters_fine = 200
-    iters_coarse = 3
+    iters_coarse = 5
     iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
+    iters_vec = [iters_coarse, iters_fine]
     p_tv['iml_max_iter'] = 3
 
     p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec, lambda_fine=lambda_tv)
@@ -119,6 +155,7 @@ def standard_multilevel_param(params, it_vec, lambda_fine):
     params['level'] = levels
     params['n_levels'] = levels
     params['coarse_iterator'] = CGDIteration
+    params['coarse_prior'] = True
 
     iml_max_iter = params['iml_max_iter']
     params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
@@ -143,7 +180,7 @@ def get_param_algo_(params_exp):
 
     print("def_noise:", noise_pow)
 
-    if problem == 'inpainting':
+    if problem == 'inpainting' or problem == 'demosaicing':
         hp_red, hp_pnp, hp_tv = inpainting_hyper_param(noise_pow)
     elif problem == 'blur':
         hp_red, hp_pnp, hp_tv = blur_hyper_param(noise_pow)

@@ -5,7 +5,8 @@ from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
-from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx
+from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx, \
+    MPnPML2
 from utils.measure_data import create_measure_data, load_measure_data
 
 if "/.fork" in sys.prefix:
@@ -18,7 +19,7 @@ import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp_prox, single_level_params, \
-    get_parameters_tv_coarse_pgd
+    get_parameters_tv_coarse_pgd, get_parameters_pnp
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
@@ -45,54 +46,68 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     b_dataset = not(type(data_in) == torch.Tensor)
     rm = ResultManager(b_dataset=b_dataset)
 
-    # ============== RED ==============
-    if MRedMLInit in list_method:
-        p_red, param_init = get_parameters_red(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-        rm.post_process(ra.RED_GD(p_red), MRedMLInit().key)
-    if MRedInit in list_method:
-        p_red, param_init = get_parameters_red(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
-        rm.post_process(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
+    for m_class in list_method:
+        res = m_class.param_fn(params_exp)
+        p_method = res
+        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark, def_name=m_class().key)
+        if not isinstance(res, dict):
+            p_method, p_init = res[0], res[1]
+            ra.set_init(p_init)
 
-    if MRedML in list_method:
-        p_red, param_init = get_parameters_red(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.RED_GD(p_red.copy()), MRedML().key)
-    if MRed in list_method:
-        p_red, param_init = get_parameters_red(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
+        rm.post_process(ra.run_algorithm(m_class, p_method), m_class().key)
 
-    # ============== PnP ==============
-    if MPnPML in list_method:
-        p_pnp = get_parameters_pnp_prox(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
-    if MPnP in list_method:
-        p_pnp = get_parameters_pnp_prox(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
+    ## ============== RED ==============
+    #if MRedMLInit in list_method:
+    #    p_red, param_init = get_parameters_red(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    #    rm.post_process(ra.RED_GD(p_red), MRedMLInit().key)
+    #if MRedInit in list_method:
+    #    p_red, param_init = get_parameters_red(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    #    rm.post_process(ra.RED_GD(single_level_params(p_red)), MRedInit().key)
 
-    # ============== DPIR ==============
-    if MDPIR in list_method:
-        p_red, param_init = get_parameters_red(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
+    #if MRedML in list_method:
+    #    p_red, param_init = get_parameters_red(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.RED_GD(p_red.copy()), MRedML().key)
+    #if MRed in list_method:
+    #    p_red, param_init = get_parameters_red(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.RED_GD(single_level_params(p_red.copy())), MRed().key)
 
-    # ============== PGD ==============
-    if MFbMLProx in list_method:
-        p_tv = get_parameters_tv_coarse_pgd(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.TV_PGD(p_tv), MFbMLProx().key)
-    if MFbMLGD in list_method:
-        p_tv = get_parameters_tv(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.TV_PGD(p_tv), MFbMLGD().key)
-    if MFb in list_method:
-        p_tv = get_parameters_tv(params_exp)
-        ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
-        rm.post_process(ra.TV_PGD(single_level_params(p_tv)), MFb().key)
+    ## ============== PnP ==============
+    #if MPnPML2 in list_method:
+    #    p_pnp, param_init = get_parameters_pnp(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    #    rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML2().key)
+    #if MPnPML in list_method:
+    #    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    #    rm.post_process(ra.PnP_PGD(p_pnp.copy()), MPnPML().key)
+    #if MPnP in list_method:
+    #    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init, return_timer=benchmark)
+    #    rm.post_process(ra.PnP_PGD(single_level_params(p_pnp.copy())), MPnP().key)
+
+    ## ============== DPIR ==============
+    #if MDPIR in list_method:
+    #    p_red, param_init = get_parameters_red(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.DPIR(single_level_params(p_red.copy())), MDPIR().key)
+
+    ## ============== PGD ==============
+    #if MFbMLProx in list_method:
+    #    p_tv = get_parameters_tv_coarse_pgd(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.TV_PGD(p_tv, alg=MFbMLProx), MFbMLProx().key)
+    #if MFbMLGD in list_method:
+    #    p_tv = get_parameters_tv(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.TV_PGD(p_tv, alg=MFbMLGD), MFbMLGD().key)
+    #if MFb in list_method:
+    #    p_tv = get_parameters_tv(params_exp)
+    #    ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark)
+    #    rm.post_process(ra.TV_PGD(single_level_params(p_tv), alg=MFb), MFb().key)
 
     rm.finalize(list_method, params_exp, benchmark)
 
@@ -111,6 +126,7 @@ def main_test(
         m_vec=None,
 ):
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
+    #device = "cpu"
     print(device)
 
     original_data_dir = dataset_path()
@@ -128,8 +144,10 @@ def main_test(
         params_exp[problem] = 0.6
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 3.6
+        #params_exp[problem + '_pow'] = 7.3
     elif problem == 'demosaicing':
-        params_exp[problem] = 0.5
+        # nothing to be done
+        pass
     else:
         raise NotImplementedError()
 
@@ -216,6 +234,8 @@ if __name__ == "__main__":
     m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
     m_vec_pnp = [MPnPML, MPnP, MDPIR, MFb, MFbMLProx]
     m_vec_pnp = [MPnPML, MPnP, MFb, MFbMLProx]
+    m_vec_pnp = [MFb, MFbMLProx, MFbMLGD]
+    m_vec_pnp = [MPnPML, MPnP, MFb, MFbMLProx]
 
     # 1 perform grid search
     #main_tune(plot_and_exit=False)
@@ -234,13 +254,25 @@ if __name__ == "__main__":
     #)
 
     # 3 evaluate methods on single image
+    #main_test(
+    #    'blur', img_size=set3c_shape, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True
+    #)
+    #main_test(
+    #    'demosaicing', img_size=set3c_shape, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp,
+    #    test_dataset=False, target=1, use_file_data=False, benchmark=True
+    #)
+    #main_test(
+    #    'demosaicing', img_size=512, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp,
+    #    test_dataset=False, target=1, use_file_data=False, benchmark=True
+    #)
     main_test(
-        'blur', img_size=set3c_shape, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True
+        'blur', img_size=512, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
+        target=1, use_file_data=False, benchmark=True
     )
     #main_test(
-    #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
-    #    benchmark=False
+    #    'blur', img_size=1916, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True
     #)
 
     # 4 statistical tests

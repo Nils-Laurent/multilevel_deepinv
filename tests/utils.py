@@ -4,8 +4,7 @@ import torch
 from deepinv.optim.optim_iterators import GDIteration
 from torch.utils.data import DataLoader, Dataset
 
-#from deepinv.physics import Inpainting, Blur, Demosaicing
-from deepinv.physics import Inpainting, Blur
+from deepinv.physics import Inpainting, Blur, Demosaicing
 from deepinv.physics.blur import gaussian_blur, BlurFFT
 from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
@@ -21,9 +20,8 @@ def physics_from_exp(params_exp, noise_model, device):
 
     match problem:
         case 'demosaicing':
-            def_mask = params_exp[problem]
-            problem_full = problem + "_" + str(def_mask) + "_" + str(noise_pow)
-            physics = Demosaicing(params_exp['shape'], mask=def_mask, noise_model=noise_model, device=device)
+            problem_full = problem + "_" + str(noise_pow)
+            physics = Demosaicing(params_exp['shape'], noise_model=noise_model, device=device)
         case 'inpainting':
             def_mask = params_exp[problem]
             problem_full = problem + "_" + str(def_mask) + "_" + str(noise_pow)
