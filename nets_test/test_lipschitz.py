@@ -22,7 +22,7 @@ def measure_lipschitz(denoiser, sigma_vec, device, sigma_noise):
     )
     # add batch and channel dimensions
     dataset_name = 'set3c'
-    ORIGINAL_DATA_DIR = Path(".") / "datasets"
+    ORIGINAL_DATA_DIR = Path("../tests") / "datasets"
     dataset_tuples = load_dataset(dataset_name, ORIGINAL_DATA_DIR, transform=val_transform)
     dataset = []
     for t in dataset_tuples:

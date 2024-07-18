@@ -20,7 +20,7 @@ class MultiLevelIteration(OptimIterator):
         diff = model(X, y, grad=self.grad_fn)
 
         x0 = X['est'][0]
-        if self.fine_iteration.has_cost:
+        if ml_params.backtracking() and self.fine_iteration.has_cost:
             # backtracking
             def cost_fn(x):
                 return self.F_fn(x, data_fidelity, prior, params, y, physics)
@@ -55,7 +55,7 @@ class MultiLevelParams:
     def coarse_params(self):
         if self.level == 0:
             raise ValueError("Cannot get coarser params")
-        cp_params = self.params.copy()
+        cp_params = self.params.copy()  # top level only
         cp_params['level'] = self.level - 1
         cp = MultiLevelParams(cp_params)
         cp._set_coarse()
@@ -68,10 +68,13 @@ class MultiLevelParams:
         return self._get_scalar('cit')
 
     def scale_coherent_gradient(self):
-        return self._get_scalar('scale_coherent_grad')
+        return self._get_bool('scale_coherent_grad')
 
     def iml_max_iter(self):
         return self._get_scalar('iml_max_iter')
+
+    def backtracking(self):
+        return self._get_bool('backtracking')
 
     #def stepsize(self):
     #    return self._get_scalar('stepsize')
@@ -84,6 +87,9 @@ class MultiLevelParams:
 
     def coarse_iterator(self):
         return self._get_class('coarse_iterator')
+
+    def ml_denoiser(self):
+        return self._get_with_default('ml_denoiser', False)
 
     # ============================== MULTILEVEL ==============================
 
@@ -101,6 +107,9 @@ class MultiLevelParams:
 
     # ========================== INTERNAL FUNCTIONS ==========================
     # internal functions
+    def _get_bool(self, key):
+        return self._get_scalar(key)
+
     def _get_scalar(self, key):
         return self._get_scalar_init(key, self.params)
 
@@ -109,6 +118,11 @@ class MultiLevelParams:
         if isinstance(r_class, list):
             r_class = r_class[0]
         return r_class
+
+    def _get_with_default(self, key, default):
+        if key in self.params.keys():
+            return self.params[key]
+        return default
 
     @staticmethod
     def _get_scalar_init(key, params):

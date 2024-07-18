@@ -11,6 +11,8 @@ import multilevel.iterator as multi_level
 from multilevel.prior import TVPrior
 from multilevel_utils.radon import Tomography
 
+import copy
+
 
 class CoarseModel(torch.nn.Module):
     def __init__(self, prior, data_fidelity, fine_physics, ml_params, *args, **kwargs):
@@ -18,12 +20,17 @@ class CoarseModel(torch.nn.Module):
         :param multi_level.MultiLevelParams ml_params: all parameters
         """
         super().__init__(*args, **kwargs)
-        self.g = prior
+        self.ph = ml_params
+        self.pc = self.ph.coarse_params()
+        if self.pc.ml_denoiser() is False:
+            self.g = prior
+        elif isinstance(prior, PnP):
+            self.g = PnP(denoiser=self.pc.ml_denoiser())
+        else:
+            self.g = prior
         self.f = data_fidelity
         self.fph = fine_physics
         self.physics = None
-        self.ph = ml_params
-        self.pc = self.ph.coarse_params()
         self.cit_str = self.ph.cit()
         self.cit_op = None
 

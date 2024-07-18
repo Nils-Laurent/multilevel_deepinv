@@ -1,10 +1,14 @@
+import os
+
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
 from deepinv.models import DRUNet, GSDRUNet
 
+from distillation import Student
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
+from utils.paths import checkpoint_path
 
 
 def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
@@ -56,15 +60,23 @@ def get_parameters_pnp_prox(params_exp):
     print("lambda_pnp:", lambda_pnp)
 
     iters_fine = 200
-    iters_coarse = 3
+    iters_coarse = 20
+    #iters_coarse = 5
     #iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
     iters_vec = [iters_coarse, iters_fine]
-    p_pnp['iml_max_iter'] = 8
+    p_pnp['iml_max_iter'] = 1
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
+    #p_pnp['coarse_prior'] = True
     p_pnp['coarse_prior'] = False
+    p_pnp['backtracking'] = False
+    p_pnp['scale_coherent_grad'] = True
+
+    state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
+    d = Student(layers=5, pretrained=state_file).to(params_exp['device'])
+    p_pnp['ml_denoiser'] = d
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     lambda_vec = [lambda_pnp]  * len(iters_vec)
@@ -156,6 +168,7 @@ def standard_multilevel_param(params, it_vec, lambda_fine):
     params['n_levels'] = levels
     params['coarse_iterator'] = CGDIteration
     params['coarse_prior'] = True
+    params['backtracking'] = True
 
     iml_max_iter = params['iml_max_iter']
     params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]

@@ -8,7 +8,7 @@ from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 from torchvision import transforms
 
-from tests.test_lipschitz import measure_lipschitz
+from nets_test.test_lipschitz import measure_lipschitz
 from utils.paths import dataset_path, get_out_dir
 
 

@@ -1,3 +1,5 @@
+import cProfile
+
 import deepinv
 import torch
 
@@ -72,15 +74,15 @@ class RunAlgorithm:
         if m_class in [MRed, MRedML, MRedInit, MRedMLInit]:
             return self.RED_GD(params_algo)
         if m_class in [MFb, MFbMLProx, MFbMLGD]:
-            return self.TV_PGD(params_algo, use_cost=True)
+            return self.TV_PGD(params_algo, use_cost=False)
         if m_class in [MPnP, MPnPML]:
-            return self.PnP_PGD(params_algo, use_cost=True)
+            return self.PnP_PGD(params_algo, use_cost=False)
         if m_class in [MPnPML2]:
             return self.PnP(params_algo)
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
-        net = DRUNet(pretrained="download", train=False, device=self.device)
+        net = DRUNet(pretrained="download", device=self.device)
         denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         prior = RED(denoiser)
         iteration = GDIteration(has_cost=False)
@@ -154,7 +156,7 @@ class RunAlgorithm:
         params_algo['iters'] = max_iter
 
         # Specify the denoising prior
-        prior = PnP(denoiser=DRUNet(pretrained="download", train=False, device=self.device))
+        prior = PnP(denoiser=DRUNet(pretrained="download", device=self.device))
         iteration = 'HQS'
         return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
@@ -251,7 +253,16 @@ class RunAlgorithm:
             y = self.physics(x_ref)  # A(x) + noise
             f_prefix, exp = gen_fname(params_algo, self.params_exp, alg_name)
 
+            #model(y, self.physics)
+            #return None
+            #cProfile.runctx(
+            #    'model(y, ph)',
+            #    {'model': model, 'y': y, 'ph': self.physics},
+            #    {},
+            #    filename='runctx_multilevel'
+            #)
             x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True, time_iter=self.time_iter)
+            #return None
 
             # ==================== Save results ====================
             print("saving:", f_prefix)

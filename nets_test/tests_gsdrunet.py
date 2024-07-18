@@ -3,13 +3,12 @@ import deepinv
 import numpy
 import torch
 import torch.utils.benchmark as benchmark
-from deepinv.models import DRUNet
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 from torchvision import transforms
 
 from multilevel_utils.fixed_gsdrunet import GSDRUNet
-from tests.test_lipschitz import measure_lipschitz
+from nets_test.test_lipschitz import measure_lipschitz
 from utils.paths import dataset_path, get_out_dir
 
 
@@ -74,8 +73,3 @@ def main_lipschitz():
 
     # sigma_noise is None => denoiser match the true noise level
     measure_lipschitz(denoiser, sigma_vec=sigma_vec, device=device, sigma_noise=None)
-
-if __name__ == "__main__":
-    # plot_spectr_ratio()
-    main_lipschitz()
-    # measure_exec_time()

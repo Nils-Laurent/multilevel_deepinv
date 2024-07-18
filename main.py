@@ -124,9 +124,12 @@ def main_test(
         target=None,
         use_file_data=True,
         m_vec=None,
+        cpu=False,
 ):
-    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    #device = "cpu"
+    if cpu is True:
+        device = "cpu"
+    else:
+        device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
     original_data_dir = dataset_path()
@@ -136,7 +139,7 @@ def main_test(
         img_size = (3, img_size, img_size)
 
     # inpainting: proportion of pixels to keep
-    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size}
+    params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size, 'device': device}
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = 0.5
@@ -232,10 +235,9 @@ if __name__ == "__main__":
     div2k_shape = 1024
 
     m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
-    m_vec_pnp = [MPnPML, MPnP, MDPIR, MFb, MFbMLProx]
-    m_vec_pnp = [MPnPML, MPnP, MFb, MFbMLProx]
-    m_vec_pnp = [MFb, MFbMLProx, MFbMLGD]
-    m_vec_pnp = [MPnPML, MPnP, MFb, MFbMLProx]
+    m_vec_pnp = [MPnP, MPnPML, MDPIR, MFb, MFbMLProx]
+    m_vec_pnp = [MPnP, MPnPML, MFb, MFbMLProx]
+    m_vec_pnp = [MPnP, MPnPML]
 
     # 1 perform grid search
     #main_tune(plot_and_exit=False)
@@ -267,8 +269,8 @@ if __name__ == "__main__":
     #    test_dataset=False, target=1, use_file_data=False, benchmark=True
     #)
     main_test(
-        'blur', img_size=512, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
-        target=1, use_file_data=False, benchmark=True
+        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False
     )
     #main_test(
     #    'blur', img_size=1916, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
