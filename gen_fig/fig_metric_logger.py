@@ -6,7 +6,8 @@ from pylatex import Document, TikZ, Axis, Plot, NoEscape, Command
 import pylatex
 
 from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox, get_parameters_red, \
-    get_parameters_tv_coarse_pgd, get_parameters_tv
+    get_parameters_tv_coarse_pgd, get_parameters_tv, get_parameters_pnp_approx, get_parameters_pnp_prox_reg, \
+    get_parameters_pnp_approx_reg, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc
 from utils.paths import get_out_dir
 from dataclasses import dataclass
 
@@ -17,6 +18,41 @@ class MPnP:
     linestyle = 'dashed'
     label = key
     param_fn = get_parameters_pnp_prox
+@dataclass
+class MPnPMLApproxNc:
+    key = 'PnP_ML_approxNc'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_approx_nc
+@dataclass
+class MPnPMLNc:
+    key = 'PnP_MLNc'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_prox_nc
+@dataclass
+class MPnPMLApproxReg:
+    key = 'PnP_ML_approxR'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_approx_reg
+@dataclass
+class MPnPMLReg:
+    key = 'PnP_MLR'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_prox_reg
+@dataclass
+class MPnPMLApprox:
+    key = 'PnP_ML_approx'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_approx
 @dataclass
 class MPnPML:
     key = 'PnP_ML'
@@ -92,6 +128,9 @@ def methods_obj():
     t_res = [
         MPnP(),
         MPnPML(),
+        MPnPMLReg(),
+        MPnPMLApprox(),
+        MPnPMLApproxReg(),
         MPnPML2(),
         MRed(),
         MRedML(),

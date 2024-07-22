@@ -3,9 +3,9 @@ import cProfile
 import deepinv
 import torch
 
-from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx, \
-    MPnPML2
-
+#from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx, \
+#    MPnPML2, MPnPMLApprox
+from gen_fig.fig_metric_logger import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
@@ -73,12 +73,14 @@ class RunAlgorithm:
 
         if m_class in [MRed, MRedML, MRedInit, MRedMLInit]:
             return self.RED_GD(params_algo)
-        if m_class in [MFb, MFbMLProx, MFbMLGD]:
+        elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=False)
-        if m_class in [MPnP, MPnPML]:
+        elif m_class in [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc]:
             return self.PnP_PGD(params_algo, use_cost=False)
-        if m_class in [MPnPML2]:
+        elif m_class in [MPnPML2]:
             return self.PnP(params_algo)
+        else:
+            raise NotImplementedError("Unrecognized model {}".format(m_class))
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"

@@ -3,7 +3,7 @@ import os
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
 from deepinv.models import DRUNet, GSDRUNet
 
-from distillation import Student
+from multilevel.approx_nn import Student
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris
@@ -74,10 +74,6 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['backtracking'] = False
     p_pnp['scale_coherent_grad'] = True
 
-    state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
-    d = Student(layers=5, pretrained=state_file).to(params_exp['device'])
-    p_pnp['ml_denoiser'] = d
-
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     lambda_vec = [lambda_pnp]  * len(iters_vec)
     stepsize_vec = [1.0/l for l in lambda_vec]
@@ -88,6 +84,36 @@ def get_parameters_pnp_prox(params_exp):
     #param_init['init_ml_x0'] = [80] * len(iters_vec)
     param_init = {}
     return p_pnp, param_init
+
+def get_parameters_pnp_approx(params_exp):
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+
+    state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
+    d = Student(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
+    p_pnp['ml_denoiser'] = d
+
+    return p_pnp, param_init
+
+def get_parameters_pnp_prox_nc(params_exp):
+    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp['scale_coherent_grad'] = False
+    return p_pnp, param_init
+
+def get_parameters_pnp_approx_nc(params_exp):
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp['scale_coherent_grad'] = False
+    return p_pnp, param_init
+
+def get_parameters_pnp_prox_reg(params_exp):
+    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp['coarse_prior'] = True
+    return p_pnp, param_init
+
+def get_parameters_pnp_approx_reg(params_exp):
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp['coarse_prior'] = True
+    return p_pnp, param_init
+
 
 
 def get_parameters_red(params_exp):
