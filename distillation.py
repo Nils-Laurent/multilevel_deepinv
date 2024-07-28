@@ -2,6 +2,8 @@ import os
 import sys
 
 import torch
+from deepinv.models import GSDRUNet
+from deepinv.models.GSPnP import GSPnP
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -65,7 +67,7 @@ class KDLoss(dinv.loss.Loss):
 
         if self.mode == 'mse':
             return self.weight*self.loss(features_student, features_teacher)
-        else: # cosine
+        else:  # cosine
             return -self.weight*self.loss(features_student.reshape(batch, -1), features_teacher.reshape(batch, -1))
 
     def get_samples_online(self, iterators, g):
@@ -118,6 +120,35 @@ class DrunetTeacher(dinv.models.DRUNet):
         return x + x1
 
 
+class GSPnPStudent(dinv.models.GSPnP):
+    def __init__(self, denoiser):
+        super().__init__(denoiser=denoiser)
+        self.internal_out = 0
+
+    def forward(self, x, sigma):
+        res = super().forward(x, sigma)
+        self.internal_out = self.student_grad.denoiser.internal_out
+        return res
+
+
+class GSDrunetTeacher:
+    def __init__(self, device):
+        self.gs = GSDRUNet(pretrained="download", device=device)
+
+    def forward_unet(self, x0):
+        denoiser = self.gs.student_grad.denoiser
+
+        x1 = denoiser.m_head(x0)
+        x2 = denoiser.m_down1(x1)
+        x3 = denoiser.m_down2(x2)
+        x4 = denoiser.m_down3(x3)
+        x = denoiser.m_body(x4)
+        x = denoiser.m_up3(x + x4)
+        x = denoiser.m_up2(x + x3)
+        x = denoiser.m_up1(x + x2) # (64, H, W)
+
+        return x + x1
+
 
 if __name__ == '__main__':
     device = 'cuda:0'
@@ -125,6 +156,10 @@ if __name__ == '__main__':
     #student = Student(layers=6).to(device)
     student = Student(layers=10, nc=32).to(device)
     student.train()
+
+    # todo : test GS teacher
+    teacher2 = GSDrunetTeacher(device=device)
+    student2 = GSPnPStudent(denoiser=student)
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=5e-4, amsgrad=True)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
@@ -134,6 +169,8 @@ if __name__ == '__main__':
     mode = 'cs'
     #mode = 'mse'
 
+    # todo : exp. high weight KD
+    # todo : exp. no KD
     losses = [KDLoss(teacher, mode=mode, weight=1), dinv.loss.SupLoss()]
 
     #img_size = 64

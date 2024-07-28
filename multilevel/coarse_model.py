@@ -1,5 +1,5 @@
 import torch
-from deepinv.optim import PnP
+from deepinv.optim import PnP, Prior
 from deepinv.optim.optim_iterators import GDIteration
 from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing
 import deepinv.optim as optim
@@ -22,12 +22,16 @@ class CoarseModel(torch.nn.Module):
         super().__init__(*args, **kwargs)
         self.ph = ml_params
         self.pc = self.ph.coarse_params()
-        if self.pc.ml_denoiser() is False:
-            self.g = prior
-        elif isinstance(prior, PnP):
+
+        self.g = prior
+
+        if isinstance(self.pc.coarse_prior(), Prior):
+            self.g = self.pc.coarse_prior()
+        elif (self.pc.ml_denoiser() != False) and isinstance(prior, PnP):
             self.g = PnP(denoiser=self.pc.ml_denoiser())
-        else:
-            self.g = prior
+            if isinstance(self.pc.coherence_prior(), PnP):
+                self.pc.coherence_prior().denoiser = self.pc.ml_denoiser()
+
         self.f = data_fidelity
         self.fph = fine_physics
         self.physics = None
@@ -63,12 +67,17 @@ class CoarseModel(torch.nn.Module):
     def grad(self, x, y, physics, params):
         grad_f = self.f.grad(x, y, physics)
 
-        if type(self.g) == PnP:
-            grad_g = x - self.g.denoiser(x, sigma=params.g_param())
-        elif hasattr(self.g, 'denoiser'):
-            grad_g = self.g.grad(x, sigma_denoiser=params.g_param())
-        elif hasattr(self.g, 'moreau_grad'):
-            grad_g = self.g.moreau_grad(x, gamma=params.gamma_moreau())
+        if not (self.pc.coherence_prior() is False):
+            coherence_prior = self.pc.coherence_prior()
+        else:
+            coherence_prior = self.g
+
+        if type(coherence_prior) == PnP:
+            grad_g = x - coherence_prior.denoiser(x, sigma=params.g_param())
+        elif hasattr(coherence_prior, 'denoiser'):
+            grad_g = coherence_prior.grad(x, sigma_denoiser=params.g_param())
+        elif hasattr(coherence_prior, 'moreau_grad'):
+            grad_g = coherence_prior.moreau_grad(x, gamma=params.gamma_moreau())
         else:
             raise NotImplementedError("Gradient not defined in this case")
 

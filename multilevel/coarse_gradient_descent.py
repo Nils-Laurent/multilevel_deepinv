@@ -31,7 +31,6 @@ class CGDIteration(GDIteration):
             self.g_step(x_prev, cur_prior, cur_params)
             + self.f_step(x_prev, cur_data_fidelity, cur_params, y, physics)
         )
-        assert not torch.isnan(grad).any()
 
         if not(self.coarse_correction is None):
             grad += cur_params["stepsize"] * self.coarse_correction

@@ -76,12 +76,6 @@ class MultiLevelParams:
     def backtracking(self):
         return self._get_bool('backtracking')
 
-    #def stepsize(self):
-    #    return self._get_scalar('stepsize')
-
-    #def lambda_r(self):
-    #    return self._get_scalar('lambda')
-
     def multilevel_step(self):
         return self._get_scalar('multilevel_step')
 
@@ -90,6 +84,12 @@ class MultiLevelParams:
 
     def ml_denoiser(self):
         return self._get_with_default('ml_denoiser', False)
+
+    def coarse_prior(self):
+        return self._get_with_default('coarse_prior', False)
+
+    def coherence_prior(self):
+        return self._get_with_default('coherence_prior', False)
 
     # ============================== MULTILEVEL ==============================
 
@@ -145,14 +145,6 @@ class MultiLevelParams:
     def _set_coarse(self):
         self.params['lambda'] = self._get_from_ml('lambda')
         self.params['stepsize'] = self._get_from_ml('stepsize')
-        #self.params['lambda'] = self.lambda_r() / 4
-        #step_coeff = self._get_scalar('step_coeff')
-        #if step_coeff is None:
-        #    self.params['stepsize'] = self._get_from_ml('step_size')
-        #elif 'gamma_moreau' in self.params.keys():
-        #    self.params['stepsize'] = step_coeff / (self.g_lipschitz / self.gamma_moreau() + self.f_lipschitz)
-        #else:
-        #    self.params['stepsize'] = step_coeff / (self.g_lipschitz * self.lambda_r() + self.f_lipschitz)
 
         if isinstance(self.params['params_multilevel'], dict):
             self.params['params_multilevel'] = [self.params['params_multilevel']]

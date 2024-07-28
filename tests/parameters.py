@@ -1,12 +1,13 @@
 import os
 
-from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
+import torch
+from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 from deepinv.models import DRUNet, GSDRUNet
 
-from multilevel.approx_nn import Student
+from multilevel.approx_nn import Student, Student0
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
-from multilevel.info_transfer import BlackmannHarris
+from multilevel.info_transfer import BlackmannHarris, CFir
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 from utils.paths import checkpoint_path
 
@@ -60,7 +61,11 @@ def get_parameters_pnp_prox(params_exp):
     print("lambda_pnp:", lambda_pnp)
 
     iters_fine = 200
-    iters_coarse = 20
+    iters_coarse = 3
+    if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
+        iters_coarse = 20
+
+    print("iters_coarse:", iters_coarse)
     #iters_coarse = 5
     #iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
     iters_vec = [iters_coarse, iters_fine]
@@ -69,10 +74,11 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
-    #p_pnp['coarse_prior'] = True
-    p_pnp['coarse_prior'] = False
+    p_pnp['coarse_prior'] = Zero()
     p_pnp['backtracking'] = False
     p_pnp['scale_coherent_grad'] = True
+    device = params_exp['device']
+    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     lambda_vec = [lambda_pnp]  * len(iters_vec)
@@ -85,12 +91,24 @@ def get_parameters_pnp_prox(params_exp):
     param_init = {}
     return p_pnp, param_init
 
+def get_parameter_pnp_Moreau(params_exp):
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp.pop('coherence_prior')
+    p_pnp['coarse_prior'] = TVPrior()
+    p_pnp['coarse_iterator'] = CGDIteration
+
+    return p_pnp, param_init
+
 def get_parameters_pnp_approx(params_exp):
     p_pnp, param_init = get_parameters_pnp_prox(params_exp)
 
-    state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
-    d = Student(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
+    #state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
+    #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
+    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L.pth.tar')
+    state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
     p_pnp['ml_denoiser'] = d
+    p_pnp['coherence_prior'] = PnP(denoiser=d)
 
     return p_pnp, param_init
 
@@ -105,13 +123,13 @@ def get_parameters_pnp_approx_nc(params_exp):
     return p_pnp, param_init
 
 def get_parameters_pnp_prox_reg(params_exp):
-    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
-    p_pnp['coarse_prior'] = True
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp.pop('coarse_prior')
     return p_pnp, param_init
 
 def get_parameters_pnp_approx_reg(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
-    p_pnp['coarse_prior'] = True
+    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp.pop('coarse_prior')
     return p_pnp, param_init
 
 
@@ -227,6 +245,11 @@ def get_param_algo_(params_exp):
         hp_red, hp_pnp, hp_tv = tomography_hyper_param(noise_pow)
     else:
         raise NotImplementedError("not implem")
+
+    params_algo = {
+        'cit': CFir(),
+        'scale_coherent_grad': True
+    }
 
     params_algo = {
         'cit': BlackmannHarris(),
