@@ -7,7 +7,7 @@ import pylatex
 
 from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox, get_parameters_red, \
     get_parameters_tv_coarse_pgd, get_parameters_tv, get_parameters_pnp_approx, get_parameters_pnp_prox_reg, \
-    get_parameters_pnp_approx_reg, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc
+    get_parameters_pnp_approx_reg, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc, get_parameter_pnp_Moreau
 from utils.paths import get_out_dir
 from dataclasses import dataclass
 
@@ -18,6 +18,13 @@ class MPnP:
     linestyle = 'dashed'
     label = key
     param_fn = get_parameters_pnp_prox
+@dataclass
+class MPnPMoreau:
+    key = 'PnP_Moreau'
+    color = 'purple'
+    linestyle = 'dashed'
+    label = key
+    param_fn = get_parameter_pnp_Moreau
 @dataclass
 class MPnPMLApproxNc:
     key = 'PnP_ML_approxNc'
@@ -125,8 +132,9 @@ class MFbMLProx:
     param_fn = get_parameters_tv_coarse_pgd
 
 def methods_obj():
-    t_res = [
+    tab_res = [
         MPnP(),
+        MPnPMoreau(),
         MPnPML(),
         MPnPMLReg(),
         MPnPMLApprox(),
@@ -143,7 +151,7 @@ def methods_obj():
     ]
 
     res = {}
-    for el in t_res:
+    for el in tab_res:
         res[el.key] = el
 
     return res

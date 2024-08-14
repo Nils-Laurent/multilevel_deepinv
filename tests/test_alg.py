@@ -75,7 +75,7 @@ class RunAlgorithm:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=False)
-        elif m_class in [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc]:
+        elif m_class in [MPnP, MPnPMoreau, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc]:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML2]:
             return self.PnP(params_algo)

@@ -6,7 +6,7 @@ from deepinv.physics import GaussianNoise, BlurFFT
 from deepinv.physics.blur import gaussian_blur
 from deepinv.utils.demo import load_dataset
 
-from multilevel.coarse_model import CoarseModel
+from multilevel.iterator import CoarseModel, MultiLevelParams
 from multilevel.info_transfer import CFir
 from tests.parameters import standard_multilevel_param, _finalize_params
 from utils.paths import dataset_path
@@ -52,7 +52,8 @@ def test_blur():
     tensor_np = torch.tensor(noise_pow).to(device)
     noise_model = GaussianNoise(sigma=tensor_np)
 
-    shape = (1024, 1024)
+    width = 1024
+    shape = (3, width, width)
     power = 3.6
     physics = BlurFFT(img_size=shape, noise_model=noise_model,
                       filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
@@ -61,23 +62,34 @@ def test_blur():
     l2 = L2()
 
     ml_params = params()
+    ml_params_cl = MultiLevelParams(ml_params)
 
-    cm = CoarseModel(prior, l2, physics, ml_params)
+    cm = CoarseModel(prior, l2, physics, ml_params_cl)
 
     original_data_dir = dataset_path()
-    val_transform = transforms.Compose([transforms.CenterCrop(1024), transforms.ToTensor()])
+    val_transform = transforms.Compose([transforms.CenterCrop(width), transforms.ToTensor()])
     dataset = load_dataset('astro_ml', original_data_dir, transform=val_transform)
-    x0 = dataset[0]
+    x0 = dataset[0][0].to(device).unsqueeze(0)
 
     cm.projection(x0)
     it = cm.cit_op
 
+    y = physics(x0)
+    y_coarse = cm.projection(y)
+
     x_coarse = it.projection(x0)
-    v1 = it.projection(physics.A_adj(physics.A(it.prolongation(x_coarse))))
-    v2 = cm.physics.A_adj(cm.physics.A(x_coarse))
+    v1 = it.projection(physics.A_adjoint(physics.A(it.prolongation(x_coarse))))
+    v2 = cm.physics.A_adjoint(cm.physics.A(x_coarse))
 
-    deepinv.utils.plot([v1, v2])
-    deepinv.utils.plot([torch.abs(v1 - v2)])
+    print("difference : L_infty = ", torch.max(torch.abs(v1.reshape(-1) - v2.reshape(-1))))
 
-    print(torch.max(torch.abs(v1.reshape(-1) - v2.reshape(-1))))
+    v1n = v1 / torch.max(v1)
+    v2n = v2 / torch.max(v2)
+    deepinv.utils.plot([v1n - y_coarse, v2n - y_coarse])
 
+    diff_n = torch.abs(v1n - v2n)
+    deepinv.utils.plot([diff_n])
+    print("difference : normalized L_infty = ", torch.max(torch.abs(v1n.reshape(-1) - v2n.reshape(-1))))
+
+if __name__ == '__main__':
+    test_blur()

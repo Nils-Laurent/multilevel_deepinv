@@ -21,25 +21,28 @@ def tune_grid_all(data_in, params_exp, device):
 
     with torch.no_grad():
         # TUNE PNP
-        p_pnp = get_parameters_pnp_prox(params_exp)
+        p_pnp, p_init = get_parameters_pnp_prox(params_exp)
+        p_pnp['step_coeff'] = 0.9
         ra_pnp = RunAlgorithm(data, physics, params_exp, device=device)
         data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
 
         # TUNE TV
         p_tv = get_parameters_tv(params_exp)
+        p_tv['step_coeff'] = 1.9
         ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
         data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
 
         # TUNE RED
         p_red, param_init = get_parameters_red(params_exp)
+        p_red['step_coeff'] = 0.9
         ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
         data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD)
 
 
     res = {
+        MPnPML().key: {'axis': keys_pnp, 'tensors': data_pnp},
         MFbMLGD().key: {'axis': keys_tv, 'tensors': data_tv},
         MRedMLInit().key: {'axis': keys_red, 'tensors': data_red},
-        MPnPML().key: {'axis': keys_pnp, 'tensors': data_pnp}
     }
 
     return res

@@ -16,7 +16,7 @@ class TestTVTime(nn.Module):
         self.tv = TVPrior(def_crit=1e-6, n_it_max=1000)
         self.gamma = gamma
 
-    def forward(self, x):
+    def forward(self, x, sigma=1.0):
         return self.tv.moreau_grad(x, gamma=self.gamma)
 
 

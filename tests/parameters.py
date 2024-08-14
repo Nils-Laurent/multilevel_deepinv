@@ -8,6 +8,7 @@ from multilevel.approx_nn import Student, Student0
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
+from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 from utils.paths import checkpoint_path
 
@@ -94,8 +95,11 @@ def get_parameters_pnp_prox(params_exp):
 def get_parameter_pnp_Moreau(params_exp):
     p_pnp, param_init = get_parameters_pnp_prox(params_exp)
     p_pnp.pop('coherence_prior')
-    p_pnp['coarse_prior'] = TVPrior()
+    p_pnp['coarse_prior'] = CTV()
     p_pnp['coarse_iterator'] = CGDIteration
+    gamma_vec = [1.1, 1.0]
+    p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
+    p_pnp['gamma_moreau'] = gamma_vec[-1]
 
     return p_pnp, param_init
 
@@ -122,13 +126,22 @@ def get_parameters_pnp_approx_nc(params_exp):
     p_pnp['scale_coherent_grad'] = False
     return p_pnp, param_init
 
+def set_new_nb_coarse(params):
+    new_nb = 8
+    l_iter = params['params_multilevel'][0]['iters'][0:-1]
+    params['params_multilevel'][0]['iters'][0:-1] = [new_nb] * len(l_iter)
+    print("iters_coarse:", new_nb)
+
+
 def get_parameters_pnp_prox_reg(params_exp):
     p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    set_new_nb_coarse(p_pnp)
     p_pnp.pop('coarse_prior')
     return p_pnp, param_init
 
 def get_parameters_pnp_approx_reg(params_exp):
     p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    set_new_nb_coarse(p_pnp)
     p_pnp.pop('coarse_prior')
     return p_pnp, param_init
 
@@ -251,10 +264,10 @@ def get_param_algo_(params_exp):
         'scale_coherent_grad': True
     }
 
-    params_algo = {
-        'cit': BlackmannHarris(),
-        'scale_coherent_grad': True
-    }
+    #params_algo = {
+    #    'cit': BlackmannHarris(),
+    #    'scale_coherent_grad': True
+    #}
 
     return params_algo, hp_red, hp_pnp, hp_tv
 

@@ -67,7 +67,7 @@ class CoarseModel(torch.nn.Module):
     def grad(self, x, y, physics, params):
         grad_f = self.f.grad(x, y, physics)
 
-        if not (self.pc.coherence_prior() is False):
+        if isinstance(self.pc.coherence_prior(), Prior):
             coherence_prior = self.pc.coherence_prior()
         else:
             coherence_prior = self.g

@@ -120,7 +120,7 @@ class DrunetTeacher(dinv.models.DRUNet):
         return x + x1
 
 
-class GSPnPStudent(dinv.models.GSPnP):
+class GSPnPStudent(nn.Module):
     def __init__(self, denoiser):
         super().__init__(denoiser=denoiser)
         self.internal_out = 0
