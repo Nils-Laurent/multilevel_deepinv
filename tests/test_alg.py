@@ -74,10 +74,10 @@ class RunAlgorithm:
         if m_class in [MRed, MRedML, MRedInit, MRedMLInit]:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
-            return self.TV_PGD(params_algo, use_cost=False)
-        elif m_class in [MPnP, MPnPMoreau, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc]:
+            return self.TV_PGD(params_algo, use_cost=True)
+        elif m_class in [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPML, MPnPMLApprox, MPnPMLNc, MPnPMLApproxNc]:
             return self.PnP_PGD(params_algo, use_cost=False)
-        elif m_class in [MPnPML2]:
+        elif m_class in [MPnPMLNoProx]:
             return self.PnP(params_algo)
         else:
             raise NotImplementedError("Unrecognized model {}".format(m_class))
@@ -176,9 +176,11 @@ class RunAlgorithm:
 
         params_init = self.param_init
         if 'init_ml_x0' in params_init.keys():
-            alg_name = alg_name + "_x0ML"
+            if alg_name is None:
+                alg_name = "None_x0ML"
+            else:
+                alg_name = alg_name + "_x0ML"
             params_algo_init = params_algo.copy()
-            #standard_multilevel_param(params_algo_init, it_vec=params_init['init_ml_x0'], lambda_fine=params_algo['lambda'])
             ml_params = MultiLevelParams(params_algo_init)
 
             def init_ml_x0(y, physics, F_fn=None):

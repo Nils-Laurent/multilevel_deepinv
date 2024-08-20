@@ -38,8 +38,8 @@ def tune_scatter_2d(d_tune, keys, fig_name=None):
     pyplot.scatter(x, y, c=z, s=s, cmap='copper')
     #pyplot.scatter(x, y, c=z, s=s, cmap='copper', norm=matplotlib.colors.LogNorm())
 
-    pyplot.xscale('log')
-    pyplot.yscale('log')
+    #pyplot.xscale('log')
+    #pyplot.yscale('log')
     pyplot.xlabel(keys[0])
     pyplot.ylabel(keys[1])
     pyplot.colorbar()
@@ -64,7 +64,7 @@ def tune_plot_1d(d_tune, keys, fig_name=None):
             y.append(cost[id_xy])
         pyplot.plot(x, y)
 
-    pyplot.xscale('log')
+    #pyplot.xscale('log')
     pyplot.xlabel(keys[0])
     pyplot.show()
     if not fig_name is None:
@@ -73,7 +73,7 @@ def tune_plot_1d(d_tune, keys, fig_name=None):
         pyplot.savefig(join(out_path, (fig_name + ".png")))
     pyplot.close('all')
 
-def print_gridsearch_max(d_tune, keys, name):
+def print_gridsearch_max(key_, d_tune, keys, noise_pow, name):
 
     psnr_tensor = d_tune[-1]['cost']
     coord_vec = d_tune[-1]['coord']
@@ -82,10 +82,11 @@ def print_gridsearch_max(d_tune, keys, name):
     max_j = torch.argmax(psnr_tensor.view(-1))
     max_i = torch.unravel_index(max_j, psnr_tensor.shape)
 
-    print(f"{name} PSNR = {max_v}")
+    print(f"[{noise_pow}, '{key_}', ", end="")
     print("{", end="")
     it = 0
     for k in keys:
-        print(f"{k}: {coord_vec[it][max_i[it]]}, ", end="")
+        val = coord_vec[it][max_i[it]]
+        print(f"'{k}':" + f"{val:.3}" + ", ", end="")
         it += 1
-    print("}")
+    print("}]," + "  # PSNR = " + "{:.2f}".format(max_v))

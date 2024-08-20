@@ -12,6 +12,8 @@ from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 from utils.paths import checkpoint_path
 
+import gen_fig.fig_metric_logger as mlog
+
 
 def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
     params['params_multilevel'][0]['lambda'] = lambda_vec
@@ -62,7 +64,7 @@ def get_parameters_pnp_prox(params_exp):
     print("lambda_pnp:", lambda_pnp)
 
     iters_fine = 200
-    iters_coarse = 3
+    iters_coarse = 8
     if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
         iters_coarse = 20
 
@@ -75,11 +77,8 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
-    p_pnp['coarse_prior'] = Zero()
     p_pnp['backtracking'] = False
     p_pnp['scale_coherent_grad'] = True
-    device = params_exp['device']
-    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     lambda_vec = [lambda_pnp]  * len(iters_vec)
@@ -94,12 +93,13 @@ def get_parameters_pnp_prox(params_exp):
 
 def get_parameter_pnp_Moreau(params_exp):
     p_pnp, param_init = get_parameters_pnp_prox(params_exp)
-    p_pnp.pop('coherence_prior')
-    p_pnp['coarse_prior'] = CTV()
     p_pnp['coarse_iterator'] = CGDIteration
     gamma_vec = [1.1, 1.0]
     p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     p_pnp['gamma_moreau'] = gamma_vec[-1]
+
+    p_pnp['coherence_prior'] = CTV()
+    p_pnp['coarse_prior'] = CTV()
 
     return p_pnp, param_init
 
@@ -110,20 +110,12 @@ def get_parameters_pnp_approx(params_exp):
     #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
     #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L.pth.tar')
     state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
     d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
-    p_pnp['ml_denoiser'] = d
+
     p_pnp['coherence_prior'] = PnP(denoiser=d)
+    p_pnp['coarse_prior'] = PnP(denoiser=d)
 
-    return p_pnp, param_init
-
-def get_parameters_pnp_prox_nc(params_exp):
-    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
-    p_pnp['scale_coherent_grad'] = False
-    return p_pnp, param_init
-
-def get_parameters_pnp_approx_nc(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
-    p_pnp['scale_coherent_grad'] = False
     return p_pnp, param_init
 
 def set_new_nb_coarse(params):
@@ -132,17 +124,27 @@ def set_new_nb_coarse(params):
     params['params_multilevel'][0]['iters'][0:-1] = [new_nb] * len(l_iter)
     print("iters_coarse:", new_nb)
 
-
-def get_parameters_pnp_prox_reg(params_exp):
+def get_parameters_pnp_prox_noreg(params_exp):
     p_pnp, param_init = get_parameters_pnp_prox(params_exp)
-    set_new_nb_coarse(p_pnp)
-    p_pnp.pop('coarse_prior')
+    device = params_exp['device']
+    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
+    p_pnp['coarse_prior'] = Zero()
     return p_pnp, param_init
 
-def get_parameters_pnp_approx_reg(params_exp):
+def get_parameters_pnp_approx_noreg(params_exp):
     p_pnp, param_init = get_parameters_pnp_approx(params_exp)
-    set_new_nb_coarse(p_pnp)
-    p_pnp.pop('coarse_prior')
+    p_pnp['coherence_prior'] = p_pnp['coarse_prior']
+    p_pnp['coarse_prior'] = Zero()
+    return p_pnp, param_init
+
+def get_parameters_pnp_prox_nc(params_exp):
+    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp['scale_coherent_grad'] = False
+    return p_pnp, param_init
+
+def get_parameters_pnp_approx_nc(params_exp):
+    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp['scale_coherent_grad'] = False
     return p_pnp, param_init
 
 
@@ -168,6 +170,13 @@ def get_parameters_red(params_exp):
     stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec]
     stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1] * p_red['lip_g'])
     p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
+
+    # todo : NEW TEST
+    state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
+    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
+    p_red['coarse_prior'] = RED(denoiser=d)
+    p_red['coherence_prior'] = RED(denoiser=d)
+
     #p_red['params_multilevel'][0]['stepsize'] = stepsize_vec  # smoothing parameter
     #p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
     #p_red['lambda'] = lambda_red
@@ -253,7 +262,9 @@ def get_param_algo_(params_exp):
     if problem == 'inpainting' or problem == 'demosaicing':
         hp_red, hp_pnp, hp_tv = inpainting_hyper_param(noise_pow)
     elif problem == 'blur':
-        hp_red, hp_pnp, hp_tv = blur_hyper_param(noise_pow)
+        hp_red = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MRedMLInit.key)
+        hp_pnp = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MPnPML.key)
+        hp_tv = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MFbMLGD.key)
     elif problem == 'tomography':
         hp_red, hp_pnp, hp_tv = tomography_hyper_param(noise_pow)
     else:
@@ -263,11 +274,6 @@ def get_param_algo_(params_exp):
         'cit': CFir(),
         'scale_coherent_grad': True
     }
-
-    #params_algo = {
-    #    'cit': BlackmannHarris(),
-    #    'scale_coherent_grad': True
-    #}
 
     return params_algo, hp_red, hp_pnp, hp_tv
 

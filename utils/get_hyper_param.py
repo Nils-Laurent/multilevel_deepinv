@@ -1,3 +1,5 @@
+import numpy
+
 
 def select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv):
     for n in range(len(noise_vec)):
@@ -11,6 +13,64 @@ def select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv):
         raise NotImplementedError()
 
     return p_red, p_pnp, p_tv
+
+def affine_interpolation(bounds_data, noise_pow):
+    # bounds_data[0] follows [NOISE, KEY, PARAM]
+    assert len(bounds_data) == 2
+
+    n0 = bounds_data[0][0]
+    n1 = bounds_data[1][0]
+    assert n0 <= noise_pow <= n1
+
+    x = (noise_pow - n0) / (n1 - n0)
+
+    param_out = {}
+    d0 = bounds_data[0][2]
+    d1 = bounds_data[1][2]
+    for k_ in d0.keys():
+        param_out[k_] = (1 - x) * d0[k_] + x * d1[k_]
+
+    return param_out
+
+def gs_pick_bounds(gs_vec, gs_key, noise_pow):
+    # gs_vec[0] follows [NOISE, KEY, PARAM]
+    # gs_vec is sorted w.r.t. dim zero (NOISE)
+    data = []
+    for el in gs_vec:
+        if el[1] == gs_key:
+            data.append(el)
+
+    assert noise_pow >= data[0][0], "noise_pow smaller than gridsearch minimum"
+    assert noise_pow <= data[-1][0], "noise_pow bigger than gridsearch maximum"
+    assert len(data) > 0, "No data found: key error ?"
+
+    if len(data) == 1:
+        return data[0][2]  # return param dict
+
+    id = 1
+    while noise_pow > data[id][0]:
+        id = id + 1
+
+    return [data[id - 1], data[id]]
+
+def blur_hyper_param(noise_pow, gs_key):
+    gs_vec = [
+        [0.01, 'PnP_ML', {'lambda': 6.64e-05, 'g_param': 0.0245, }],  # PSNR = 21.32
+        [0.01, 'FB_TV_ML', {'lambda': 0.00124, }],  # PSNR = 21.19
+        [0.01, 'RED_ML_INIT', {'lambda': 0.0275, 'g_param': 0.139, }],  # PSNR = 21.11
+        [0.1, 'PnP_ML', {'lambda': 0.0548, 'g_param': 0.0505, }],  # PSNR = 20.70
+        [0.1, 'FB_TV_ML', {'lambda': 0.0275, }],  # PSNR = 19.15
+        [0.1, 'RED_ML_INIT', {'lambda': 0.154, 'g_param': 0.139, }],  # PSNR = 20.34
+        [0.2, 'PnP_ML', {'lambda': 0.109, 'g_param': 0.104, }],  # PSNR = 19.80
+        [0.2, 'FB_TV_ML', {'lambda': 0.0773, }],  # PSNR = 18.10
+        [0.2, 'RED_ML_INIT', {'lambda': 0.306, 'g_param': 0.185, }],  # PSNR = 19.59
+    ]
+
+    res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
+    if isinstance(res, dict):
+        return res
+    else:
+        return affine_interpolation(res, noise_pow=noise_pow)
 
 def inpainting_hyper_param(noise_pow):
     noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
@@ -37,7 +97,7 @@ def inpainting_hyper_param(noise_pow):
     ]
     return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
 
-def blur_hyper_param(noise_pow):
+def backup_blur_hyper_param(noise_pow):
     noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
 
     p_red = [
@@ -63,11 +123,24 @@ def blur_hyper_param(noise_pow):
     ]
 
     p_tv = [
-        {'lambda': 0.0047}, # not gridsearh
-        {'lambda': 0.0147},
-        {'lambda': 0.0596},
-        {'lambda': 0.1509},
-        {'lambda': 0.2545},
+    #    {'lambda': 0.0047}, # not gridsearh
+    #    {'lambda': 0.0147},
+    #    {'lambda': 0.0596},
+    #    {'lambda': 0.1509},
+    #    {'lambda': 0.2545},
+
+        #blur_0.01_FB_TV_ML_plot1d PSNR = 21.19106101989746
+        {'lambda': 0.0012404919834807515, },
+
+        {'lambda': 0.004, }, # not gridsearch
+
+        #blur_0.1_FB_TV_ML_plot1d PSNR = 19.14695167541504
+        {'lambda': 0.027509065344929695, },
+
+        #blur_0.2_FB_TV_ML_plot1d PSNR = 18.103586196899414
+        {'lambda': 0.07728640735149384, },
+
+        {'lambda': 0.14, }, # not gridsearch
     ]
 
     return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)

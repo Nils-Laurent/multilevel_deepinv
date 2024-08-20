@@ -1,5 +1,6 @@
+import deepinv.physics.functional
 import torch
-from deepinv.optim import PnP, Prior
+from deepinv.optim import PnP, Prior, RED
 from deepinv.optim.optim_iterators import GDIteration
 from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing
 import deepinv.optim as optim
@@ -10,6 +11,8 @@ from multilevel.coarse_gradient_descent import CGDIteration
 import multilevel.iterator as multi_level
 from multilevel.prior import TVPrior
 from multilevel_utils.radon import Tomography
+import torch.nn as nn
+import torch.nn.functional as F
 
 import copy
 
@@ -27,10 +30,8 @@ class CoarseModel(torch.nn.Module):
 
         if isinstance(self.pc.coarse_prior(), Prior):
             self.g = self.pc.coarse_prior()
-        elif (self.pc.ml_denoiser() != False) and isinstance(prior, PnP):
-            self.g = PnP(denoiser=self.pc.ml_denoiser())
-            if isinstance(self.pc.coherence_prior(), PnP):
-                self.pc.coherence_prior().denoiser = self.pc.ml_denoiser()
+        elif isinstance(self.pc.ml_denoiser(), nn.Module):
+            raise NotImplementedError("Feature is obsolete")
 
         self.f = data_fidelity
         self.fph = fine_physics
@@ -40,7 +41,7 @@ class CoarseModel(torch.nn.Module):
 
     def projection(self, x):
         if self.cit_op is None:
-            self.cit_op = DownsamplingTransfer(x)
+            self.cit_op = DownsamplingTransfer(x, self.pc.cit(), padding="circular")
             x_proj = self.cit_op.projection(x)
 
             if self.physics is None:
@@ -60,7 +61,7 @@ class CoarseModel(torch.nn.Module):
 
     def prolongation(self, x):
         if self.cit_op is None:
-            self.cit_op = DownsamplingTransfer(x)
+            self.cit_op = DownsamplingTransfer(x, self.pc.cit(), padding="circular")
         x_prol = self.cit_op.prolongation(x)
         return x_prol
 
@@ -72,7 +73,7 @@ class CoarseModel(torch.nn.Module):
         else:
             coherence_prior = self.g
 
-        if type(coherence_prior) == PnP:
+        if isinstance(coherence_prior, PnP):
             grad_g = x - coherence_prior.denoiser(x, sigma=params.g_param())
         elif hasattr(coherence_prior, 'denoiser'):
             grad_g = coherence_prior.grad(x, sigma_denoiser=params.g_param())
@@ -103,20 +104,22 @@ class CoarseModel(torch.nn.Module):
             else:
                 c_mask = m_coarse
             self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask, device=m_fine.device)
-        elif isinstance(self.fph, Blur):
-            fph = self.fph
-            if fph.filter.shape[2] < 4 or fph.filter.shape[3] < 4 :
-                filt = fph.filter
+        elif isinstance(self.fph, Blur) or isinstance(self.fph, BlurFFT):
+            #half_l = self.pc.cit().get_filter().shape[0] // 2
+            #f0 = F.pad(self.fph.filter, (half_l,) * 4)
+            #rep = self.cit_op.filt_2d.repeat(f0.shape[1], 1, 1, 1).to(x_coarse.device)
+            #filt = F.conv2d(f0, rep, groups=f0.shape[1], padding="valid")
+            #filt = filt[:, :, :: 2, :: 2]  # downsample
+            filt = F.interpolate(self.fph.filter, scale_factor=0.5, mode='bilinear')
+            #if self.is_large(self.fph.filter):
+            #    filt = self.projection(fph.filter)
+            #else:
+            #    print(f"coarse_physics warning : cannot downsample, using level{self.ph.level} filter directly")
+            #    filt = fph.filter
+            if isinstance(self.fph, BlurFFT):
+                self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
             else:
-                filt = self.projection(fph.filter)
-            self.physics = Blur(filter=filt, padding=fph.padding, device=x_coarse.device)
-        elif isinstance(self.fph, BlurFFT):
-            fph = self.fph
-            if fph.filter.shape[2] < 4 or fph.filter.shape[3] < 4 :
-                filt = fph.filter
-            else:
-                filt = self.projection(fph.filter)
-            self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
+                self.physics = Blur(filter=filt, padding=self.fph.padding, device=x_coarse.device)
         elif isinstance(self.fph, Tomography):
             theta_c = self.fph.radon.theta
             size_c = x_coarse.shape[-2]
@@ -126,12 +129,22 @@ class CoarseModel(torch.nn.Module):
 
         return self.physics
 
+    def is_large(self, x):
+        # check image size
+        sz_min = torch.min(torch.tensor(x.shape[2:]))
+        cit_len = self.pc.cit().get_filter().shape[0]
+
+        return cit_len < sz_min
+
     def init_ml_x0(self, X, y_h):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
 
-        if self.pc.level > 1:
-            model = CoarseModel(self.g, self.f, self.physics, self.pc)
-            x0 = model.init_ml_x0({'est': [x0]}, y)
+        if self.is_large(x0):
+            if self.pc.level > 1:
+                model = CoarseModel(self.g, self.f, self.physics, self.pc)
+                x0 = model.init_ml_x0({'est': [x0]}, y)
+        else:
+            print(f"Warning: Coarse init: image is small, cannot iterate below level {self.pc.level}")
 
         f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
         #iteration = GDIteration(has_cost=False)
@@ -169,11 +182,15 @@ class CoarseModel(torch.nn.Module):
             grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc)
             level_iteration = coarse_iter_class()
 
-        if self.pc.level > 1:
-            model = CoarseModel(self.g, self.f, self.physics, self.pc)
-            diff = model({'est': [x0]}, y, grad=grad_coarse)
-            x1 = x0 + self.pc.stepsize() * diff
+        if self.is_large(x0):
+            if self.pc.level > 1:
+                model = CoarseModel(self.g, self.f, self.physics, self.pc)
+                diff = model({'est': [x0]}, y, grad=grad_coarse)
+                x1 = x0 + self.pc.stepsize() * diff
+            else:
+                x1 = x0
         else:
+            print(f"Warning: Coarse model: image is small, cannot iterate below level {self.pc.level}")
             x1 = x0
 
         if isinstance(self.g, TVPrior):

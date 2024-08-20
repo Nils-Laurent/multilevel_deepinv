@@ -2,11 +2,12 @@ import os
 import sys
 
 import torch
-from deepinv.models import GSDRUNet
-from deepinv.models.GSPnP import GSPnP
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
+
+from deepinv.models import GSDRUNet
+from deepinv.models.GSPnP import GSPnP
 
 import deepinv as dinv
 from torch import nn
@@ -158,8 +159,8 @@ if __name__ == '__main__':
     student.train()
 
     # todo : test GS teacher
-    teacher2 = GSDrunetTeacher(device=device)
-    student2 = GSPnPStudent(denoiser=student)
+    #teacher2 = GSDrunetTeacher(device=device)
+    #student2 = GSPnPStudent(denoiser=student)
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=5e-4, amsgrad=True)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
@@ -171,7 +172,8 @@ if __name__ == '__main__':
 
     # todo : exp. high weight KD
     # todo : exp. no KD
-    losses = [KDLoss(teacher, mode=mode, weight=1), dinv.loss.SupLoss()]
+    weight = 2
+    losses = [KDLoss(teacher, mode=mode, weight=weight), dinv.loss.SupLoss()]
 
     #img_size = 64
     img_size = 128
@@ -190,7 +192,7 @@ if __name__ == '__main__':
     eval_dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
     wandb_setup = {
-        'name': f'student_teacher_{mode}_c32_ic2_10L',
+        'name': f'student_teacher_{mode}_c32_ic2_10L_weight{weight}',
         'project': 'student_teacher'}
 
     trainer = CustomTrainer(wandb_vis=True, wandb_setup=wandb_setup, losses=losses, model=student, ckp_interval=5,

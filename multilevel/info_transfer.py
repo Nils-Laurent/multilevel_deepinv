@@ -1,24 +1,37 @@
+import numpy
 import torch
 import deepinv
 
 
-class InfoTransfer:
-    def __init__(self, x):
-        pass
+class DownsamplingTransfer:
+    def __init__(self, x, def_filter, padding="circular"):
+        k0 = def_filter.get_filter()
+        self.filt_2d = self.set_2d_filter(k0, x.dtype)
+        if len(x.shape) == 3:
+            shape = x.shape
+        else:
+            shape = x.shape[1:]
+        self.op = deepinv.physics.Downsampling(shape, filter=self.filt_2d, factor=2, device=x.device, padding=padding)
 
-    def build_cit_matrices(self, x):
-        raise NotImplementedError("cit_matrices not overridden")
+    def set_2d_filter(self, k0, dtype):
+        #k0 = k0 / torch.sum(k0)
+        k_filter = torch.outer(k0, k0)
+        k_filter = k_filter.unsqueeze(0).unsqueeze(0).type(dtype)
+        return k_filter
 
-    def get_cit_matrices(self):
-        if self.cit_c is None or self.cit_r is None:
-            raise ValueError("CIT matrix is none")
-        return self.cit_c, self.cit_r
-
-    def projection(self, x):
-        raise NotImplementedError("projection not overridden")
+    def projection(self, x, padding="circular"):
+        if x.dim() == 3:  # useful for projecting masks
+            x2 = x.unsqueeze(0)
+            return self.op.A(x2).squeeze(0)
+        return self.op.A(x)
 
     def prolongation(self, x):
-        raise NotImplementedError("prolongation not overridden")
+        return self.op.A_adjoint(x)
+
+
+# ==========================
+#       filter list
+# ==========================
 
 
 class Kaiser:
@@ -39,15 +52,17 @@ class CFir:  # custom FIR filter
         return 'cfir'
 
     def get_filter(self):
-        k0 = torch.tensor([  # 21 coefficients
-            1.01437503712427e-05,0.0296086164210870,-1.44530126812105e-05,
-            -0.0227443097593730,-9.12224841202228e-06,0.0352848723429544,
-            4.17300880438512e-07,-0.0629580602971738,7.30245883320623e-06,
-            0.195309271289155,0.308106862238158,0.195309271289155,
-            7.30245883320623e-06,-0.0629580602971738,4.17300880438512e-07,
-            0.0352848723429544,-9.12224841202228e-06,-0.0227443097593730,
-            -1.44530126812105e-05,0.0296086164210870,1.01437503712427e-05
+        # order + 1 coefficients
+        k0 = torch.tensor([
+            -0.015938026, 0.000019591, 0.013033937, -0.000004666, -0.018657837, 0.000020187, 0.026570831, 0.000002218,
+            -0.038348155, 0.000018390, 0.058441238, 0.000007421, -0.102893218, 0.000011707, 0.317258819, 0.500004593,
+            0.317258819, 0.000011707, -0.102893218, 0.000007421, 0.058441238, 0.000018390, -0.038348155, 0.000002218,
+            0.026570831, 0.000020187, -0.018657837, -0.000004666, 0.013033937, 0.000019591, -0.015938026
         ])
+        #k0 = torch.tensor([
+        #    -0.000068106, 0.111025515, 0.000061827, -0.103275087, 0.000049373, 0.317230919, 0.499913812, 0.317230919,
+        #    0.000049373, -0.103275087, 0.000061827, 0.111025515, -0.000068106
+        #])
         return k0
 
 
@@ -62,39 +77,3 @@ class BlackmannHarris:
              0.8894, 0.3328, 0.0334, 0.0001]
         )
         return k0
-
-
-class DownsamplingTransfer(InfoTransfer):
-    def __init__(self, x, def_filter=BlackmannHarris()):
-        super().__init__(x)
-
-        match def_filter:
-            case Kaiser():
-                pass
-            case BlackmannHarris():
-                pass
-            case _:
-                raise NotImplementedError("Downsampling filter not implemented")
-
-        k0 = def_filter.get_filter()
-        filt_2d = self.set_2d_filter(k0, x.dtype)
-        if len(x.shape) == 3:
-            shape = x.shape
-        else:
-            shape = x.shape[1:]
-        self.op = deepinv.physics.Downsampling(shape, filter=filt_2d, factor=2, device=x.device, padding="circular")
-
-    def set_2d_filter(self, k0, dtype):
-        k0 = k0 / torch.sum(k0)
-        k_filter = torch.outer(k0, k0)
-        k_filter = k_filter.unsqueeze(0).unsqueeze(0).type(dtype)
-        return k_filter
-
-    def projection(self, x):
-        if x.dim() == 3:  # useful for projecting masks
-            x2 = x.unsqueeze(0)
-            return self.op.A(x2).squeeze(0)
-        return self.op.A(x)
-
-    def prolongation(self, x):
-        return self.op.A_adjoint(x)

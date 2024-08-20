@@ -6,7 +6,7 @@ from torch.utils.data import Subset
 from torchvision import transforms
 from itertools import product
 
-from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP
+from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPMLNoR, MPnP
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -14,7 +14,7 @@ if "/.fork" in sys.prefix:
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp_prox, single_level_params
+from tests.parameters import get_parameters_tv, get_parameters_red, get_parameters_pnp_prox_noreg, single_level_params
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename

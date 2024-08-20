@@ -1,5 +1,5 @@
 from gen_fig.fig_metric_logger import MRedMLInit, MFbMLGD, MPnPML
-from tests.parameters import get_parameters_red, get_parameters_tv, get_parameters_pnp_prox
+import tests.parameters as P
 
 import math
 import torch
@@ -14,45 +14,42 @@ def tune_grid_all(data_in, params_exp, device):
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
-    tensor_np = torch.tensor(noise_pow).to(device)
+    tensor_np = torch.tensor(float(noise_pow)).to(device)
     g = GaussianNoise(sigma=tensor_np)
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
+    res = {}
     with torch.no_grad():
-        # TUNE PNP
-        p_pnp, p_init = get_parameters_pnp_prox(params_exp)
-        p_pnp['step_coeff'] = 0.9
-        ra_pnp = RunAlgorithm(data, physics, params_exp, device=device)
-        data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
+        class_info = {
+            MPnPML : {"coeff": 0.9, "fn": tune_grid_pnp},
+            MFbMLGD : {"coeff": 1.9, "fn": tune_grid_tv},
+            MRedMLInit : {"coeff": 0.9, "fn": tune_grid_red},
+        }
+        for mclass in class_info.keys():
+            # TUNE
+            ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+mclass.key)
+            r_cl = mclass.param_fn(params_exp)
+            params = r_cl
+            if isinstance(r_cl, tuple):
+                params, p_init = r_cl[0], r_cl[1]
+                ra.set_init(p_init)
+            params['step_coeff'] = class_info[mclass]["coeff"]
+            gs_fn = class_info[mclass]["fn"]
+            obj_fn = lambda par: ra.run_algorithm(mclass, par)
+            res_data, res_keys = gs_fn(params, obj_fn)
+            #data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
 
-        # TUNE TV
-        p_tv = get_parameters_tv(params_exp)
-        p_tv['step_coeff'] = 1.9
-        ra_tv = RunAlgorithm(data, physics, params_exp, device=device)
-        data_tv, keys_tv = tune_grid_tv(p_tv, ra_tv.TV_PGD)
-
-        # TUNE RED
-        p_red, param_init = get_parameters_red(params_exp)
-        p_red['step_coeff'] = 0.9
-        ra_red = RunAlgorithm(data, physics, params_exp, device=device, param_init=param_init)
-        data_red, keys_red = tune_grid_red(p_red, ra_red.RED_GD)
-
-
-    res = {
-        MPnPML().key: {'axis': keys_pnp, 'tensors': data_pnp},
-        MFbMLGD().key: {'axis': keys_tv, 'tensors': data_tv},
-        MRedMLInit().key: {'axis': keys_red, 'tensors': data_red},
-    }
+            res[mclass.key] = {'axis': res_keys, 'tensors': res_data}
 
     return res
 
 
 def tune_grid_red(params_algo, algo):
-    lambda_range = [1E-5, 300.0]
-    lambda_split = 11  # should be around 11
-    sigma_range = [0.005, 0.51]
-    sigma_split = 9  # should be around 9
+    lambda_range = [1E-5, 2.0]
+    lambda_split = 11
+    sigma_range = [0.0001, 0.25]
+    sigma_split = 11
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -64,10 +61,10 @@ def tune_grid_red(params_algo, algo):
 
 
 def tune_grid_pnp(params_algo, algo):
-    lambda_range = [1E-5, 300.0]
-    lambda_split = 11  # should be around 11
-    sigma_range = [0.005, 0.51]
-    sigma_split = 9  # should be around 9
+    lambda_range = [1E-5, 2.0]
+    lambda_split = 11
+    sigma_range = [0.0001, 0.25]
+    sigma_split = 11
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -79,8 +76,8 @@ def tune_grid_pnp(params_algo, algo):
 
 
 def tune_grid_tv(params_algo, algo):
-    lambda_range = [1E-5, 300.0]
-    lambda_split = 11  # should be around 11
+    lambda_range = [1E-5, 2.0]
+    lambda_split = 11
 
     d_grid = {
         'lambda': [lambda_range, lambda_split],
@@ -90,8 +87,8 @@ def tune_grid_tv(params_algo, algo):
     return _tune(params_algo, algo, d_grid, recurse)
 
 
-def _tune(params_algo, algo, d_grid, recurse, prec=None, log=True):
-    TEST_FLAG = False
+def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
+    TEST_FLAG = True
 
     recurse = recurse - 1
     sz = []

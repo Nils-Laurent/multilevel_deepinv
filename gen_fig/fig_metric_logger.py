@@ -5,9 +5,9 @@ from matplotlib import pyplot
 from pylatex import Document, TikZ, Axis, Plot, NoEscape, Command
 import pylatex
 
-from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox, get_parameters_red, \
-    get_parameters_tv_coarse_pgd, get_parameters_tv, get_parameters_pnp_approx, get_parameters_pnp_prox_reg, \
-    get_parameters_pnp_approx_reg, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc, get_parameter_pnp_Moreau
+from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox_noreg, get_parameters_red, \
+    get_parameters_tv_coarse_pgd, get_parameters_tv, get_parameters_pnp_approx_noreg, get_parameters_pnp_prox, \
+    get_parameters_pnp_approx, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc, get_parameter_pnp_Moreau
 from utils.paths import get_out_dir
 from dataclasses import dataclass
 
@@ -27,32 +27,18 @@ class MPnPMoreau:
     param_fn = get_parameter_pnp_Moreau
 @dataclass
 class MPnPMLApproxNc:
-    key = 'PnP_ML_approxNc'
+    key = 'PnP_ML_approx_N1c'
     color = 'purple'
     linestyle = 'solid'
     label = key
     param_fn = get_parameters_pnp_approx_nc
 @dataclass
 class MPnPMLNc:
-    key = 'PnP_MLNc'
+    key = 'PnP_ML_N1c'
     color = 'purple'
     linestyle = 'solid'
     label = key
     param_fn = get_parameters_pnp_prox_nc
-@dataclass
-class MPnPMLApproxReg:
-    key = 'PnP_ML_approxR'
-    color = 'purple'
-    linestyle = 'solid'
-    label = key
-    param_fn = get_parameters_pnp_approx_reg
-@dataclass
-class MPnPMLReg:
-    key = 'PnP_MLR'
-    color = 'purple'
-    linestyle = 'solid'
-    label = key
-    param_fn = get_parameters_pnp_prox_reg
 @dataclass
 class MPnPMLApprox:
     key = 'PnP_ML_approx'
@@ -68,8 +54,22 @@ class MPnPML:
     label = key
     param_fn = get_parameters_pnp_prox
 @dataclass
-class MPnPML2:
-    key = 'PnP_ML2'
+class MPnPMLApproxNoR:
+    key = 'PnP_ML_approx_NoReg'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_approx_noreg
+@dataclass
+class MPnPMLNoR:
+    key = 'PnP_ML_NoReg'
+    color = 'purple'
+    linestyle = 'solid'
+    label = key
+    param_fn = get_parameters_pnp_prox_noreg
+@dataclass
+class MPnPMLNoProx:
+    key = 'PnP_ML_NoProx'
     color = 'gray'
     linestyle = 'solid'
     label = key
@@ -131,50 +131,16 @@ class MFbMLProx:
     label = key
     param_fn = get_parameters_tv_coarse_pgd
 
-def methods_obj():
-    tab_res = [
-        MPnP(),
-        MPnPMoreau(),
-        MPnPML(),
-        MPnPMLReg(),
-        MPnPMLApprox(),
-        MPnPMLApproxReg(),
-        MPnPML2(),
-        MRed(),
-        MRedML(),
-        MRedInit(),
-        MRedMLInit(),
-        MDPIR(),
-        MFb(),
-        MFbMLGD(),
-        MFbMLProx(),
-    ]
-
-    res = {}
-    for el in tab_res:
-        res[el.key] = el
-
-    return res
-
-
 class GenFigMetricLogger:
     def __init__(self):
         self.data = {}
-        self.methods = methods_obj()
-        self.keys_keep = self.methods
+        self.keep_vec = []
 
     def add_logger(self, x, mkey):
         self.data[mkey] = x
 
-    def keep_method(self, list_keys):
-        res = {}
-        for k_ in list_keys:
-            res[k_] = self.keys_keep[k_]
-
-        self.keys_keep = res
-
-    def is_valid_key(self, mkey):
-        return mkey in self.methods.keys()
+    def set_keep_vec(self, def_vec):
+        self.keep_vec = def_vec
 
     def _gen_tex_compute_means(self, x_vec, mat):
         y = numpy.mean(mat, axis=0)
@@ -221,7 +187,7 @@ class GenFigMetricLogger:
                 for method_key, g in self.data.items():
                     if not g.has_key(metric) or not self.is_valid_key(method_key):
                         continue
-                    if not (method_key in self.keys_keep.keys()):
+                    if not (method_key in self.keep_vec.keys()):
                         continue
                     index += 1
 

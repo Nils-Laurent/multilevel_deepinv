@@ -71,14 +71,21 @@ def test_blur():
     dataset = load_dataset('astro_ml', original_data_dir, transform=val_transform)
     x0 = dataset[0][0].to(device).unsqueeze(0)
 
-    cm.projection(x0)
-    it = cm.cit_op
+    cit = cm.cit_op
+
+    #x0_p = cm.projection(x0)
+    #print("x0_p min = ", torch.min(x0_p))
+    #print("x0_p max = ", torch.max(x0_p))
+    #print("x0_p med = ", torch.median(x0_p))
+    #ds_op = cit.op
+    #nn = ds_op.compute_norm(x0)
+    #print(nn)
 
     y = physics(x0)
     y_coarse = cm.projection(y)
 
-    x_coarse = it.projection(x0)
-    v1 = it.projection(physics.A_adjoint(physics.A(it.prolongation(x_coarse))))
+    x_coarse = cit.projection(x0)
+    v1 = cit.projection(physics.A_adjoint(physics.A(cit.prolongation(x_coarse))))
     v2 = cm.physics.A_adjoint(cm.physics.A(x_coarse))
 
     print("difference : L_infty = ", torch.max(torch.abs(v1.reshape(-1) - v2.reshape(-1))))
@@ -86,6 +93,7 @@ def test_blur():
     v1n = v1 / torch.max(v1)
     v2n = v2 / torch.max(v2)
     deepinv.utils.plot([v1n - y_coarse, v2n - y_coarse])
+    deepinv.utils.plot([v1 - y_coarse, v2 - y_coarse])
 
     diff_n = torch.abs(v1n - v2n)
     deepinv.utils.plot([diff_n])

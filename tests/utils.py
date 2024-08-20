@@ -68,26 +68,6 @@ def data_from_user_input(input_data, physics, params_exp, problem_name, device):
         return input_data
     else:
         raise NotImplementedError()
-        #save_dir = measurements_path().joinpath(params_exp['set_name'], problem_name)
-        #f_prefix = str(save_dir.joinpath('**', '*.'))
-        #find = ""
-        #find_file = ""
-        #for filename in glob.iglob(f_prefix + 'h5', recursive=True):
-        #    print(filename)
-        #    find = "h5"
-        #    find_file = filename
-
-        #match find:
-        #    case 'h5':
-        #        data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
-        #    case _:
-        #        # create dataset if it does not exist
-        #        generate_dataset(
-        #            train_dataset=input_data, physics=physics, save_dir=save_dir, device=device, test_dataset=input_data
-        #        )
-        #        data_bis = CH5Dataset(img_size=params_exp["shape"][1:2], path=find_file, train=False)
-        #data = DataLoader(data_bis, shuffle=True, batch_size=1)
-        ##data = DataLoader(data_bis, shuffle=False)
 
 
 from prettytable import PrettyTable
@@ -121,7 +101,6 @@ class ResultManager:
             self.generator.add_logger(output, key)
 
     def finalize(self, method_keep, params_exp, benchmark):
-        list_key_keep = [x().key for x in method_keep]
         if self.b_dataset is True:
             pb = params_exp['problem']
             noise_pow = params_exp['noise_pow']
@@ -131,7 +110,7 @@ class ResultManager:
             print("saving data")
             numpy.save(get_out_dir() + f"/{fig_name}_data", [self.generator])
             print("generating psnr figure [...]")
-            self.generator.keep_method(list_key_keep)
+            self.generator.set_keep_vec(method_keep)
             if benchmark is True:
                 self.generator.gen_tex('psnr', fig_name, 'median', x_axis='time')
                 self.generator.gen_tex('psnr', fig_name, 'mean', x_axis='time')
