@@ -1,4 +1,4 @@
-from gen_fig.fig_metric_logger import MRedMLInit, MFbMLGD, MPnPML
+import gen_fig.fig_metric_logger as mlog
 import tests.parameters as P
 
 import math
@@ -11,6 +11,7 @@ from tests.utils import physics_from_exp, data_from_user_input
 
 
 def tune_grid_all(data_in, params_exp, device):
+    params_exp['gridsearch'] = True
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
@@ -22,9 +23,10 @@ def tune_grid_all(data_in, params_exp, device):
     res = {}
     with torch.no_grad():
         class_info = {
-            MPnPML : {"coeff": 0.9, "fn": tune_grid_pnp},
-            MFbMLGD : {"coeff": 1.9, "fn": tune_grid_tv},
-            MRedMLInit : {"coeff": 0.9, "fn": tune_grid_red},
+            mlog.MPnPMLProx : {"coeff": 0.9},
+            mlog.MPnPML : {"coeff": 0.9},
+            mlog.MFbMLGD : {"coeff": 1.9},
+            mlog.MRedMLInit : {"coeff": 0.9},
         }
         for mclass in class_info.keys():
             # TUNE
@@ -35,60 +37,100 @@ def tune_grid_all(data_in, params_exp, device):
                 params, p_init = r_cl[0], r_cl[1]
                 ra.set_init(p_init)
             params['step_coeff'] = class_info[mclass]["coeff"]
-            gs_fn = class_info[mclass]["fn"]
             obj_fn = lambda par: ra.run_algorithm(mclass, par)
-            res_data, res_keys = gs_fn(params, obj_fn)
+            res_data, res_keys = tune_algo(params, algo=obj_fn, alg_class=mclass, params_exp=params_exp)
             #data_pnp, keys_pnp = tune_grid_pnp(p_pnp, ra_pnp.PnP_PGD)
 
             res[mclass.key] = {'axis': res_keys, 'tensors': res_data}
 
     return res
 
+def tune_algo(params_algo, algo, alg_class, params_exp):
+    noise_pow = params_exp["noise_pow"]
+    pb = params_exp["problem"]
 
-def tune_grid_red(params_algo, algo):
-    lambda_range = [1E-5, 2.0]
-    lambda_split = 11
-    sigma_range = [0.0001, 0.25]
-    sigma_split = 11
+    k_lambda = 'lambda'
+    par_lambda = [[1E-5, 1.0], 11]
+    k_sig = 'g_param'
+    par_sig = [[0.0001, 0.25], 11]
 
-    d_grid = {
-        'lambda': [lambda_range, lambda_split],
-        'g_param': [sigma_range, sigma_split],
-    }
-
+    d_grid = {}
     recurse = 2
+    if alg_class == mlog.MPnPML:
+        d_grid[k_lambda] = par_lambda
+        d_grid[k_sig] = par_sig
+    elif alg_class == mlog.MPnPMLProx:
+        d_grid[k_sig] = par_sig
+    elif alg_class == mlog.MRedMLInit:
+        if pb == "inpainting" and noise_pow >= 0.1:
+            d_grid[k_lambda] = [[1.0, 2.0], 11]
+        else:
+            d_grid[k_lambda] = [[1E-5, 1.0], 11]
+        d_grid[k_sig] = par_sig
+    elif alg_class == mlog.MFbMLGD:
+        d_grid[k_lambda] = par_lambda
+    else:
+        raise ValueError("Invalid gridsearch class: {}".format(alg_class))
+
     return _tune(params_algo, algo, d_grid, recurse)
 
 
-def tune_grid_pnp(params_algo, algo):
-    lambda_range = [1E-5, 2.0]
-    lambda_split = 11
-    sigma_range = [0.0001, 0.25]
-    sigma_split = 11
-
-    d_grid = {
-        'lambda': [lambda_range, lambda_split],
-        'g_param': [sigma_range, sigma_split],
-    }
-
-    recurse = 2
-    return _tune(params_algo, algo, d_grid, recurse)
-
-
-def tune_grid_tv(params_algo, algo):
-    lambda_range = [1E-5, 2.0]
-    lambda_split = 11
-
-    d_grid = {
-        'lambda': [lambda_range, lambda_split],
-    }
-
-    recurse = 2
-    return _tune(params_algo, algo, d_grid, recurse)
+#def tune_grid_red(params_algo, algo):
+#    lambda_range = [1E-5, 1.0]
+#    lambda_split = 11
+#    sigma_range = [0.0001, 0.25]
+#    sigma_split = 11
+#
+#    d_grid = {
+#        'lambda': [lambda_range, lambda_split],
+#        'g_param': [sigma_range, sigma_split],
+#    }
+#
+#    recurse = 2
+#    return _tune(params_algo, algo, d_grid, recurse)
+#
+#
+#def tune_grid_pnp(params_algo, algo):
+#    lambda_range = [1E-5, 1.0]
+#    lambda_split = 11
+#    sigma_range = [0.0001, 0.25]
+#    sigma_split = 11
+#
+#    d_grid = {
+#        'lambda': [lambda_range, lambda_split],
+#        'g_param': [sigma_range, sigma_split],
+#    }
+#
+#    recurse = 2
+#    return _tune(params_algo, algo, d_grid, recurse)
+#
+#
+#def tune_grid_pnp_prox(params_algo, algo):
+#    sigma_range = [0.0001, 0.25]
+#    sigma_split = 11
+#
+#    d_grid = {
+#        'g_param': [sigma_range, sigma_split],
+#    }
+#
+#    recurse = 2
+#    return _tune(params_algo, algo, d_grid, recurse)
+#
+#
+#def tune_grid_tv(params_algo, algo):
+#    lambda_range = [1E-5, 1.0]
+#    lambda_split = 11
+#
+#    d_grid = {
+#        'lambda': [lambda_range, lambda_split],
+#    }
+#
+#    recurse = 2
+#    return _tune(params_algo, algo, d_grid, recurse)
 
 
 def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
-    TEST_FLAG = True
+    TEST_FLAG = False
 
     recurse = recurse - 1
     sz = []
@@ -100,11 +142,13 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
         if log is True:
             a = numpy.log10(r_range[0])
             b = numpy.log10(r_range[1])
-            y = torch.logspace(a, b, steps=split, base=10.0)[1:-1]
+            #y = torch.logspace(a, b, steps=split, base=10.0)[1:-1]
+            y = torch.logspace(a, b, steps=split, base=10.0)
             print(f"parameter range: key = {key_}")
             print(f"value = {y}")
         else:
-            y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
+            #y = torch.linspace(r_range[0], r_range[1], split)[1:-1]
+            y = torch.linspace(r_range[0], r_range[1], split)
         axis_vec.append(y)
         sz.append(len(y))
 
@@ -127,7 +171,7 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
         lambda_r = params_algo['lambda']
         params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
         #try:
-        if TEST_FLAG is True:
+        if it >= 2 and TEST_FLAG is True:
             continue
 
         r = algo(params_algo.copy())

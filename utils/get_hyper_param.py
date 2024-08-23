@@ -40,9 +40,9 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
         if el[1] == gs_key:
             data.append(el)
 
+    assert len(data) > 0, "No data found: key error ?"
     assert noise_pow >= data[0][0], "noise_pow smaller than gridsearch minimum"
     assert noise_pow <= data[-1][0], "noise_pow bigger than gridsearch maximum"
-    assert len(data) > 0, "No data found: key error ?"
 
     if len(data) == 1:
         return data[0][2]  # return param dict
@@ -54,16 +54,32 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
     return [data[id - 1], data[id]]
 
 def blur_hyper_param(noise_pow, gs_key):
+    #gs_vec = [
+    #    #{'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
+    #    [0.01, 'PnP_ML_prox', {'g_param': 0.0285, }],  # PSNR = 21.32
+    #    [0.01, 'FB_TV_ML', {'lambda': 0.00124, }],  # PSNR = 21.19
+    #    [0.01, 'RED_ML_INIT', {'lambda': 0.0275, 'g_param': 0.139, }],  # PSNR = 21.11
+    #    [0.1, 'PnP_ML_prox', {'g_param': 0.0583, }],  # PSNR = 20.70
+    #    [0.1, 'FB_TV_ML', {'lambda': 0.0275, }],  # PSNR = 19.15
+    #    [0.1, 'RED_ML_INIT', {'lambda': 0.154, 'g_param': 0.139, }],  # PSNR = 20.34
+    #    [0.2, 'PnP_ML_prox', {'g_param': 0.104, }],  # PSNR = 19.80
+    #    [0.2, 'FB_TV_ML', {'lambda': 0.0773, }],  # PSNR = 18.10
+    #    [0.2, 'RED_ML_INIT', {'lambda': 0.306, 'g_param': 0.185, }],  # PSNR = 19.59
+    #]
+
     gs_vec = [
-        [0.01, 'PnP_ML', {'lambda': 6.64e-05, 'g_param': 0.0245, }],  # PSNR = 21.32
-        [0.01, 'FB_TV_ML', {'lambda': 0.00124, }],  # PSNR = 21.19
-        [0.01, 'RED_ML_INIT', {'lambda': 0.0275, 'g_param': 0.139, }],  # PSNR = 21.11
-        [0.1, 'PnP_ML', {'lambda': 0.0548, 'g_param': 0.0505, }],  # PSNR = 20.70
-        [0.1, 'FB_TV_ML', {'lambda': 0.0275, }],  # PSNR = 19.15
-        [0.1, 'RED_ML_INIT', {'lambda': 0.154, 'g_param': 0.139, }],  # PSNR = 20.34
-        [0.2, 'PnP_ML', {'lambda': 0.109, 'g_param': 0.104, }],  # PSNR = 19.80
-        [0.2, 'FB_TV_ML', {'lambda': 0.0773, }],  # PSNR = 18.10
-        [0.2, 'RED_ML_INIT', {'lambda': 0.306, 'g_param': 0.185, }],  # PSNR = 19.59
+        [0.01, 'PnP_ML_prox', {'g_param': 0.0401, }],  # PSNR = 20.86
+        [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 20.06
+        [0.01, 'FB_TV_ML', {'lambda': 1e-05, }],  # PSNR = 20.96
+        [0.01, 'RED_ML_INIT', {'lambda': 0.04, 'g_param': 0.0951, }],  # PSNR = 21.09
+        [0.1, 'PnP_ML_prox', {'g_param': 0.0451, }],  # PSNR = 20.56
+        [0.1, 'PnP_ML', {'lambda': 0.01, 'g_param': 0.0801, }],  # PSNR = 19.86
+        [0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 19.12
+        [0.1, 'RED_ML_INIT', {'lambda': 0.12, 'g_param': 0.155, }],  # PSNR = 20.37
+        [0.2, 'PnP_ML_prox', {'g_param': 0.0751, }],  # PSNR = 19.77
+        [0.2, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.1, }],  # PSNR = 19.42
+        [0.2, 'FB_TV_ML', {'lambda': 0.08, }],  # PSNR = 18.09
+        [0.2, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.13, }],  # PSNR = 19.65
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
@@ -72,30 +88,50 @@ def blur_hyper_param(noise_pow, gs_key):
     else:
         return affine_interpolation(res, noise_pow=noise_pow)
 
-def inpainting_hyper_param(noise_pow):
-    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
-    p_red = [
-        {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
-        {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
-        {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
-        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
+def inpainting_hyper_param(noise_pow, gs_key):
+    #noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
+    #p_red = [
+    #    {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
+    #    {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
+    #    {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
+    #    {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
+    #    {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
+    #]
+    #p_pnp = [
+    #    {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
+    #    {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
+    #    {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
+    #    {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
+    #    {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
+    #]
+    #p_tv = [
+    #    {'lambda': 0.0177}, # not gridsearh
+    #    {'lambda': 0.0477},
+    #    {'lambda': 0.1357},
+    #    {'lambda': 0.3053},
+    #    {'lambda': 0.5150},
+    #]
+    #return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
+    gs_vec = [
+        [0.01, 'PnP_ML_prox', {'g_param': 0.15, }],  # PSNR = 25.53
+        [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0801, }],  # PSNR = 29.21
+        [0.01, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 27.21
+        [0.01, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.105, }],  # PSNR = 29.02
+        [0.1, 'PnP_ML_prox', {'g_param': 0.125, }],  # PSNR = 26.06
+        [0.1, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0801, }],  # PSNR = 28.75
+        [0.1, 'FB_TV_ML', {'lambda': 0.12, }],  # PSNR = 23.33
+        [0.1, 'RED_ML_INIT', {'lambda': 0.99, 'g_param': 0.0851, }],  # PSNR = 25.57
+        [0.2, 'PnP_ML_prox', {'g_param': 0.13, }],  # PSNR = 25.56
+        [0.2, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.14, }],  # PSNR = 26.16
+        [0.2, 'FB_TV_ML', {'lambda': 0.3, }],  # PSNR = 20.73
+        [0.2, 'RED_ML_INIT', {'lambda': 1.0, 'g_param': 0.115, }],  # PSNR = 21.47
     ]
-    p_pnp = [
-        {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
-        {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
-        {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
-        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
-    ]
-    p_tv = [
-        {'lambda': 0.0177}, # not gridsearh
-        {'lambda': 0.0477},
-        {'lambda': 0.1357},
-        {'lambda': 0.3053},
-        {'lambda': 0.5150},
-    ]
-    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
+
+    res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
+    if isinstance(res, dict):
+        return res
+    else:
+        return affine_interpolation(res, noise_pow=noise_pow)
 
 def backup_blur_hyper_param(noise_pow):
     noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]

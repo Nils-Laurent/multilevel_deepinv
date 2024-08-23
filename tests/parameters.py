@@ -11,7 +11,6 @@ from multilevel.info_transfer import BlackmannHarris, CFir
 from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 from utils.paths import checkpoint_path
-
 import gen_fig.fig_metric_logger as mlog
 
 
@@ -27,16 +26,16 @@ def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
     return params
 
 def get_parameters_pnp(params_exp):
-    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
+    params_algo, res = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
     p_pnp['scale_coherent_grad'] = False
 
-    p_pnp['g_param'] = hp_pnp['g_param']
-    lambda_pnp = hp_pnp['lambda']
+    p_pnp['g_param'] = res[mlog.MPnPML.key]['g_param']
+    lambda_pnp = res[mlog.MPnPML.key]['lambda']
     print("lambda_pnp:", lambda_pnp)
 
     iters_fine = 200
-    iters_coarse = 3
+    iters_coarse = 8
     iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
     p_pnp['iml_max_iter'] = 8
 
@@ -44,21 +43,24 @@ def get_parameters_pnp(params_exp):
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
+    state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
+    p_pnp['coherence_prior'] = PnP(denoiser=d)
+    p_pnp['coarse_prior'] = PnP(denoiser=d)
+
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
 
-    #param_init = p_pnp.copy()
-    #param_init['init_ml_x0'] = [80] * len(iters_vec)
     param_init = {}
     return p_pnp, param_init
 
 def get_parameters_pnp_prox(params_exp):
-    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
+    params_algo, res = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
 
-    p_pnp['g_param'] = hp_pnp['g_param']
+    p_pnp['g_param'] = res[mlog.MPnPMLProx.key]['g_param']
     #lambda_pnp = hp_pnp['lambda']
     lambda_pnp = 2.0/3.0
     print("lambda_pnp:", lambda_pnp)
@@ -148,13 +150,12 @@ def get_parameters_pnp_approx_nc(params_exp):
     return p_pnp, param_init
 
 
-
 def get_parameters_red(params_exp):
-    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
+    params_algo, res = get_param_algo_(params_exp)
     p_red = params_algo.copy()
 
-    p_red['g_param'] = hp_red['g_param']
-    lambda_red = hp_red['lambda']
+    p_red['g_param'] = res[mlog.MRedMLInit.key]['g_param']
+    lambda_red = res[mlog.MRedMLInit.key]['lambda']
     print("lambda_red:", lambda_red)
 
     iters_fine = 200
@@ -172,10 +173,10 @@ def get_parameters_red(params_exp):
     p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
 
     # todo : NEW TEST
-    state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
-    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
-    p_red['coarse_prior'] = RED(denoiser=d)
-    p_red['coherence_prior'] = RED(denoiser=d)
+    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
+    #d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
+    #p_red['coarse_prior'] = RED(denoiser=d)
+    #p_red['coherence_prior'] = RED(denoiser=d)
 
     #p_red['params_multilevel'][0]['stepsize'] = stepsize_vec  # smoothing parameter
     #p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
@@ -187,10 +188,10 @@ def get_parameters_red(params_exp):
 
 def get_parameters_tv(params_exp):
     # We assume regularization gradient is 1-Lipschitz
-    params_algo, hp_red, hp_pnp, hp_tv = get_param_algo_(params_exp)
+    params_algo, res = get_param_algo_(params_exp)
     p_tv = params_algo.copy()
 
-    lambda_tv = hp_tv['lambda']
+    lambda_tv = res[mlog.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
 
     iters_fine = 200
@@ -257,16 +258,26 @@ def get_param_algo_(params_exp):
     noise_pow = params_exp["noise_pow"]
     problem = params_exp['problem']
 
-    print("def_noise:", noise_pow)
+    res = {}
+    alg = [
+        mlog.MRedMLInit.key,
+        mlog.MPnPML.key,
+        mlog.MPnPMLProx.key,
+        mlog.MFbMLGD.key,
+    ]
 
-    if problem == 'inpainting' or problem == 'demosaicing':
-        hp_red, hp_pnp, hp_tv = inpainting_hyper_param(noise_pow)
+    print("def_noise:", noise_pow)
+    if 'gridsearch' in params_exp.keys() and params_exp['gridsearch'] is True:
+        for akey in alg:
+            res[akey] = {'lambda': 0, 'g_param': 0}
+    elif problem == 'inpainting' or problem == 'demosaicing':
+        for akey in alg:
+            res[akey] = inpainting_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'blur':
-        hp_red = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MRedMLInit.key)
-        hp_pnp = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MPnPML.key)
-        hp_tv = blur_hyper_param(noise_pow=noise_pow, gs_key=mlog.MFbMLGD.key)
+        for akey in alg:
+            res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
-        hp_red, hp_pnp, hp_tv = tomography_hyper_param(noise_pow)
+        pass
     else:
         raise NotImplementedError("not implem")
 
@@ -275,7 +286,7 @@ def get_param_algo_(params_exp):
         'scale_coherent_grad': True
     }
 
-    return params_algo, hp_red, hp_pnp, hp_tv
+    return params_algo, res
 
 
 def red_drunet_lipschitz():

@@ -105,17 +105,12 @@ class CoarseModel(torch.nn.Module):
                 c_mask = m_coarse
             self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask, device=m_fine.device)
         elif isinstance(self.fph, Blur) or isinstance(self.fph, BlurFFT):
-            #half_l = self.pc.cit().get_filter().shape[0] // 2
-            #f0 = F.pad(self.fph.filter, (half_l,) * 4)
-            #rep = self.cit_op.filt_2d.repeat(f0.shape[1], 1, 1, 1).to(x_coarse.device)
-            #filt = F.conv2d(f0, rep, groups=f0.shape[1], padding="valid")
-            #filt = filt[:, :, :: 2, :: 2]  # downsample
-            filt = F.interpolate(self.fph.filter, scale_factor=0.5, mode='bilinear')
-            #if self.is_large(self.fph.filter):
-            #    filt = self.projection(fph.filter)
-            #else:
-            #    print(f"coarse_physics warning : cannot downsample, using level{self.ph.level} filter directly")
-            #    filt = fph.filter
+            half_l = self.pc.cit().get_filter().shape[0] // 2
+            f0 = F.pad(self.fph.filter, (half_l,) * 4)
+            rep = self.cit_op.filt_2d.repeat(f0.shape[1], 1, 1, 1).to(x_coarse.device)
+            filt = F.conv2d(f0, rep, groups=f0.shape[1], padding="valid")
+            filt = filt[:, :, :: 2, :: 2]  # downsample
+            #filt = F.interpolate(self.fph.filter, scale_factor=0.5, mode='bilinear')
             if isinstance(self.fph, BlurFFT):
                 self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
             else:

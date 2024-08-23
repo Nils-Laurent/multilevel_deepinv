@@ -47,8 +47,8 @@ class MPnPMLApprox:
     label = key
     param_fn = get_parameters_pnp_approx
 @dataclass
-class MPnPML:
-    key = 'PnP_ML'
+class MPnPMLProx:
+    key = 'PnP_ML_prox'
     color = 'purple'
     linestyle = 'solid'
     label = key
@@ -68,8 +68,8 @@ class MPnPMLNoR:
     label = key
     param_fn = get_parameters_pnp_prox_noreg
 @dataclass
-class MPnPMLNoProx:
-    key = 'PnP_ML_NoProx'
+class MPnPML:
+    key = 'PnP_ML'
     color = 'gray'
     linestyle = 'solid'
     label = key

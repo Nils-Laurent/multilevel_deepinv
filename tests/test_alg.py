@@ -75,9 +75,9 @@ class RunAlgorithm:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=True)
-        elif m_class in [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPML, MPnPMLApprox, MPnPMLNc, MPnPMLApproxNc]:
+        elif m_class in [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MPnPMLNc, MPnPMLApproxNc]:
             return self.PnP_PGD(params_algo, use_cost=False)
-        elif m_class in [MPnPMLNoProx]:
+        elif m_class in [MPnPML]:
             return self.PnP(params_algo)
         else:
             raise NotImplementedError("Unrecognized model {}".format(m_class))

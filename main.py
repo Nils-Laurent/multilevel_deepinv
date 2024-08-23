@@ -136,8 +136,7 @@ def main_test(
 def main_tune(plot_and_exit=False):
     #pb_list = ['inpainting', 'blur', 'tomography']
     #noise_pow_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
-    #pb_list = ['inpainting', 'blur']
-    pb_list = ['blur']
+    pb_list = ['inpainting']
     noise_pow_vec = [0.01, 0.1, 0.2]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
@@ -172,7 +171,7 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
             else:
                 tune_plot_1d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_plot1d")
 
-            print_gridsearch_max(key_, tensors, axis, noise_pow, f"{pb}_{noise_pow}_{key_}")
+            print_gridsearch_max(key_, tensors, axis, noise_pow)
 
 
 if __name__ == "__main__":
@@ -185,8 +184,7 @@ if __name__ == "__main__":
     m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
     m_vec_pnp = [MPnP, MPnPMLNoR, MDPIR, MFb, MFbMLProx]
     #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc, MFb, MFbMLGD, MFbMLProx]
-    m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPML, MPnPMLApprox, MFb, MFbMLGD]
-    #m_vec_pnp = [MFb, MFbMLGD]
+    m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
 
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
@@ -197,8 +195,8 @@ if __name__ == "__main__":
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
-    #main_tune(plot_and_exit=False)
-    #main_tune(plot_and_exit=True)
+    main_tune(plot_and_exit=False)
+    main_tune(plot_and_exit=True)
 
     # 3 CPU TEST
     #m_vec_pnp = [MFb, MFbMLGD]
@@ -208,16 +206,12 @@ if __name__ == "__main__":
     #)
 
     # 3 evaluate methods on single image
-    main_test(
-        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False
-    )
     #main_test(
-    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
+    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
     #main_test(
-    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
+    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
 

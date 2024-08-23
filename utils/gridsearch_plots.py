@@ -73,7 +73,7 @@ def tune_plot_1d(d_tune, keys, fig_name=None):
         pyplot.savefig(join(out_path, (fig_name + ".png")))
     pyplot.close('all')
 
-def print_gridsearch_max(key_, d_tune, keys, noise_pow, name):
+def print_gridsearch_max(key_, d_tune, keys, noise_pow):
 
     psnr_tensor = d_tune[-1]['cost']
     coord_vec = d_tune[-1]['coord']
