@@ -220,6 +220,9 @@ def get_parameters_tv(params_exp):
 
     return p_tv
 
+def get_parameters_dpir(params_exp):
+    return {}
+
 def get_parameters_tv_coarse_pgd(params_exp):
     p_tv = get_parameters_tv(params_exp)
     p_tv['coarse_iterator'] = CPGDIteration

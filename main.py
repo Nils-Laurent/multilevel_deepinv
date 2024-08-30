@@ -51,7 +51,7 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
             p_method, p_init = res[0], res[1]
             ra.set_init(p_init)
 
-        rm.post_process(ra.run_algorithm(m_class, p_method), m_class().key)
+        rm.post_process(ra.run_algorithm(m_class, p_method), m_class)
 
     rm.finalize(list_method, params_exp, benchmark)
 
@@ -178,13 +178,13 @@ if __name__ == "__main__":
     print(sys.prefix)
     #set3c_shape = (3, 256, 256)
     #div2k_shape = (3, 2040, 1356)
-    set3c_shape = 256
-    div2k_shape = 1024
+    set3c_sz = 256
+    div2k_sz = 1024
 
     m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
-    m_vec_pnp = [MPnP, MPnPMLNoR, MDPIR, MFb, MFbMLProx]
     #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc, MFb, MFbMLGD, MFbMLProx]
-    m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
+    #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
+    m_vec_pnp = [MPnP, MPnPMLProx, MPnPML, MDPIR, MFbMLGD]
 
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
-    main_tune(plot_and_exit=False)
+    #main_tune(plot_and_exit=False)
     main_tune(plot_and_exit=True)
 
     # 3 CPU TEST
@@ -216,6 +216,10 @@ if __name__ == "__main__":
     #)
 
     # 4 statistical tests
+    #main_test(
+    #    'blur', img_size=set3c_sz, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=True,
+    #    use_file_data=True, benchmark=True, cpu=False
+    #)
 
     # FIG GUILLAUME : noise = 0.01, blur_pow = 3.6 ?
     #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)

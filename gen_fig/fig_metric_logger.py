@@ -7,7 +7,8 @@ import pylatex
 
 from tests.parameters import get_parameters_pnp, get_parameters_pnp_prox_noreg, get_parameters_red, \
     get_parameters_tv_coarse_pgd, get_parameters_tv, get_parameters_pnp_approx_noreg, get_parameters_pnp_prox, \
-    get_parameters_pnp_approx, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc, get_parameter_pnp_Moreau
+    get_parameters_pnp_approx, get_parameters_pnp_prox_nc, get_parameters_pnp_approx_nc, get_parameter_pnp_Moreau, \
+    get_parameters_dpir
 from utils.paths import get_out_dir
 from dataclasses import dataclass
 
@@ -108,7 +109,7 @@ class MDPIR:
     color = 'green'
     linestyle = 'solid'
     label = key
-    param_fn = get_parameters_red
+    param_fn = get_parameters_dpir
 @dataclass
 class MFb:
     key = 'FB_TV'
@@ -136,8 +137,8 @@ class GenFigMetricLogger:
         self.data = {}
         self.keep_vec = []
 
-    def add_logger(self, x, mkey):
-        self.data[mkey] = x
+    def add_logger(self, x, mclass):
+        self.data[mclass] = x
 
     def set_keep_vec(self, def_vec):
         self.keep_vec = def_vec
@@ -184,15 +185,14 @@ class GenFigMetricLogger:
             ax_options = f'height=10cm, width=16cm, grid=major, xlabel={x_label}, ylabel=PSNR, legend pos=south east'
             with doc.create(Axis(options=ax_options)) as ax:
                 index = 0
-                for method_key, g in self.data.items():
-                    if not g.has_key(metric) or not self.is_valid_key(method_key):
+                for method, g in self.data.items():
+                    if not g.has_key(metric):
                         continue
-                    if not (method_key in self.keep_vec.keys()):
+                    if not (method in self.keep_vec):
                         continue
                     index += 1
 
                     mat = g.metric_matrix(metric)
-                    method = self.methods[method_key]
                     mx, my = mat.shape
                     if x_axis is None:
                         x_vec = range(my)
@@ -221,30 +221,5 @@ class GenFigMetricLogger:
         if not(x_axis is None):
             full_name += "_" + x_axis
         out_f = join(get_out_dir(), full_name).__str__()
+        print("Writing", out_f)
         doc.generate_tex(filepath=out_f)
-
-    #def gen_fig(self, metric):
-    #    fig, ax = pyplot.subplots()
-
-    #    for method_key, g in self.data.items():
-    #        if not g.has_key(metric) or not self.is_valid_key(method_key):
-    #            continue
-
-    #        mat = g.metric_matrix(metric)
-    #        method = self.methods[method_key]
-    #        mx, my = mat.shape
-    #        y5 = numpy.quantile(mat, q=0.05, axis=0)
-    #        y95 = numpy.quantile(mat, q=0.95, axis=0)
-    #        y_med = numpy.median(mat, axis=0)
-    #        ax.fill_between(range(my), y5, y95, alpha=0.15, color=method.color)
-    #        pyplot.plot(range(my), y_med, color=method.color, linestyle=method.linestyle, label=method.label)
-    #        #ax.fill_between(range(my), y5, y95, alpha=0.1, color='goldenrod')
-    #        #ax.fill_between(sigma_vec, y25, y75, alpha=0.1, color='darkorchid')
-    #    pyplot.xlabel("x")
-    #    pyplot.ylabel("y")
-    #    pyplot.legend(loc="lower right")
-    #    pyplot.show()
-
-    #    out_path = get_out_dir()
-    #    pyplot.savefig(join(out_path, (metric + ".png")))
-    #    pyplot.close('all')

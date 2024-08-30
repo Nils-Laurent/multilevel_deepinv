@@ -79,6 +79,8 @@ class RunAlgorithm:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML]:
             return self.PnP(params_algo)
+        elif m_class in [MDPIR]:
+            return self.DPIR(params_algo)
         else:
             raise NotImplementedError("Unrecognized model {}".format(m_class))
 

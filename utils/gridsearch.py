@@ -63,7 +63,8 @@ def tune_algo(params_algo, algo, alg_class, params_exp):
         d_grid[k_sig] = par_sig
     elif alg_class == mlog.MRedMLInit:
         if pb == "inpainting" and noise_pow >= 0.1:
-            d_grid[k_lambda] = [[1.0, 2.0], 11]
+            d_grid[k_lambda] = [[2.0, 12.0], 11]
+            recurse = 3
         else:
             d_grid[k_lambda] = [[1E-5, 1.0], 11]
         d_grid[k_sig] = par_sig

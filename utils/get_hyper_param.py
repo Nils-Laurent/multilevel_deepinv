@@ -1,5 +1,3 @@
-import numpy
-
 
 def select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv):
     for n in range(len(noise_vec)):
@@ -54,19 +52,6 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
     return [data[id - 1], data[id]]
 
 def blur_hyper_param(noise_pow, gs_key):
-    #gs_vec = [
-    #    #{'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
-    #    [0.01, 'PnP_ML_prox', {'g_param': 0.0285, }],  # PSNR = 21.32
-    #    [0.01, 'FB_TV_ML', {'lambda': 0.00124, }],  # PSNR = 21.19
-    #    [0.01, 'RED_ML_INIT', {'lambda': 0.0275, 'g_param': 0.139, }],  # PSNR = 21.11
-    #    [0.1, 'PnP_ML_prox', {'g_param': 0.0583, }],  # PSNR = 20.70
-    #    [0.1, 'FB_TV_ML', {'lambda': 0.0275, }],  # PSNR = 19.15
-    #    [0.1, 'RED_ML_INIT', {'lambda': 0.154, 'g_param': 0.139, }],  # PSNR = 20.34
-    #    [0.2, 'PnP_ML_prox', {'g_param': 0.104, }],  # PSNR = 19.80
-    #    [0.2, 'FB_TV_ML', {'lambda': 0.0773, }],  # PSNR = 18.10
-    #    [0.2, 'RED_ML_INIT', {'lambda': 0.306, 'g_param': 0.185, }],  # PSNR = 19.59
-    #]
-
     gs_vec = [
         [0.01, 'PnP_ML_prox', {'g_param': 0.0401, }],  # PSNR = 20.86
         [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 20.06
@@ -89,42 +74,19 @@ def blur_hyper_param(noise_pow, gs_key):
         return affine_interpolation(res, noise_pow=noise_pow)
 
 def inpainting_hyper_param(noise_pow, gs_key):
-    #noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
-    #p_red = [
-    #    {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
-    #    {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
-    #    {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
-    #    {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
-    #    {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
-    #]
-    #p_pnp = [
-    #    {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
-    #    {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
-    #    {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
-    #    {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
-    #    {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
-    #]
-    #p_tv = [
-    #    {'lambda': 0.0177}, # not gridsearh
-    #    {'lambda': 0.0477},
-    #    {'lambda': 0.1357},
-    #    {'lambda': 0.3053},
-    #    {'lambda': 0.5150},
-    #]
-    #return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
     gs_vec = [
-        [0.01, 'PnP_ML_prox', {'g_param': 0.15, }],  # PSNR = 25.53
-        [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0801, }],  # PSNR = 29.21
-        [0.01, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 27.21
-        [0.01, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.105, }],  # PSNR = 29.02
-        [0.1, 'PnP_ML_prox', {'g_param': 0.125, }],  # PSNR = 26.06
-        [0.1, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0801, }],  # PSNR = 28.75
-        [0.1, 'FB_TV_ML', {'lambda': 0.12, }],  # PSNR = 23.33
-        [0.1, 'RED_ML_INIT', {'lambda': 0.99, 'g_param': 0.0851, }],  # PSNR = 25.57
-        [0.2, 'PnP_ML_prox', {'g_param': 0.13, }],  # PSNR = 25.56
-        [0.2, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.14, }],  # PSNR = 26.16
-        [0.2, 'FB_TV_ML', {'lambda': 0.3, }],  # PSNR = 20.73
-        [0.2, 'RED_ML_INIT', {'lambda': 1.0, 'g_param': 0.115, }],  # PSNR = 21.47
+        [0.01, 'PnP_ML_prox', {'g_param': 0.248, }],  # PSNR = 23.93
+        [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0851, }],  # PSNR = 29.00
+        [0.01, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 27.17
+        [0.01, 'RED_ML_INIT', {'lambda': 0.46, 'g_param': 0.105, }],  # PSNR = 29.23
+        [0.1, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.97
+        [0.1, 'PnP_ML', {'lambda': 0.03, 'g_param': 0.0751, }],  # PSNR = 28.75
+        [0.1, 'FB_TV_ML', {'lambda': 0.14, }],  # PSNR = 23.40
+        [0.1, 'RED_ML_INIT', {'lambda': 3.0, 'g_param': 0.0521, }],  # PSNR = 26.68
+        [0.2, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.52
+        [0.2, 'PnP_ML', {'lambda': 0.1, 'g_param': 0.125, }],  # PSNR = 26.17
+        [0.2, 'FB_TV_ML', {'lambda': 0.32, }],  # PSNR = 20.72
+        [0.2, 'RED_ML_INIT', {'lambda': 7.36, 'g_param': 0.0451, }],  # PSNR = 24.38
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
@@ -133,76 +95,79 @@ def inpainting_hyper_param(noise_pow, gs_key):
     else:
         return affine_interpolation(res, noise_pow=noise_pow)
 
-def backup_blur_hyper_param(noise_pow):
-    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
 
-    p_red = [
-        #blur_0.01_RED_ML_INIT_scatter2d PSNR = 21.10517692565918
-        {'lambda': 0.027509065344929695, 'g_param': 0.13888375461101532},
-        {'lambda': 0.0013/noise_pow**2, 'g_param': 0.0913}, # not gridsearch
-        #blur_0.1_RED_ML_INIT_scatter2d PSNR = 20.32094383239746
-        {'lambda': 0.15388204157352448, 'g_param': 0.1201939731836319, },
-        #blur_0.2_RED_ML_INIT_scatter2d PSNR = 19.555994033813477
-        {'lambda': 0.4323298931121826, 'g_param': 0.13888373970985413, },
-        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.1102}, # not gridsearch
-    ]
+# ================== BACKUPS ====================
 
-    p_pnp = [
-        #blur_0.01_PnP_ML_scatter2d PSNR = 21.24113655090332
-        {'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
-        {'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
-        #blur_0; .1; _PnP_ML_scatter2d; PSNR = 20.695531845092773
-        {'lambda': 0.0012404919834807515, 'g_param': 0.05834972858428955, },
-        #blur_0; .2; _PnP_ML_scatter2d; PSNR = 19.82026481628418
-        {'lambda': 0.0017503963317722082, 'g_param': 0.10401930660009384, },
-        {'lambda': 0.0017503963317722082, 'g_param': 0.10401930660009384, },
-    ]
-
-    p_tv = [
-    #    {'lambda': 0.0047}, # not gridsearh
-    #    {'lambda': 0.0147},
-    #    {'lambda': 0.0596},
-    #    {'lambda': 0.1509},
-    #    {'lambda': 0.2545},
-
-        #blur_0.01_FB_TV_ML_plot1d PSNR = 21.19106101989746
-        {'lambda': 0.0012404919834807515, },
-
-        {'lambda': 0.004, }, # not gridsearch
-
-        #blur_0.1_FB_TV_ML_plot1d PSNR = 19.14695167541504
-        {'lambda': 0.027509065344929695, },
-
-        #blur_0.2_FB_TV_ML_plot1d PSNR = 18.103586196899414
-        {'lambda': 0.07728640735149384, },
-
-        {'lambda': 0.14, }, # not gridsearch
-    ]
-
-    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
-
-def tomography_hyper_param(noise_pow):
-    noise_vec = [0.05, 0.1, 0.2, 0.3]
-
-    p_red = [
-        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
-        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
-    ]
-
-    p_pnp = [
-        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
-        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
-        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
-    ]
-
-    p_tv = [
-        {'lambda': 0.0007},
-        {'lambda': 0.0014},
-        {'lambda': 0.0044},
-        {'lambda': 0.0067},
-    ]
-
-    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
+#def backup_blur_hyper_param(noise_pow):
+#    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
+#
+#    p_red = [
+#        #blur_0.01_RED_ML_INIT_scatter2d PSNR = 21.10517692565918
+#        {'lambda': 0.027509065344929695, 'g_param': 0.13888375461101532},
+#        {'lambda': 0.0013/noise_pow**2, 'g_param': 0.0913}, # not gridsearch
+#        #blur_0.1_RED_ML_INIT_scatter2d PSNR = 20.32094383239746
+#        {'lambda': 0.15388204157352448, 'g_param': 0.1201939731836319, },
+#        #blur_0.2_RED_ML_INIT_scatter2d PSNR = 19.555994033813477
+#        {'lambda': 0.4323298931121826, 'g_param': 0.13888373970985413, },
+#        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.1102}, # not gridsearch
+#    ]
+#
+#    p_pnp = [
+#        #blur_0.01_PnP_ML_scatter2d PSNR = 21.24113655090332
+#        {'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
+#        {'lambda': 0.00022175929916556925, 'g_param': 0.028326647356152534, },
+#        #blur_0; .1; _PnP_ML_scatter2d; PSNR = 20.695531845092773
+#        {'lambda': 0.0012404919834807515, 'g_param': 0.05834972858428955, },
+#        #blur_0; .2; _PnP_ML_scatter2d; PSNR = 19.82026481628418
+#        {'lambda': 0.0017503963317722082, 'g_param': 0.10401930660009384, },
+#        {'lambda': 0.0017503963317722082, 'g_param': 0.10401930660009384, },
+#    ]
+#
+#    p_tv = [
+#    #    {'lambda': 0.0047}, # not gridsearh
+#    #    {'lambda': 0.0147},
+#    #    {'lambda': 0.0596},
+#    #    {'lambda': 0.1509},
+#    #    {'lambda': 0.2545},
+#
+#        #blur_0.01_FB_TV_ML_plot1d PSNR = 21.19106101989746
+#        {'lambda': 0.0012404919834807515, },
+#
+#        {'lambda': 0.004, }, # not gridsearch
+#
+#        #blur_0.1_FB_TV_ML_plot1d PSNR = 19.14695167541504
+#        {'lambda': 0.027509065344929695, },
+#
+#        #blur_0.2_FB_TV_ML_plot1d PSNR = 18.103586196899414
+#        {'lambda': 0.07728640735149384, },
+#
+#        {'lambda': 0.14, }, # not gridsearch
+#    ]
+#
+#    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
+#
+#def tomography_hyper_param(noise_pow):
+#    noise_vec = [0.05, 0.1, 0.2, 0.3]
+#
+#    p_red = [
+#        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
+#        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
+#    ]
+#
+#    p_pnp = [
+#        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
+#        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
+#    ]
+#
+#    p_tv = [
+#        {'lambda': 0.0007},
+#        {'lambda': 0.0014},
+#        {'lambda': 0.0044},
+#        {'lambda': 0.0067},
+#    ]
+#
+#    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
