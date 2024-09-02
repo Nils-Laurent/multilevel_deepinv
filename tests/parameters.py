@@ -1,22 +1,20 @@
 import os
 
-import torch
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 from deepinv.models import DRUNet, GSDRUNet
 
-from multilevel.approx_nn import Student, Student0
-from deepinv.optim.optim_iterators import GDIteration, PGDIteration
+from multilevel.approx_nn import Student
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
 from multilevel.prior import TVPrior as CTV
-from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
+from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param
+#import utils.ml_dataclass as dcl
 from utils.paths import checkpoint_path
-import gen_fig.fig_metric_logger as mlog
 
 
 LEVELS = 4
-#_WIN =  CFir()
+#CFir(), BlackmannHarris()
 _WIN = BlackmannHarris()
 def _set_iter_vec(it_coarse, it_fine):
     vec = [it_coarse] * LEVELS
@@ -40,8 +38,9 @@ def get_parameters_pnp(params_exp):
     p_pnp = params_algo.copy()
     p_pnp['scale_coherent_grad'] = False
 
-    p_pnp['g_param'] = res[mlog.MPnPML.key]['g_param']
-    lambda_pnp = res[mlog.MPnPML.key]['lambda']
+    import utils.ml_dataclass as dcl
+    p_pnp['g_param'] = res[dcl.MPnPML.key]['g_param']
+    lambda_pnp = res[dcl.MPnPML.key]['lambda']
     print("lambda_pnp:", lambda_pnp)
 
     iters_fine = 200
@@ -62,15 +61,14 @@ def get_parameters_pnp(params_exp):
     stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
-
-    param_init = {}
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
     params_algo, res = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
 
-    p_pnp['g_param'] = res[mlog.MPnPMLProx.key]['g_param']
+    import utils.ml_dataclass as dcl
+    p_pnp['g_param'] = res[dcl.MPnPMLProx.key]['g_param']
     #lambda_pnp = hp_pnp['lambda']
     lambda_pnp = 2.0/3.0
     print("lambda_pnp:", lambda_pnp)
@@ -97,25 +95,24 @@ def get_parameters_pnp_prox(params_exp):
     stepsize_vec[0:-1] = [2.0] * (len(iters_vec) - 1)
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
-    #param_init = p_pnp.copy()
-    #param_init['init_ml_x0'] = [80] * len(iters_vec)
-    param_init = {}
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameter_pnp_Moreau(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp = get_parameters_pnp_prox(params_exp)
     p_pnp['coarse_iterator'] = CGDIteration
-    gamma_vec = [1.1, 1.0]
+    iters_vec = p_pnp['params_multilevel'][0]['iters']
+    gamma_vec = [1.1] * len(iters_vec)
+    gamma_vec[-1] = 1.0
     p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     p_pnp['gamma_moreau'] = gamma_vec[-1]
 
     p_pnp['coherence_prior'] = CTV()
     p_pnp['coarse_prior'] = CTV()
 
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameters_pnp_approx(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp = get_parameters_pnp_prox(params_exp)
 
     #state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
     #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
@@ -127,7 +124,7 @@ def get_parameters_pnp_approx(params_exp):
     p_pnp['coherence_prior'] = PnP(denoiser=d)
     p_pnp['coarse_prior'] = PnP(denoiser=d)
 
-    return p_pnp, param_init
+    return p_pnp
 
 def set_new_nb_coarse(params):
     new_nb = 8
@@ -136,35 +133,36 @@ def set_new_nb_coarse(params):
     print("iters_coarse:", new_nb)
 
 def get_parameters_pnp_prox_noreg(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp = get_parameters_pnp_prox(params_exp)
     device = params_exp['device']
     p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
     p_pnp['coarse_prior'] = Zero()
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameters_pnp_approx_noreg(params_exp):
-    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp = get_parameters_pnp_approx(params_exp)
     p_pnp['coherence_prior'] = p_pnp['coarse_prior']
     p_pnp['coarse_prior'] = Zero()
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameters_pnp_prox_nc(params_exp):
-    p_pnp, param_init = get_parameters_pnp_prox(params_exp)
+    p_pnp = get_parameters_pnp_prox(params_exp)
     p_pnp['scale_coherent_grad'] = False
-    return p_pnp, param_init
+    return p_pnp
 
 def get_parameters_pnp_approx_nc(params_exp):
-    p_pnp, param_init = get_parameters_pnp_approx(params_exp)
+    p_pnp = get_parameters_pnp_approx(params_exp)
     p_pnp['scale_coherent_grad'] = False
-    return p_pnp, param_init
+    return p_pnp
 
 
 def get_parameters_red(params_exp):
     params_algo, res = get_param_algo_(params_exp)
     p_red = params_algo.copy()
 
-    p_red['g_param'] = res[mlog.MRedMLInit.key]['g_param']
-    lambda_red = res[mlog.MRedMLInit.key]['lambda']
+    import utils.ml_dataclass as dcl
+    p_red['g_param'] = res[dcl.MRedMLInit.key]['g_param']
+    lambda_red = res[dcl.MRedMLInit.key]['lambda']
     print("lambda_red:", lambda_red)
 
     iters_fine = 200
@@ -191,16 +189,22 @@ def get_parameters_red(params_exp):
     #p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
     #p_red['lambda'] = lambda_red
 
-    param_init = p_red.copy()
+    return p_red
+
+def get_multilevel_init_params(params):
+    iters_vec = params['params_multilevel'][0]['iters']
+    param_init = params.copy()
+    # does not iterate on finest level
     param_init['init_ml_x0'] = [80] * len(iters_vec)
-    return p_red, param_init
+    return param_init
 
 def get_parameters_tv(params_exp):
     # We assume regularization gradient is 1-Lipschitz
     params_algo, res = get_param_algo_(params_exp)
     p_tv = params_algo.copy()
 
-    lambda_tv = res[mlog.MFbMLGD.key]['lambda']
+    import utils.ml_dataclass as dcl
+    lambda_tv = res[dcl.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
 
     iters_fine = 200
@@ -276,11 +280,12 @@ def get_param_algo_(params_exp):
     problem = params_exp['problem']
 
     res = {}
+    import utils.ml_dataclass as dcl
     alg = [
-        mlog.MRedMLInit.key,
-        mlog.MPnPML.key,
-        mlog.MPnPMLProx.key,
-        mlog.MFbMLGD.key,
+        dcl.MRedMLInit.key,
+        dcl.MPnPML.key,
+        dcl.MPnPMLProx.key,
+        dcl.MFbMLGD.key,
     ]
 
     print("def_noise:", noise_pow)

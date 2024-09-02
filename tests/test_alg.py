@@ -1,11 +1,12 @@
 import cProfile
+from os.path import join
 
 import deepinv
 import torch
+from matplotlib import pyplot
 
-#from gen_fig.fig_metric_logger import MRedMLInit, MRedInit, MRed, MRedML, MDPIR, MFb, MFbMLGD, MPnPML, MPnP, MFbMLProx, \
-#    MPnPML2, MPnPMLApprox
-from gen_fig.fig_metric_logger import *
+from utils.ml_dataclass import *
+from utils.ml_dataclass_exp import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.utils import plot, plot_curves
@@ -26,7 +27,7 @@ from multilevel_utils.radon import Tomography
 from tests.parameters import standard_multilevel_param, single_level_params
 
 from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
-from utils.paths import gen_fname
+from utils.paths import gen_fname, get_out_dir
 
 
 class RunAlgorithm:
@@ -75,7 +76,10 @@ class RunAlgorithm:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=True)
-        elif m_class in [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MPnPMLNc, MPnPMLApproxNc]:
+        elif m_class in [
+            MPnP, MPnPMLProx, MPnPMLApprox, MPnPMLApproxInit, MPnPMoreau,
+            MPnPMLNoR, MPnPMLApproxNoR, MPnPMLNc, MPnPMLApproxNc,
+        ]:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML]:
             return self.PnP(params_algo)
@@ -289,7 +293,8 @@ class RunAlgorithm:
             pyplot.savefig(join(get_out_dir(), (f_prefix + ".png")))
             pyplot.close('all')
             #plot_curves(met)
-            print(met['psnr'][0][-1])
+            print("PSNR: ", met['psnr'][0][-1])
+            print('--')
 
             dict_metrics = met
 

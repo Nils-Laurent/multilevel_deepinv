@@ -1,14 +1,19 @@
 import sys
 
+import numpy
 import torch
 from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
+from tests.parameters import get_multilevel_init_params
+from utils.ml_dataclass import *
+
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
 
-from gen_fig.fig_metric_logger import *
+#from gen_fig.fig_metric_logger import *
+
 from utils.measure_data import create_measure_data, load_measure_data
 
 import matplotlib
@@ -44,12 +49,14 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     rm = ResultManager(b_dataset=b_dataset)
 
     for m_class in list_method:
-        res = m_class.param_fn(params_exp)
-        p_method = res
+        p_method = m_class.param_fn(params_exp)
         ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark, def_name=m_class().key)
-        if not isinstance(res, dict):
-            p_method, p_init = res[0], res[1]
+        if hasattr(m_class, 'use_init') and m_class.use_init is True:
+            p_init = get_multilevel_init_params(p_method)
             ra.set_init(p_init)
+        #if not isinstance(res, dict):
+        #    p_method, p_init = res[0], res[1]
+        #    ra.set_init(p_init)
 
         rm.post_process(ra.run_algorithm(m_class, p_method), m_class)
 
@@ -182,11 +189,13 @@ if __name__ == "__main__":
     div2k_sz = 1024
 
     #m_vec_red = [MRed, MRedML, MRedMLInit, MRedInit, MDPIR, MFbMLGD]
-    m_vec_red = [MRed, MRedInit, MRedML, MRedMLInit, MDPIR, MFb, MFbMLGD]
+    #m_vec_red = [MRed, MRedInit, MRedML, MRedMLInit, MDPIR, MFb, MFbMLGD]
     #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc, MFb, MFbMLGD, MFbMLProx]
     #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
     #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLApproxNoR, MPnPMLApprox, MFb, MFbMLGD]
     #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMoreau, MFb, MFbMLGD, MRed, MRedMLInit, MDPIR]
+    m_vec_blur_noreg = [MPnP, MPnPML, MPnPMLApproxNoR, MPnPMoreau, MFb, MFbMLGD, MRed, MRedML, MDPIR]
+    m_vec_blur = [MPnP, MPnPML, MPnPMLApprox, MPnPMoreau, MFb, MFbMLGD, MRed, MRedML, MDPIR]
 
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
@@ -208,27 +217,35 @@ if __name__ == "__main__":
     #)
 
     # 3 evaluate methods on single image
+
+    # -- blur
     #main_test(
     #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False
-    #)
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False
-    #)
+    main_test(
+        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_blur, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False
+    )
+    main_test(
+        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_blur, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False
+    )
+    main_test(
+        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False
+    )
+
+    # -- inpainting
     #main_test(
     #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
 
-    main_test(
-        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_red, test_dataset=False,
-        target=1, use_file_data=False, benchmark=True, cpu=False
-    )
+    #main_test(
+    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_red, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False
+    #)
 
     # 4 statistical tests
     #main_test(
