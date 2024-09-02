@@ -5,6 +5,7 @@ from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 from deepinv.models import DRUNet, GSDRUNet
 
 from multilevel.approx_nn import Student, Student0
+from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
@@ -12,6 +13,15 @@ from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, tomography_hyper_param
 from utils.paths import checkpoint_path
 import gen_fig.fig_metric_logger as mlog
+
+
+LEVELS = 4
+#_WIN =  CFir()
+_WIN = BlackmannHarris()
+def _set_iter_vec(it_coarse, it_fine):
+    vec = [it_coarse] * LEVELS
+    vec[-1] = it_fine
+    return vec
 
 
 def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
@@ -36,7 +46,7 @@ def get_parameters_pnp(params_exp):
 
     iters_fine = 200
     iters_coarse = 8
-    iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
+    iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     p_pnp['iml_max_iter'] = 8
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
@@ -72,8 +82,7 @@ def get_parameters_pnp_prox(params_exp):
 
     print("iters_coarse:", iters_coarse)
     #iters_coarse = 5
-    #iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
-    iters_vec = [iters_coarse, iters_fine]
+    iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     p_pnp['iml_max_iter'] = 1
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
@@ -160,7 +169,7 @@ def get_parameters_red(params_exp):
 
     iters_fine = 200
     iters_coarse = 3
-    iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
+    iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     p_red['iml_max_iter'] = 8
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec, lambda_fine=lambda_red)
@@ -196,8 +205,7 @@ def get_parameters_tv(params_exp):
 
     iters_fine = 200
     iters_coarse = 5
-    iters_vec = [iters_coarse, iters_coarse, iters_coarse, iters_fine]
-    iters_vec = [iters_coarse, iters_fine]
+    iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     p_tv['iml_max_iter'] = 3
 
     p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec, lambda_fine=lambda_tv)
@@ -254,6 +262,12 @@ def single_level_params(params_ml):
     params['lambda'] = params_ml['params_multilevel'][0]['lambda'][-1]
     params['stepsize'] = params_ml['params_multilevel'][0]['stepsize'][-1]
 
+    #from deepinv.optim.optim_iterators import GDIteration, PGDIteration
+    #if params_ml['coarse_iterator'] == CGDIteration:
+    #    params_ml['coarse_iterator'] = GDIteration
+    #elif params_ml['coarse_iterator'] == CPGDIteration:
+    #    params_ml['coarse_iterator'] = PGDIteration
+
     return params
 
 
@@ -285,7 +299,8 @@ def get_param_algo_(params_exp):
         raise NotImplementedError("not implem")
 
     params_algo = {
-        'cit': CFir(),
+        #'cit': CFir(),
+        'cit': _WIN,
         'scale_coherent_grad': True
     }
 

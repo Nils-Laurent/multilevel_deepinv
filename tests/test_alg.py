@@ -178,10 +178,10 @@ class RunAlgorithm:
 
         params_init = self.param_init
         if 'init_ml_x0' in params_init.keys():
-            if alg_name is None:
-                alg_name = "None_x0ML"
-            else:
-                alg_name = alg_name + "_x0ML"
+            #if alg_name is None:
+            #    alg_name = "None_x0ML"
+            #else:
+            #    alg_name = alg_name + "_x0ML"
             params_algo_init = params_algo.copy()
             ml_params = MultiLevelParams(params_algo_init)
 
@@ -286,13 +286,15 @@ class RunAlgorithm:
             }
 
             plot([x_est, x0, x_ref, y], titles=["est", "x0", "ref", "y"])
-            plot_curves(met)
+            pyplot.savefig(join(get_out_dir(), (f_prefix + ".png")))
+            pyplot.close('all')
+            #plot_curves(met)
             print(met['psnr'][0][-1])
 
             dict_metrics = met
 
-            gen_matlab_conf(exp)
-            gen_mat_images(dict_img, f_prefix, params_algo)
+            #gen_matlab_conf(exp)
+            #gen_mat_images(dict_img, f_prefix, params_algo)
             gen_mat_cost(dict_metrics, f_prefix, params_algo)
 
             return met

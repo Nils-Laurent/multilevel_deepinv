@@ -82,7 +82,8 @@ def inpainting_hyper_param(noise_pow, gs_key):
         [0.1, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.97
         [0.1, 'PnP_ML', {'lambda': 0.03, 'g_param': 0.0751, }],  # PSNR = 28.75
         [0.1, 'FB_TV_ML', {'lambda': 0.14, }],  # PSNR = 23.40
-        [0.1, 'RED_ML_INIT', {'lambda': 3.0, 'g_param': 0.0521, }],  # PSNR = 26.68
+        #[0.1, 'RED_ML_INIT', {'lambda': 3.0, 'g_param': 0.0521, }],  # PSNR = 26.68
+        [0.1, 'RED_ML_INIT', {'lambda': 1.0, 'g_param': 0.0904, }],  # PSNR = 26.68
         [0.2, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.52
         [0.2, 'PnP_ML', {'lambda': 0.1, 'g_param': 0.125, }],  # PSNR = 26.17
         [0.2, 'FB_TV_ML', {'lambda': 0.32, }],  # PSNR = 20.72
@@ -95,8 +96,36 @@ def inpainting_hyper_param(noise_pow, gs_key):
     else:
         return affine_interpolation(res, noise_pow=noise_pow)
 
+def tomography_hyper_param(noise_pow, gs_key):
+    pass
+
 
 # ================== BACKUPS ====================
+
+#def inpainting_hyper_param(noise_pow):
+#    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
+#    p_red = [
+#        {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
+#        {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
+#        {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
+#        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
+#    ]
+#    p_pnp = [
+#        {'lambda': 0.0020/noise_pow**2, 'g_param': 0.0921}, # not gridsearh
+#        {'lambda': 0.0050/noise_pow**2, 'g_param': 0.0921},
+#        {'lambda': 0.0100/noise_pow**2, 'g_param': 0.0904},
+#        {'lambda': 0.0200/noise_pow**2, 'g_param': 0.0913},
+#        {'lambda': 0.0300/noise_pow**2, 'g_param': 0.0904},
+#    ]
+#    p_tv = [
+#        {'lambda': 0.0177}, # not gridsearh
+#        {'lambda': 0.0477},
+#        {'lambda': 0.1357},
+#        {'lambda': 0.3053},
+#        {'lambda': 0.5150},
+#    ]
+
 
 #def backup_blur_hyper_param(noise_pow):
 #    noise_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
@@ -142,32 +171,6 @@ def inpainting_hyper_param(noise_pow, gs_key):
 #        {'lambda': 0.07728640735149384, },
 #
 #        {'lambda': 0.14, }, # not gridsearch
-#    ]
-#
-#    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)
-#
-#def tomography_hyper_param(noise_pow):
-#    noise_vec = [0.05, 0.1, 0.2, 0.3]
-#
-#    p_red = [
-#        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
-#        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
-#        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
-#        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
-#    ]
-#
-#    p_pnp = [
-#        {'lambda': 7.9245e-05/noise_pow**2, 'g_param': 0.0904},
-#        {'lambda': 0.0002/noise_pow**2, 'g_param': 0.0913},
-#        {'lambda': 0.0003/noise_pow**2, 'g_param': 0.0904},
-#        {'lambda': 0.0005/noise_pow**2, 'g_param': 0.0904},
-#    ]
-#
-#    p_tv = [
-#        {'lambda': 0.0007},
-#        {'lambda': 0.0014},
-#        {'lambda': 0.0044},
-#        {'lambda': 0.0067},
 #    ]
 #
 #    return select_param(noise_pow, noise_vec, p_red, p_pnp, p_tv)

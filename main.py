@@ -181,10 +181,12 @@ if __name__ == "__main__":
     set3c_sz = 256
     div2k_sz = 1024
 
-    m_vec_red = [MRedMLInit, MRedInit, MRedML, MRed, MDPIR, MFb, MFbMLGD]
+    #m_vec_red = [MRed, MRedML, MRedMLInit, MRedInit, MDPIR, MFbMLGD]
+    m_vec_red = [MRed, MRedInit, MRedML, MRedMLInit, MDPIR, MFb, MFbMLGD]
     #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc, MFb, MFbMLGD, MFbMLProx]
     #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
-    m_vec_pnp = [MPnP, MPnPMLProx, MPnPML, MDPIR, MFbMLGD]
+    #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLApproxNoR, MPnPMLApprox, MFb, MFbMLGD]
+    #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMoreau, MFb, MFbMLGD, MRed, MRedMLInit, MDPIR]
 
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
@@ -196,7 +198,7 @@ if __name__ == "__main__":
 
     # 2 perform grid search
     #main_tune(plot_and_exit=False)
-    main_tune(plot_and_exit=True)
+    #main_tune(plot_and_exit=True)
 
     # 3 CPU TEST
     #m_vec_pnp = [MFb, MFbMLGD]
@@ -207,13 +209,26 @@ if __name__ == "__main__":
 
     # 3 evaluate methods on single image
     #main_test(
-    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
+    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
     #main_test(
-    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
+    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False
+    #)
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False
+    #)
+
+    main_test(
+        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_red, test_dataset=False,
+        target=1, use_file_data=False, benchmark=True, cpu=False
+    )
 
     # 4 statistical tests
     #main_test(
