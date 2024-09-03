@@ -26,7 +26,7 @@ from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
 from tests.parameters import standard_multilevel_param, single_level_params
 
-from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr
+from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr, img_np_convention
 from utils.paths import gen_fname, get_out_dir
 
 
@@ -68,17 +68,27 @@ class RunAlgorithm:
         self.param_init = param_init
 
     def run_algorithm(self, m_class, params_algo):
+        if hasattr(m_class, "edit_fn"):
+            for fn in m_class.edit_fn:
+                params_algo = fn(params_algo, self.params_exp)
+
         # set single level parameters
         if m_class in [MFb, MRed, MRedInit, MPnP]:
             params_algo = single_level_params(params_algo)
 
-        if m_class in [MRed, MRedML, MRedInit, MRedMLInit]:
+        if m_class in [
+            MRed, MRedML, MRedInit, MRedMLInit, MRedMLMoreau,
+            MRedMLStud, MRedMLStudInit, MRedMLStudNoR,
+        ]:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=True)
         elif m_class in [
-            MPnP, MPnPMLProx, MPnPMLApprox, MPnPMLApproxInit, MPnPMoreau,
-            MPnPMLNoR, MPnPMLApproxNoR, MPnPMLNc, MPnPMLApproxNc,
+            MPnP,
+            MPnPML, MPnPMLNoR, MPnPMLStud, MPnPMoreau, MPnPMLStudNoR,
+            MPnPProxML, MPnPProxMLStud, MPnPProxMoreau, MPnPProxMLStudNoR,
+            MPnPProxMLStudInit,
+            #MPnPMLNc, MPnPMLApproxNc,
         ]:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML]:
@@ -90,9 +100,10 @@ class RunAlgorithm:
 
     def RED_GD(self, params_algo):
         alg_name = "RED_GD"
-        net = DRUNet(pretrained="download", device=self.device)
-        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
-        prior = RED(denoiser)
+        #net = DRUNet(pretrained="download", device=self.device)
+        #denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        #prior = RED(denoiser)
+        prior = params_algo['prior']
         iteration = GDIteration(has_cost=False)
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
             iteration = MultiLevelIteration(iteration)
@@ -101,8 +112,9 @@ class RunAlgorithm:
 
     def PnP(self, params_algo):
         alg_name = "PnP"
-        denoiser = DRUNet(pretrained="download", device=self.device)
-        prior = PnP(denoiser)
+        prior = params_algo['prior']
+        #denoiser = DRUNet(pretrained="download", device=self.device)
+        #prior = PnP(denoiser)
 
         iteration = PGDIteration()
         if 'level' in params_algo.keys() and params_algo['level'] > 1:
@@ -111,8 +123,9 @@ class RunAlgorithm:
 
     def PnP_PGD(self, params_algo, use_cost=True):
         alg_name = "PnP_PGD"
-        denoiser = GSDRUNet(pretrained="download", train=False, device=self.device)
-        prior = PnP(denoiser)
+        prior = params_algo['prior']
+        #denoiser = GSDRUNet(pretrained="download", train=False, device=self.device)
+        #prior = PnP(denoiser)
 
         def F_fn(x, data_fidelity, prior, cur_params, y, physics):
             denoiser = prior.denoiser
@@ -289,9 +302,15 @@ class RunAlgorithm:
                 "x_est": x_est,
             }
 
-            plot([x_est, x0, x_ref, y], titles=["est", "x0", "ref", "y"])
-            pyplot.savefig(join(get_out_dir(), (f_prefix + ".png")))
+            #plot([x_est, x0, x_ref, y], titles=["est", "x0", "ref", "y"])
+            #plot(x_est, figsize=(x_est.shape[2], x_est.shape[3]))
+
+            res_img = img_np_convention(x_est[0, ::])
+            pyplot.imshow(res_img)
+            img_name = join(get_out_dir(), f_prefix + ".png")
+            pyplot.savefig(img_name, format="png")
             pyplot.close('all')
+
             #plot_curves(met)
             print("PSNR: ", met['psnr'][0][-1])
             print('--')

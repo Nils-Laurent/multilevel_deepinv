@@ -53,15 +53,17 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
 
 def blur_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.01, 'PnP_ML_prox', {'g_param': 0.0401, }],  # PSNR = 20.86
+        [0.01, 'PnP_prox_ML', {'g_param': 0.0401, }],  # PSNR = 20.86
         [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 20.06
         [0.01, 'FB_TV_ML', {'lambda': 1e-05, }],  # PSNR = 20.96
         [0.01, 'RED_ML_INIT', {'lambda': 0.04, 'g_param': 0.0951, }],  # PSNR = 21.09
-        [0.1, 'PnP_ML_prox', {'g_param': 0.0451, }],  # PSNR = 20.56
-        [0.1, 'PnP_ML', {'lambda': 0.01, 'g_param': 0.0801, }],  # PSNR = 19.86
-        [0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 19.12
+        [0.1, 'PnP_prox_ML', {'g_param': 0.0451, }],  # PSNR = 20.56
+        #[0.1, 'PnP_ML', {'lambda': 0.01, 'g_param': 0.0801, }],  # PSNR = 19.86
+        [0.1, 'PnP_ML', {'lambda': 0.004, 'g_param': 0.0401, }],  # Not gridsearch
+        #[0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 19.12
+        [0.1, 'FB_TV_ML', {'lambda': 0.037, }],  # Not gridsearch
         [0.1, 'RED_ML_INIT', {'lambda': 0.12, 'g_param': 0.155, }],  # PSNR = 20.37
-        [0.2, 'PnP_ML_prox', {'g_param': 0.0751, }],  # PSNR = 19.77
+        [0.2, 'PnP_prox_ML', {'g_param': 0.0751, }],  # PSNR = 19.77
         [0.2, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.1, }],  # PSNR = 19.42
         [0.2, 'FB_TV_ML', {'lambda': 0.08, }],  # PSNR = 18.09
         [0.2, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.13, }],  # PSNR = 19.65
@@ -75,16 +77,16 @@ def blur_hyper_param(noise_pow, gs_key):
 
 def inpainting_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.01, 'PnP_ML_prox', {'g_param': 0.248, }],  # PSNR = 23.93
+        [0.01, 'PnP_prox_ML', {'g_param': 0.248, }],  # PSNR = 23.93
         [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0851, }],  # PSNR = 29.00
         [0.01, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 27.17
         [0.01, 'RED_ML_INIT', {'lambda': 0.46, 'g_param': 0.105, }],  # PSNR = 29.23
-        [0.1, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.97
+        [0.1, 'PnP_prox_ML', {'g_param': 0.14, }],  # PSNR = 25.97
         [0.1, 'PnP_ML', {'lambda': 0.03, 'g_param': 0.0751, }],  # PSNR = 28.75
         [0.1, 'FB_TV_ML', {'lambda': 0.14, }],  # PSNR = 23.40
         #[0.1, 'RED_ML_INIT', {'lambda': 3.0, 'g_param': 0.0521, }],  # PSNR = 26.68
         [0.1, 'RED_ML_INIT', {'lambda': 1.0, 'g_param': 0.0904, }],  # PSNR = 26.68
-        [0.2, 'PnP_ML_prox', {'g_param': 0.14, }],  # PSNR = 25.52
+        [0.2, 'PnP_prox_ML', {'g_param': 0.14, }],  # PSNR = 25.52
         [0.2, 'PnP_ML', {'lambda': 0.1, 'g_param': 0.125, }],  # PSNR = 26.17
         [0.2, 'FB_TV_ML', {'lambda': 0.32, }],  # PSNR = 20.72
         [0.2, 'RED_ML_INIT', {'lambda': 7.36, 'g_param': 0.0451, }],  # PSNR = 24.38

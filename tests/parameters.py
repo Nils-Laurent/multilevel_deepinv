@@ -1,5 +1,6 @@
 import os
 
+import deepinv
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 from deepinv.models import DRUNet, GSDRUNet
 
@@ -9,15 +10,37 @@ from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
 from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param
-#import utils.ml_dataclass as dcl
 from utils.paths import checkpoint_path
 
 
-LEVELS = 4
-#CFir(), BlackmannHarris()
-_WIN = BlackmannHarris()
+state_file_v3 = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+state_file_v4 = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
+
+
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class ConfParam(metaclass=Singleton):
+    win = None
+    levels = 0
+    iters_fine = 0
+
+    def set_win(self, def_win):
+        self.win = def_win
+
+    def set_levels(self, def_levels):
+        self.levels = def_levels
+
+    def set_iters_fine(self, def_iters_fine):
+        self.iters_fine = def_iters_fine
+
+
 def _set_iter_vec(it_coarse, it_fine):
-    vec = [it_coarse] * LEVELS
+    vec = [it_coarse] * ConfParam().levels
     vec[-1] = it_fine
     return vec
 
@@ -43,19 +66,25 @@ def get_parameters_pnp(params_exp):
     lambda_pnp = res[dcl.MPnPML.key]['lambda']
     print("lambda_pnp:", lambda_pnp)
 
-    iters_fine = 200
+    device = params_exp['device']
+    net = DRUNet(pretrained="download", device=device)
+    denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+    p_pnp['prior'] = PnP(denoiser=denoiser)
+
+    iters_fine = ConfParam().iters_fine
     iters_coarse = 8
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    p_pnp['iml_max_iter'] = 8
+    #p_pnp['iml_max_iter'] = 8
+    p_pnp['iml_max_iter'] = 1
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
-    state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
-    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
-    p_pnp['coherence_prior'] = PnP(denoiser=d)
-    p_pnp['coarse_prior'] = PnP(denoiser=d)
+    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+    #d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
+    #p_pnp['coherence_prior'] = PnP(denoiser=d)
+    #p_pnp['coarse_prior'] = PnP(denoiser=d)
 
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
@@ -68,12 +97,15 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = params_algo.copy()
 
     import utils.ml_dataclass as dcl
-    p_pnp['g_param'] = res[dcl.MPnPMLProx.key]['g_param']
+    p_pnp['g_param'] = res[dcl.MPnPProxML.key]['g_param']
     #lambda_pnp = hp_pnp['lambda']
     lambda_pnp = 2.0/3.0
     print("lambda_pnp:", lambda_pnp)
 
-    iters_fine = 200
+    device = params_exp['device']
+    p_pnp['prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
+
+    iters_fine = ConfParam().iters_fine
     iters_coarse = 8
     if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
         iters_coarse = 20
@@ -97,64 +129,6 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
-def get_parameter_pnp_Moreau(params_exp):
-    p_pnp = get_parameters_pnp_prox(params_exp)
-    p_pnp['coarse_iterator'] = CGDIteration
-    iters_vec = p_pnp['params_multilevel'][0]['iters']
-    gamma_vec = [1.1] * len(iters_vec)
-    gamma_vec[-1] = 1.0
-    p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
-    p_pnp['gamma_moreau'] = gamma_vec[-1]
-
-    p_pnp['coherence_prior'] = CTV()
-    p_pnp['coarse_prior'] = CTV()
-
-    return p_pnp
-
-def get_parameters_pnp_approx(params_exp):
-    p_pnp = get_parameters_pnp_prox(params_exp)
-
-    #state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
-    #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
-    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L.pth.tar')
-    state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
-    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
-    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
-
-    p_pnp['coherence_prior'] = PnP(denoiser=d)
-    p_pnp['coarse_prior'] = PnP(denoiser=d)
-
-    return p_pnp
-
-def set_new_nb_coarse(params):
-    new_nb = 8
-    l_iter = params['params_multilevel'][0]['iters'][0:-1]
-    params['params_multilevel'][0]['iters'][0:-1] = [new_nb] * len(l_iter)
-    print("iters_coarse:", new_nb)
-
-def get_parameters_pnp_prox_noreg(params_exp):
-    p_pnp = get_parameters_pnp_prox(params_exp)
-    device = params_exp['device']
-    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
-    p_pnp['coarse_prior'] = Zero()
-    return p_pnp
-
-def get_parameters_pnp_approx_noreg(params_exp):
-    p_pnp = get_parameters_pnp_approx(params_exp)
-    p_pnp['coherence_prior'] = p_pnp['coarse_prior']
-    p_pnp['coarse_prior'] = Zero()
-    return p_pnp
-
-def get_parameters_pnp_prox_nc(params_exp):
-    p_pnp = get_parameters_pnp_prox(params_exp)
-    p_pnp['scale_coherent_grad'] = False
-    return p_pnp
-
-def get_parameters_pnp_approx_nc(params_exp):
-    p_pnp = get_parameters_pnp_approx(params_exp)
-    p_pnp['scale_coherent_grad'] = False
-    return p_pnp
-
 
 def get_parameters_red(params_exp):
     params_algo, res = get_param_algo_(params_exp)
@@ -165,10 +139,17 @@ def get_parameters_red(params_exp):
     lambda_red = res[dcl.MRedMLInit.key]['lambda']
     print("lambda_red:", lambda_red)
 
-    iters_fine = 200
-    iters_coarse = 3
+    device = params_exp['device']
+    net = DRUNet(pretrained="download", device=device)
+    denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+    p_red['prior'] = RED(denoiser=denoiser)
+
+    iters_fine = ConfParam().iters_fine
+    #iters_coarse = 3
+    iters_coarse = 8
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    p_red['iml_max_iter'] = 8
+    #p_red['iml_max_iter'] = 8
+    p_red['iml_max_iter'] = 1
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec, lambda_fine=lambda_red)
     p_red['lip_g'] = prior_lipschitz(RED, p_red, DRUNet)
@@ -179,24 +160,11 @@ def get_parameters_red(params_exp):
     stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1] * p_red['lip_g'])
     p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
 
-    # todo : NEW TEST
-    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
-    #d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file).to(params_exp['device'])
-    #p_red['coarse_prior'] = RED(denoiser=d)
-    #p_red['coherence_prior'] = RED(denoiser=d)
-
     #p_red['params_multilevel'][0]['stepsize'] = stepsize_vec  # smoothing parameter
     #p_red['stepsize'] = p_red['step_coeff'] / (1.0 + lambda_red * p_red['lip_g'])
     #p_red['lambda'] = lambda_red
 
     return p_red
-
-def get_multilevel_init_params(params):
-    iters_vec = params['params_multilevel'][0]['iters']
-    param_init = params.copy()
-    # does not iterate on finest level
-    param_init['init_ml_x0'] = [80] * len(iters_vec)
-    return param_init
 
 def get_parameters_tv(params_exp):
     # We assume regularization gradient is 1-Lipschitz
@@ -207,7 +175,7 @@ def get_parameters_tv(params_exp):
     lambda_tv = res[dcl.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
 
-    iters_fine = 200
+    iters_fine = ConfParam().iters_fine
     iters_coarse = 5
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     p_tv['iml_max_iter'] = 3
@@ -240,6 +208,48 @@ def get_parameters_tv_coarse_pgd(params_exp):
     p_tv['coarse_iterator'] = CPGDIteration
     return p_tv
 
+# ============== multilevel specific modifiers ==============
+def set_ml_param_Moreau(params, params_exp):
+    params['coarse_iterator'] = CGDIteration
+    iters_vec = params['params_multilevel'][0]['iters']
+    gamma_vec = [1.1] * len(iters_vec)
+    gamma_vec[-1] = 1.0
+    params['params_multilevel'][0]['gamma_moreau'] = gamma_vec
+    params['gamma_moreau'] = gamma_vec[-1]
+
+    params['coherence_prior'] = CTV()
+    params['coarse_prior'] = CTV()
+
+    return params
+
+def set_ml_param_student(params, params_exp):
+    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
+
+    prior_class = params['prior'].__class__
+    params['coherence_prior'] = prior_class(denoiser=d)
+    params['coarse_prior'] = prior_class(denoiser=d)
+
+    return params
+
+def set_ml_param_noreg(params, params_exp):
+    params['coherence_prior'] = params['prior']
+    params['coarse_prior'] = Zero()
+    return params
+
+
+# ============== utility functions ==============
+def set_new_nb_coarse(params):
+    new_nb = 8
+    l_iter = params['params_multilevel'][0]['iters'][0:-1]
+    params['params_multilevel'][0]['iters'][0:-1] = [new_nb] * len(l_iter)
+    print("iters_coarse:", new_nb)
+def get_multilevel_init_params(params):
+    iters_vec = params['params_multilevel'][0]['iters']
+    param_init = params.copy()
+    # does not iterate on finest level
+    param_init['init_ml_x0'] = [80] * len(iters_vec)
+    return param_init
+
 def standard_multilevel_param(params, it_vec, lambda_fine):
     levels = len(it_vec)
     ml_dict = {"iters": it_vec}
@@ -266,12 +276,6 @@ def single_level_params(params_ml):
     params['lambda'] = params_ml['params_multilevel'][0]['lambda'][-1]
     params['stepsize'] = params_ml['params_multilevel'][0]['stepsize'][-1]
 
-    #from deepinv.optim.optim_iterators import GDIteration, PGDIteration
-    #if params_ml['coarse_iterator'] == CGDIteration:
-    #    params_ml['coarse_iterator'] = GDIteration
-    #elif params_ml['coarse_iterator'] == CPGDIteration:
-    #    params_ml['coarse_iterator'] = PGDIteration
-
     return params
 
 
@@ -284,7 +288,7 @@ def get_param_algo_(params_exp):
     alg = [
         dcl.MRedMLInit.key,
         dcl.MPnPML.key,
-        dcl.MPnPMLProx.key,
+        dcl.MPnPProxML.key,
         dcl.MFbMLGD.key,
     ]
 
@@ -305,7 +309,7 @@ def get_param_algo_(params_exp):
 
     params_algo = {
         #'cit': CFir(),
-        'cit': _WIN,
+        'cit': ConfParam().win,
         'scale_coherent_grad': True
     }
 
@@ -335,3 +339,83 @@ def prior_lipschitz(prior, param, denoiser=None):
         return 1.0
 
     raise ValueError("Unsupported prior")
+
+
+#def get_parameters_red_approx(params_exp):
+#    p_red = get_parameters_red(params_exp)
+#    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
+#    p_red['coarse_prior'] = RED(denoiser=d)
+#    p_red['coherence_prior'] = RED(denoiser=d)
+#
+#    return p_red
+#
+#def get_parameters_red_approx_noreg(params_exp):
+#    p_red = get_parameters_red_approx(params_exp)
+#    p_red['coherence_prior'] = p_red['coarse_prior']
+#    p_red['coarse_prior'] = Zero()
+#    return p_red
+#
+#def get_parameters_red_moreau(params_exp):
+#    p_red = get_parameters_red(params_exp)
+#    p_red['coarse_iterator'] = CGDIteration
+#    iters_vec = p_red['params_multilevel'][0]['iters']
+#    gamma_vec = [1.1] * len(iters_vec)
+#    gamma_vec[-1] = 1.0
+#    p_red['params_multilevel'][0]['gamma_moreau'] = gamma_vec
+#    p_red['gamma_moreau'] = gamma_vec[-1]
+#
+#    p_red['coherence_prior'] = CTV()
+#    p_red['coarse_prior'] = CTV()
+#    return p_red
+
+#def get_parameter_pnp_Moreau(params_exp):
+#    p_pnp = get_parameters_pnp_prox(params_exp)
+#    p_pnp['coarse_iterator'] = CGDIteration
+#    iters_vec = p_pnp['params_multilevel'][0]['iters']
+#    gamma_vec = [1.1] * len(iters_vec)
+#    gamma_vec[-1] = 1.0
+#    p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
+#    p_pnp['gamma_moreau'] = gamma_vec[-1]
+#
+#    p_pnp['coherence_prior'] = CTV()
+#    p_pnp['coarse_prior'] = CTV()
+#
+#    return p_pnp
+
+#def get_parameters_pnp_stud(params_exp):
+#    p_pnp = get_parameters_pnp_prox(params_exp)
+#
+#    #state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
+#    #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
+#    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L.pth.tar')
+#    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
+#    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
+#    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
+#
+#    p_pnp['coherence_prior'] = PnP(denoiser=d)
+#    p_pnp['coarse_prior'] = PnP(denoiser=d)
+#
+#    return p_pnp
+
+#def get_parameters_pnp_prox_noreg(params_exp):
+#    p_pnp = get_parameters_pnp_prox(params_exp)
+#    device = params_exp['device']
+#    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
+#    p_pnp['coarse_prior'] = Zero()
+#    return p_pnp
+#
+#def get_parameters_pnp_stud_noreg(params_exp):
+#    p_pnp = get_parameters_pnp_stud(params_exp)
+#    p_pnp['coherence_prior'] = p_pnp['coarse_prior']
+#    p_pnp['coarse_prior'] = Zero()
+#    return p_pnp
+
+#def get_parameters_pnp_prox_nc(params_exp):
+#    p_pnp = get_parameters_pnp_prox(params_exp)
+#    p_pnp['scale_coherent_grad'] = False
+#    return p_pnp
+#
+#def get_parameters_pnp_approx_nc(params_exp):
+#    p_pnp = get_parameters_pnp_stud(params_exp)
+#    p_pnp['scale_coherent_grad'] = False
+#    return p_pnp

@@ -6,7 +6,8 @@ from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
-from tests.parameters import get_multilevel_init_params
+from multilevel.info_transfer import BlackmannHarris
+from tests.parameters import get_multilevel_init_params, ConfParam
 from utils.ml_dataclass import *
 
 if "/.fork" in sys.prefix:
@@ -76,11 +77,10 @@ def main_test(
         use_file_data=True,
         m_vec=None,
         cpu=False,
+        device = "cpu",
 ):
     if cpu is True:
         device = "cpu"
-    else:
-        device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
 
     original_data_dir = dataset_path()
@@ -183,19 +183,29 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
 
 if __name__ == "__main__":
     print(sys.prefix)
+    conf_param = ConfParam()
     #set3c_shape = (3, 256, 256)
     #div2k_shape = (3, 2040, 1356)
     set3c_sz = 256
     div2k_sz = 1024
+    device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #m_vec_red = [MRed, MRedML, MRedMLInit, MRedInit, MDPIR, MFbMLGD]
-    #m_vec_red = [MRed, MRedInit, MRedML, MRedMLInit, MDPIR, MFb, MFbMLGD]
-    #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMLReg, MPnPMLApproxReg, MPnPMLNc, MPnPMLApproxNc, MFb, MFbMLGD, MFbMLProx]
-    #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLNoR, MPnPMLApproxNoR, MPnPMLProx, MPnPMLApprox, MFb, MFbMLGD]
-    #m_vec_pnp = [MPnP, MPnPMoreau, MPnPMLApproxNoR, MPnPMLApprox, MFb, MFbMLGD]
-    #m_vec_pnp = [MPnP, MPnPML, MPnPMLApprox, MPnPMoreau, MFb, MFbMLGD, MRed, MRedMLInit, MDPIR]
-    m_vec_blur_noreg = [MPnP, MPnPML, MPnPMLApproxNoR, MPnPMoreau, MFb, MFbMLGD, MRed, MRedML, MDPIR]
-    m_vec_blur = [MPnP, MPnPML, MPnPMLApprox, MPnPMoreau, MFb, MFbMLGD, MRed, MRedML, MDPIR]
+    m_vec_blur_noreg = [
+        MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
+        MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
+        MFb, MFbMLGD,
+        MRed, MRedML, MRedMLStudNoR, MRedMLMoreau,
+        MDPIR,
+    ]
+    m_vec_blur = [
+        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
+        MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
+        MFb, MFbMLGD,
+        MRed, MRedML,MRedMLStud, MRedMLMoreau,
+        MDPIR,
+    ]
+
+    #m_vec_blur_noreg = [MRedMLStud]
 
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
@@ -219,27 +229,40 @@ if __name__ == "__main__":
     # 3 evaluate methods on single image
 
     # -- blur
+    # e.g. windows for downsampling CFir(), BlackmannHarris()
+
     #main_test(
     #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False
     #)
+
+    conf_param.set_win(BlackmannHarris())
+    conf_param.set_levels(2)
+    conf_param.set_iters_fine(400)
     main_test(
-        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.01, m_vec=m_vec_blur, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False
+        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=m_vec_blur_noreg, test_dataset=False,
+        target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     )
     main_test(
-        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.1, m_vec=m_vec_blur, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False
+        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_blur, test_dataset=False,
+        target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     )
-    main_test(
-        'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False
-    )
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
+    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
 
     # -- inpainting
+    # CFir(), BlackmannHarris()
+    conf_param.set_win(BlackmannHarris())
+    conf_param.set_levels(4)
     #main_test(
     #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
 
     #main_test(

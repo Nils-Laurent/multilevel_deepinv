@@ -1,6 +1,7 @@
 import tests.parameters as param
 from dataclasses import dataclass
 
+
 # ============= PnP =============
 @dataclass
 class MPnP:
@@ -8,7 +9,7 @@ class MPnP:
     color = 'purple'
     linestyle = 'dashed'
     label = key
-    param_fn = param.get_parameters_pnp_prox
+    param_fn = param.get_parameters_pnp
 @dataclass
 class MPnPML:
     key = 'PnP_ML'
@@ -17,6 +18,30 @@ class MPnPML:
     label = key
     param_fn = param.get_parameters_pnp
 @dataclass
+class MPnPMLStud:
+    key = 'PnP_ML_stud'
+    color = 'gray'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_pnp
+    edit_fn = [param.set_ml_param_student]
+@dataclass
+class MPnPMLStudNoR:
+    key = 'PnP_ML_stud_NoReg'
+    color = 'gray'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_pnp
+    edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
+@dataclass
+class MPnPMoreau:
+    key = 'PnP_ML_Moreau'
+    color = 'gray'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_pnp
+    edit_fn = [param.set_ml_param_Moreau]
+@dataclass
 class MPnPMLInit:
     key = 'PnP_ML_INIT'
     color = 'gray'
@@ -24,42 +49,55 @@ class MPnPMLInit:
     label = key
     param_fn = param.get_parameters_pnp
     use_init = True
+
+# ============= PnP prox =============
 @dataclass
-class MPnPMLProx:
-    key = 'PnP_ML_prox'
+class MPnPProx:
+    key = 'PnP_prox'
+    color = 'purple'
+    linestyle = 'dashed'
+    label = key
+    param_fn = param.get_parameters_pnp_prox
+@dataclass
+class MPnPProxML:
+    key = 'PnP_prox_ML'
     color = 'purple'
     linestyle = 'solid'
     label = key
     param_fn = param.get_parameters_pnp_prox
 @dataclass
-class MPnPMoreau:
-    key = 'PnP_Moreau'
+class MPnPProxMoreau:
+    key = 'PnP_prox_ML_Moreau'
     color = 'purple'
     linestyle = 'dashed'
     label = key
-    param_fn = param.get_parameter_pnp_Moreau
+    param_fn = param.get_parameters_pnp_prox
+    edit_fn = [param.set_ml_param_Moreau]
 @dataclass
-class MPnPMLApprox:
-    key = 'PnP_ML_approx'
+class MPnPProxMLStud:
+    key = 'PnP_prox_ML_stud'
     color = 'purple'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp_approx
+    param_fn = param.get_parameters_pnp_prox
+    edit_fn = [param.set_ml_param_student]
 @dataclass
-class MPnPMLApproxInit:
-    key = 'PnP_ML_approx_INIT'
+class MPnPProxMLStudInit:
+    key = 'PnP_prox_ML_stud_INIT'
     color = 'purple'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp_approx
+    param_fn = param.get_parameters_pnp_prox
+    edit_fn = [param.set_ml_param_student]
     use_init = True
 @dataclass
-class MPnPMLApproxNoR:
-    key = 'PnP_ML_approx_NoReg'
+class MPnPProxMLStudNoR:
+    key = 'PnP_prox_ML_stud_NoReg'
     color = 'purple'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp_approx_noreg
+    param_fn = param.get_parameters_pnp_prox
+    edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 
 # ============= RED =============
 @dataclass
@@ -84,6 +122,39 @@ class MRedMLInit:
     label = key
     param_fn = param.get_parameters_red
     use_init = True
+@dataclass
+class MRedMLStud:
+    key = 'RED_ML_stud'
+    color = 'black'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_red
+    edit_fn = [param.set_ml_param_student]
+@dataclass
+class MRedMLStudNoR:
+    key = 'RED_ML_stud_NoReg'
+    color = 'black'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_red
+    edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
+@dataclass
+class MRedMLStudInit:
+    key = 'RED_ML_stud_INIT'
+    color = 'black'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_red
+    edit_fn = [param.set_ml_param_student]
+    use_init = True
+@dataclass
+class MRedMLMoreau:
+    key = 'RED_ML_Moreau'
+    color = 'black'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_red
+    edit_fn = [param.set_ml_param_Moreau]
 
 # ============= TV =============
 @dataclass
