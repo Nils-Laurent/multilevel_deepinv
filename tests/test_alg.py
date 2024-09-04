@@ -73,21 +73,22 @@ class RunAlgorithm:
                 params_algo = fn(params_algo, self.params_exp)
 
         # set single level parameters
-        if m_class in [MFb, MRed, MRedInit, MPnP]:
+        if m_class in [MFb, MRed, MRedInit, MPnP, MPnPProx]:
             params_algo = single_level_params(params_algo)
 
         if m_class in [
-            MRed, MRedML, MRedInit, MRedMLInit, MRedMLMoreau,
-            MRedMLStud, MRedMLStudInit, MRedMLStudNoR,
+            MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,
+            MRedMLStud, MRedMLStudInit, MRedMLStudNoR, MRedMLStudNoRInit
         ]:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=True)
         elif m_class in [
-            MPnP,
-            MPnPML, MPnPMLNoR, MPnPMLStud, MPnPMoreau, MPnPMLStudNoR,
-            MPnPProxML, MPnPProxMLStud, MPnPProxMoreau, MPnPProxMLStudNoR,
-            MPnPProxMLStudInit,
+            MPnP, MPnPProx,
+            MPnPML, MPnPMLInit, MPnPMLNoR, MPnPMLStud, MPnPMLStudInit,
+            MPnPMoreau, MPnPMoreauInit, MPnPMLStudNoR, MPnPMLStudNoRInit,
+            MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit,
+            MPnPProxMoreau, MPnPProxMoreauInit, MPnPProxMLStudNoR, MPnPProxMLStudNoRInit,
             #MPnPMLNc, MPnPMLApproxNc,
         ]:
             return self.PnP_PGD(params_algo, use_cost=False)
@@ -302,6 +303,19 @@ class RunAlgorithm:
                 "x_est": x_est,
             }
 
+            p_exp = self.params_exp
+            exp_prefix = f"{p_exp['img_name']}_n{p_exp['noise_pow']}_{p_exp['problem']}"
+
+            res_img = img_np_convention(x_ref[0, ::])
+            pyplot.imshow(res_img)
+            img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
+            pyplot.savefig(img_name, format="png")
+
+            res_img = img_np_convention(y[0, ::])
+            pyplot.imshow(res_img)
+            img_name = join(get_out_dir(), exp_prefix + "_y.png")
+            pyplot.savefig(img_name, format="png")
+
             #plot([x_est, x0, x_ref, y], titles=["est", "x0", "ref", "y"])
             #plot(x_est, figsize=(x_est.shape[2], x_est.shape[3]))
 
@@ -309,6 +323,7 @@ class RunAlgorithm:
             pyplot.imshow(res_img)
             img_name = join(get_out_dir(), f_prefix + ".png")
             pyplot.savefig(img_name, format="png")
+
             pyplot.close('all')
 
             #plot_curves(met)

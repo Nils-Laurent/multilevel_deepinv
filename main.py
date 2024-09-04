@@ -6,12 +6,12 @@ from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
+#if "/.fork" in sys.prefix:
+sys.path.append('/projects/UDIP/nils_src/deepinv')
+
 from multilevel.info_transfer import BlackmannHarris
 from tests.parameters import get_multilevel_init_params, ConfParam
 from utils.ml_dataclass import *
-
-if "/.fork" in sys.prefix:
-    sys.path.append('/projects/UDIP/nils_src/deepinv')
 
 #from gen_fig.fig_metric_logger import *
 
@@ -128,9 +128,14 @@ def main_test(
         elif isinstance(data, Dataset):
             id_img = 0
             for t in data:
-                if not (target is None) and id_img != target:
-                    id_img += 1
-                    continue
+                if not (target is None):
+                    if id_img < target:
+                        id_img += 1
+                        continue
+                    elif id_img == target:
+                        id_img += 1
+                    else:
+                        break
 
                 name_id = dataset_name + "_" + str(id_img)
                 params_exp['img_name'] = name_id
@@ -190,23 +195,39 @@ if __name__ == "__main__":
     div2k_sz = 1024
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    m_vec_blur_noreg = [
+    methods_noreg = [
         MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
-        MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
+        MPnPProx, MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
         MFb, MFbMLGD,
         MRed, MRedML, MRedMLStudNoR, MRedMLMoreau,
         MDPIR,
     ]
-    m_vec_blur = [
+    methods_standard = [
         MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
-        MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
+        MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
         MFb, MFbMLGD,
         MRed, MRedML,MRedMLStud, MRedMLMoreau,
         MDPIR,
     ]
+    methods_noreg_init = [
+        MPnP, MPnPMLInit, MPnPMLStudNoRInit, MPnPMoreauInit,
+        MPnPProx, MPnPProxMLInit, MPnPProxMLStudNoRInit, MPnPProxMoreauInit,
+        MFb, MFbMLGD,
+        MRed, MRedMLInit,MRedMLStudNoRInit, MRedMLMoreauInit,
+        MDPIR,
+    ]
+    methods_init = [
+        MPnP, MPnPMLInit, MPnPMLStudInit, MPnPMoreauInit,
+        MPnPProx, MPnPProxMLInit, MPnPProxMLStudInit, MPnPProxMoreauInit,
+        MFb, MFbMLGD,
+        MRed, MRedMLInit,MRedMLStudInit, MRedMLMoreauInit,
+        MDPIR,
+    ]
 
-    #m_vec_blur_noreg = [MRedMLStud]
-
+    methods_noreg = [MPnP]
+    methods_standard = [MPnP]
+    methods_init = [MPnP]
+    methods_noreg_init = [MPnP]
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.1, img_size=set3c_shape)
@@ -219,56 +240,46 @@ if __name__ == "__main__":
     #main_tune(plot_and_exit=False)
     #main_tune(plot_and_exit=True)
 
-    # 3 CPU TEST
-    #m_vec_pnp = [MFb, MFbMLGD]
-    #main_test(
-    #    'blur', img_size=div2k_shape, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_pnp,
-    #    benchmark=True, subset_size=20, use_file_data=False
-    #)
-
     # 3 evaluate methods on single image
 
     # -- blur
     # e.g. windows for downsampling CFir(), BlackmannHarris()
-
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False
-    #)
-
-    conf_param.set_win(BlackmannHarris())
-    conf_param.set_levels(2)
-    conf_param.set_iters_fine(400)
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 2
+    conf_param.iters_fine = 400
+    conf_param.iml_max_iter = 1
     main_test(
-        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=m_vec_blur_noreg, test_dataset=False,
+        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg, test_dataset=False,
         target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     )
     main_test(
-        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=m_vec_blur, test_dataset=False,
+        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
         target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     )
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
-    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.2, m_vec=m_vec_blur, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
 
     # -- inpainting
-    # CFir(), BlackmannHarris()
-    conf_param.set_win(BlackmannHarris())
-    conf_param.set_levels(4)
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='astro_ml', noise_pow=0.2, m_vec=m_vec_pnp, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
+    # e.g. windows for downsampling CFir(), BlackmannHarris()
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 4
+    conf_param.iters_fine = 400
+    conf_param.iml_max_iter = 8
+    main_test(
+        'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
+        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    main_test(
+        'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
 
-    #main_test(
-    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_red, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False
-    #)
+    main_test(
+        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
+        target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    main_test(
+        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
 
     # 4 statistical tests
     #main_test(
