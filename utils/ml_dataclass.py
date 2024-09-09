@@ -11,6 +11,14 @@ class MPnP:
     label = key
     param_fn = param.get_parameters_pnp
 @dataclass
+class MPnPInit:
+    key = 'PnP_INIT'
+    color = 'purple'
+    linestyle = 'dashed'
+    label = key
+    use_init = True
+    param_fn = param.get_parameters_pnp
+@dataclass
 class MPnPML:
     key = 'PnP_ML'
     color = 'gray'
@@ -51,7 +59,7 @@ class MPnPMLInit:
     use_init = True
 @dataclass
 class MPnPMLStudInit:
-    key = 'PnP_ML_stud'
+    key = 'PnP_ML_stud_INIT'
     color = 'gray'
     linestyle = 'solid'
     label = key
@@ -60,7 +68,7 @@ class MPnPMLStudInit:
     edit_fn = [param.set_ml_param_student]
 @dataclass
 class MPnPMLStudNoRInit:
-    key = 'PnP_ML_stud_NoReg'
+    key = 'PnP_ML_stud_NoReg_INIT'
     color = 'gray'
     linestyle = 'solid'
     label = key
@@ -69,7 +77,7 @@ class MPnPMLStudNoRInit:
     edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 @dataclass
 class MPnPMoreauInit:
-    key = 'PnP_ML_Moreau'
+    key = 'PnP_ML_Moreau_INIT'
     color = 'gray'
     linestyle = 'solid'
     label = key
@@ -85,6 +93,14 @@ class MPnPProx:
     linestyle = 'dashed'
     label = key
     param_fn = param.get_parameters_pnp_prox
+@dataclass
+class MPnPProxInit:
+    key = 'PnP_prox_INIT'
+    color = 'purple'
+    linestyle = 'dashed'
+    label = key
+    param_fn = param.get_parameters_pnp_prox
+    use_init = True
 @dataclass
 class MPnPProxML:
     key = 'PnP_prox_ML'
@@ -110,7 +126,7 @@ class MPnPProxMLStud:
     edit_fn = [param.set_ml_param_student]
 @dataclass
 class MPnPProxMLInit:
-    key = 'PnP_prox_ML'
+    key = 'PnP_prox_ML_INIT'
     color = 'purple'
     linestyle = 'solid'
     label = key
@@ -118,7 +134,7 @@ class MPnPProxMLInit:
     param_fn = param.get_parameters_pnp_prox
 @dataclass
 class MPnPProxMoreauInit:
-    key = 'PnP_prox_ML_Moreau'
+    key = 'PnP_prox_ML_Moreau_INIT'
     color = 'purple'
     linestyle = 'dashed'
     label = key
@@ -144,7 +160,7 @@ class MPnPProxMLStudNoR:
     edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 @dataclass
 class MPnPProxMLStudNoRInit:
-    key = 'PnP_prox_ML_stud_NoReg'
+    key = 'PnP_prox_ML_stud_NoReg_INIT'
     color = 'purple'
     linestyle = 'solid'
     label = key
@@ -159,6 +175,14 @@ class MRed:
     color = 'red'
     linestyle = 'dashed'
     label = key
+    param_fn = param.get_parameters_red
+@dataclass
+class MRedInit:
+    key = 'RED_INIT'
+    color = 'red'
+    linestyle = 'dashed'
+    label = key
+    use_init = True
     param_fn = param.get_parameters_red
 @dataclass
 class MRedML:
@@ -193,7 +217,7 @@ class MRedMLStudNoR:
     edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 @dataclass
 class MRedMLStudNoRInit:
-    key = 'RED_ML_stud_NoReg'
+    key = 'RED_ML_stud_NoReg_INIT'
     color = 'black'
     linestyle = 'solid'
     label = key
@@ -219,7 +243,7 @@ class MRedMLMoreau:
     edit_fn = [param.set_ml_param_Moreau]
 @dataclass
 class MRedMLMoreauInit:
-    key = 'RED_ML_Moreau'
+    key = 'RED_ML_Moreau_INIT'
     color = 'black'
     linestyle = 'solid'
     label = key

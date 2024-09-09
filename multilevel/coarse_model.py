@@ -2,7 +2,7 @@ import deepinv.physics.functional
 import torch
 from deepinv.optim import PnP, Prior, RED
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing
+from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing, MRI
 import deepinv.optim as optim
 
 # multilevel imports
@@ -52,7 +52,7 @@ class CoarseModel(torch.nn.Module):
         return x_proj
 
     def project_observation(self, y):
-        if isinstance(self.fph, Tomography):
+        if isinstance(self.fph, Tomography) or isinstance(self.fph, MRI):
             u = self.fph.A_dagger(y)
             v = self.projection(u)
             return self.physics.A(v)
@@ -115,6 +115,16 @@ class CoarseModel(torch.nn.Module):
                 self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
             else:
                 self.physics = Blur(filter=filt, padding=self.fph.padding, device=x_coarse.device)
+        elif isinstance(self.fph, MRI):
+            m_fine = self.fph.mask
+            lw = x_coarse.shape[2]
+            lh = x_coarse.shape[3]
+            m_coarse = m_fine[:, :, lw//2:(lw//2 + lw), lh//2:(lh//2 + lh)]
+            if m_coarse.dim() == 4:
+                c_mask = torch.squeeze(m_coarse, 0)
+            else:
+                c_mask = m_coarse
+            self.physics = MRI(img_size=x_coarse.shape[1:], mask=c_mask, device=m_fine.device)
         elif isinstance(self.fph, Tomography):
             theta_c = self.fph.radon.theta
             size_c = x_coarse.shape[-2]

@@ -2,6 +2,7 @@ import sys
 
 import numpy
 import torch
+from deepinv.datasets import FastMRISliceDataset
 from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
@@ -9,7 +10,7 @@ from itertools import product
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
-from multilevel.info_transfer import BlackmannHarris
+from multilevel.info_transfer import BlackmannHarris, SincFilter, CFir
 from tests.parameters import get_multilevel_init_params, ConfParam
 from utils.ml_dataclass import *
 
@@ -99,7 +100,7 @@ def main_test(
     elif problem == 'blur':
         params_exp[problem + '_pow'] = 3.6
         #params_exp[problem + '_pow'] = 7.3
-    elif problem == 'demosaicing':
+    elif problem == 'demosaicing' or problem == "motion_blur" or problem == "mri":
         # nothing to be done
         pass
     else:
@@ -111,7 +112,12 @@ def main_test(
         data, physics = load_measure_data(params_exp, device, subset_size=subset_size, target=target)
     else:
         params_exp['online'] = True
-        dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
+        #dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
+        root = original_data_dir/dataset_name/"singlecoil_test"
+        val_transform = transforms.Compose([transforms.ToTensor()])
+        dataset = deepinv.datasets.FastMRISliceDataset(root=root, test=True, challenge="singlecoil",
+            transform_target=val_transform, transform_kspace=val_transform
+        )
         if subset_size is not None:
             dataset = Subset(dataset, range(0, subset_size))
         data = dataset
@@ -132,15 +138,19 @@ def main_test(
                     if id_img < target:
                         id_img += 1
                         continue
-                    elif id_img == target:
-                        id_img += 1
-                    else:
+                    elif id_img > target:
                         break
 
                 name_id = dataset_name + "_" + str(id_img)
                 params_exp['img_name'] = name_id
 
-                img = t[0].unsqueeze(0).to(device)
+                if isinstance(t, tuple):
+                    img = t[0].unsqueeze(0).to(device)
+                elif isinstance(t, torch.Tensor):
+                    img = torch.stack([t.real, t.imag], dim=1).to(device)
+                    #img = img.unsqueeze(0).to(device)
+                else:
+                    raise NotImplementedError("Unsupported dataset type")
                 test_settings(img, params_exp, device=device, benchmark=benchmark, list_method=m_vec)
                 id_img += 1
 
@@ -195,39 +205,35 @@ if __name__ == "__main__":
     div2k_sz = 1024
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    methods_noreg = [
-        MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
-        MPnPProx, MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
-        MFb, MFbMLGD,
-        MRed, MRedML, MRedMLStudNoR, MRedMLMoreau,
-        MDPIR,
-    ]
+    #methods_noreg = [
+    #    MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
+    #    MPnPProx, MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
+    #    MFb, MFbMLGD,
+    #    MRed, MRedML, MRedMLStudNoR, MRedMLMoreau,
+    #    MDPIR,
+    #]
+    #methods_noreg_init = [
+    #    MPnP, MPnPML, MPnPMLInit, MPnPMLStudNoRInit, MPnPMoreauInit,
+    #    MPnPProx, MPnPProxMLInit, MPnPProxMLStudNoRInit, MPnPProxMoreauInit,
+    #    MFb, MFbMLGD,
+    #    MRed, MRedMLInit,MRedMLStudNoRInit, MRedMLMoreauInit,
+    #    MDPIR,
+    #]
     methods_standard = [
-        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
+        #MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
         MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
         MFb, MFbMLGD,
         MRed, MRedML,MRedMLStud, MRedMLMoreau,
         MDPIR,
     ]
-    methods_noreg_init = [
-        MPnP, MPnPMLInit, MPnPMLStudNoRInit, MPnPMoreauInit,
-        MPnPProx, MPnPProxMLInit, MPnPProxMLStudNoRInit, MPnPProxMoreauInit,
-        MFb, MFbMLGD,
-        MRed, MRedMLInit,MRedMLStudNoRInit, MRedMLMoreauInit,
-        MDPIR,
-    ]
     methods_init = [
-        MPnP, MPnPMLInit, MPnPMLStudInit, MPnPMoreauInit,
-        MPnPProx, MPnPProxMLInit, MPnPProxMLStudInit, MPnPProxMoreauInit,
+        #MPnP, MPnPML, MPnPMLInit, MPnPMLStudInit, MPnPMoreauInit,
+        MPnPProx, MPnPProxMoreau, MPnPProxInit, MPnPProxMLInit, MPnPProxMLStudInit, MPnPProxMoreauInit,
         MFb, MFbMLGD,
-        MRed, MRedMLInit,MRedMLStudInit, MRedMLMoreauInit,
+        MRed, MRedMLMoreau, MRedInit, MRedMLInit, MRedMLStudInit, MRedMLMoreauInit,
         MDPIR,
     ]
 
-    methods_noreg = [MPnP]
-    methods_standard = [MPnP]
-    methods_init = [MPnP]
-    methods_noreg_init = [MPnP]
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
     #create_measure_data('blur', dataset_name='set3c', noise_pow=0.1, img_size=set3c_shape)
@@ -244,42 +250,85 @@ if __name__ == "__main__":
 
     # -- blur
     # e.g. windows for downsampling CFir(), BlackmannHarris()
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 2
-    conf_param.iters_fine = 400
-    conf_param.iml_max_iter = 1
-    main_test(
-        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg, test_dataset=False,
-        target=6, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    main_test(
-        'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
-        target=6, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
+    #conf_param.win = BlackmannHarris()
+    #conf_param.levels = 2
+    #conf_param.iters_fine = 400
+    #conf_param.iml_max_iter = 1
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
+    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg, test_dataset=False,
+    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
 
-    # -- inpainting
+    # -- inpainting ----------------------------------------------------------------
+    # e.g. windows for downsampling CFir(), BlackmannHarris()
+    #conf_param.win = BlackmannHarris()
+    #conf_param.levels = 4
+    #conf_param.iters_fine = 400
+    #conf_param.iml_max_iter = 8
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
+    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    # -- demosaicing ----------------------------------------------------------------
+    # e.g. windows for downsampling CFir(), BlackmannHarris()
+    #conf_param.win = BlackmannHarris()
+    #conf_param.levels = 4
+    #conf_param.iters_fine = 200
+    #conf_param.iml_max_iter = 8
+    ##methods_short = [MRedMLMoreauInit, MPnPProxMoreauInit]
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    # -- motion blur ----------------------------------------------------------------
+    #conf_param.win = CFir()
+    #conf_param.win = SincFilter()
+    #conf_param.win = BlackmannHarris()
+    #conf_param.levels = 2
+    #conf_param.iters_fine = 200
+    #conf_param.iml_max_iter = 5
+    #methods_short = [MRedMLMoreauInit, MPnPProxMoreauInit]
+    #main_test(
+    #    'motion_blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+
+    # -- MRI
     # e.g. windows for downsampling CFir(), BlackmannHarris()
     conf_param.win = BlackmannHarris()
     conf_param.levels = 4
-    conf_param.iters_fine = 400
+    conf_param.iters_fine = 200
     conf_param.iml_max_iter = 8
+    conf_param.use_complex_denoiser = True
+    conf_param.denoiser_in_channels = 1  # separated real and imag parts
+    methods_short = [MRedMLMoreauInit, MRedMLInit, MRed, MRedInit, MDPIR]
+    methods_short = [MRedMLMoreauInit, MRed, MRedInit, MDPIR]
+    img_size = (2, 640, 368)
     main_test(
-        'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
-        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    main_test(
-        'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+        'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_short, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
     )
 
-    main_test(
-        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
-        target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    main_test(
-        'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
+    # -- set3c inpainting results
+    #main_test(
+    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #main_test(
+    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
 
     # 4 statistical tests
     #main_test(

@@ -12,6 +12,8 @@ from multilevel.prior import TVPrior as CTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param
 from utils.paths import checkpoint_path
 
+from multilevel_utils.complex_denoiser import to_complex_denoiser
+
 
 state_file_v3 = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
 state_file_v4 = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
@@ -29,6 +31,27 @@ class ConfParam(metaclass=Singleton):
     levels = 0
     iters_fine = 0
     iml_max_iter = 0
+    use_complex_denoiser = False
+    denoiser_in_channels = 3
+
+    def get_drunet(self, device):
+        net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
+        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        if self.use_complex_denoiser is True:
+            denoiser = to_complex_denoiser(denoiser, mode="separated")
+        return denoiser
+
+    def get_student(self, device):
+        d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(device)
+        if ConfParam().use_complex_denoiser is True:
+            d = to_complex_denoiser(d, mode="separated")
+        return d
+
+    def get_gsdrunet(self, device):
+        denoiser = GSDRUNet(pretrained="download", device=device)
+        if ConfParam().use_complex_denoiser is True:
+            denoiser = to_complex_denoiser(denoiser, mode="separated")
+        return denoiser
 
 
 def _set_iter_vec(it_coarse, it_fine):
@@ -59,8 +82,7 @@ def get_parameters_pnp(params_exp):
     print("lambda_pnp:", lambda_pnp)
 
     device = params_exp['device']
-    net = DRUNet(pretrained="download", device=device)
-    denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+    denoiser = ConfParam().get_drunet(device)
     p_pnp['prior'] = PnP(denoiser=denoiser)
 
     iters_fine = ConfParam().iters_fine
@@ -75,11 +97,6 @@ def get_parameters_pnp(params_exp):
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
-
-    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
-    #d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
-    #p_pnp['coherence_prior'] = PnP(denoiser=d)
-    #p_pnp['coarse_prior'] = PnP(denoiser=d)
 
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
@@ -98,7 +115,8 @@ def get_parameters_pnp_prox(params_exp):
     print("lambda_pnp:", lambda_pnp)
 
     device = params_exp['device']
-    p_pnp['prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
+    denoiser = ConfParam().get_gsdrunet(device)
+    p_pnp['prior'] = PnP(denoiser=denoiser)
 
     iters_fine = ConfParam().iters_fine
     iters_coarse = 8
@@ -136,8 +154,7 @@ def get_parameters_red(params_exp):
     print("lambda_red:", lambda_red)
 
     device = params_exp['device']
-    net = DRUNet(pretrained="download", device=device)
-    denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+    denoiser = ConfParam().get_drunet(device)
     p_red['prior'] = RED(denoiser=denoiser)
 
     iters_fine = ConfParam().iters_fine
@@ -216,11 +233,12 @@ def set_ml_param_Moreau(params, params_exp):
     return params
 
 def set_ml_param_student(params, params_exp):
-    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
+    device = params_exp['device']
+    denoiser = ConfParam().get_student(device)
 
     prior_class = params['prior'].__class__
-    params['coherence_prior'] = prior_class(denoiser=d)
-    params['coarse_prior'] = prior_class(denoiser=d)
+    params['coherence_prior'] = prior_class(denoiser=denoiser)
+    params['coarse_prior'] = prior_class(denoiser=denoiser)
 
     return params
 
@@ -292,7 +310,10 @@ def get_param_algo_(params_exp):
     elif problem == 'inpainting' or problem == 'demosaicing':
         for akey in alg:
             res[akey] = inpainting_hyper_param(noise_pow=noise_pow, gs_key=akey)
-    elif problem == 'blur':
+    elif problem == 'blur' or problem == 'motion_blur':
+        for akey in alg:
+            res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
+    elif problem == 'mri':
         for akey in alg:
             res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
@@ -301,7 +322,6 @@ def get_param_algo_(params_exp):
         raise NotImplementedError("not implem")
 
     params_algo = {
-        #'cit': CFir(),
         'cit': ConfParam().win,
         'scale_coherent_grad': True
     }

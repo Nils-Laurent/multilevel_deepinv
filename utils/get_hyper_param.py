@@ -57,12 +57,19 @@ def blur_hyper_param(noise_pow, gs_key):
         [0.01, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 20.06
         [0.01, 'FB_TV_ML', {'lambda': 1e-05, }],  # PSNR = 20.96
         [0.01, 'RED_ML_INIT', {'lambda': 0.04, 'g_param': 0.0951, }],  # PSNR = 21.09
-        [0.1, 'PnP_prox_ML', {'g_param': 0.0451, }],  # PSNR = 20.56
+
+
+        #[0.1, 'PnP_prox_ML', {'g_param': 0.0451, }],  # PSNR = 20.56
+        [0.1, 'PnP_prox_ML', {'g_param': 0.0751, }],  # PSNR = 20.56
         #[0.1, 'PnP_ML', {'lambda': 0.01, 'g_param': 0.0801, }],  # PSNR = 19.86
         [0.1, 'PnP_ML', {'lambda': 0.004, 'g_param': 0.0401, }],  # Not gridsearch
         #[0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 19.12
         [0.1, 'FB_TV_ML', {'lambda': 0.037, }],  # Not gridsearch
-        [0.1, 'RED_ML_INIT', {'lambda': 0.12, 'g_param': 0.155, }],  # PSNR = 20.37
+        #[0.1, 'RED_ML_INIT', {'lambda': 0.12, 'g_param': 0.155, }],  # PSNR = 20.37
+        #[0.1, 'RED_ML_INIT', {'lambda': 0.52, 'g_param': 0.055, }],  #
+        [0.1, 'RED_ML_INIT', {'lambda': 0.4, 'g_param': 0.05, }],  #
+
+
         [0.2, 'PnP_prox_ML', {'g_param': 0.0751, }],  # PSNR = 19.77
         [0.2, 'PnP_ML', {'lambda': 1e-05, 'g_param': 0.1, }],  # PSNR = 19.42
         [0.2, 'FB_TV_ML', {'lambda': 0.08, }],  # PSNR = 18.09

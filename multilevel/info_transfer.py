@@ -5,8 +5,13 @@ import deepinv
 
 class DownsamplingTransfer:
     def __init__(self, x, def_filter, padding="circular"):
-        k0 = def_filter.get_filter()
-        self.filt_2d = self.set_2d_filter(k0, x.dtype)
+        if isinstance(def_filter, SincFilter):
+            self.filt_2d = def_filter.get_filter_2d()
+            self.filt_2d.to(x.device)
+        else:
+            k0 = def_filter.get_filter()
+            self.filt_2d = self.set_2d_filter(k0, x.dtype)
+
         if len(x.shape) == 3:
             shape = x.shape
         else:
@@ -46,6 +51,17 @@ class Kaiser:
             0.9430, 0.5818, 0.2039, 0.0310, 0.0004
         ])
         return k0
+
+class SincFilter:
+    def __str__(self):
+        return 'sinc'
+
+    def get_filter_2d(self):
+        return deepinv.physics.blur.sinc_filter(factor=2, length=11, windowed=True)
+
+    def get_filter(self):
+        f = self.get_filter_2d()
+        return f[0, 0, 5, :]
 
 class CFir:  # custom FIR filter
     def __str__(self):
