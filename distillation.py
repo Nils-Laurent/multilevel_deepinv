@@ -2,6 +2,7 @@ import os
 import sys
 
 import torch
+import torchvision
 
 if "/.fork" in sys.prefix:
     sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -21,7 +22,9 @@ class CustomTrainer(dinv.Trainer):
     def __init__(self, *args, **kwargs):
         super(CustomTrainer, self).__init__(*args, **kwargs)
 
-    def model_inference(self, y, physics):
+    #def model_inference(self, y, physics):
+    def model_inference(self, y, physics, x=None, train=True, **kwargs):
+
         y = y.to(self.device)
         x_net = self.model(y, physics.noise_model.sigma, update_parameters=True)
         return x_net
@@ -106,8 +109,8 @@ class KDLoss(dinv.loss.Loss):
 
 
 class DrunetTeacher(dinv.models.DRUNet):
-    def __init__(self):
-        super(DrunetTeacher, self).__init__()
+    def __init__(self, **kwargs):
+        super(DrunetTeacher, self).__init__(**kwargs)
 
     def forward_unet(self, x0):
         x1 = self.m_head(x0)
@@ -153,14 +156,11 @@ class GSDrunetTeacher:
 
 if __name__ == '__main__':
     device = 'cuda:0'
-    teacher = DrunetTeacher().to(device)
+    chan = 1
+    teacher = DrunetTeacher(in_channels=chan, out_channels=chan, pretrained="download").to(device)
     #student = Student(layers=6).to(device)
-    student = Student(layers=10, nc=32).to(device)
+    student = Student(in_channels=chan, layers=10, nc=32).to(device)
     student.train()
-
-    # todo : test GS teacher
-    #teacher2 = GSDrunetTeacher(device=device)
-    #student2 = GSPnPStudent(denoiser=student)
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=5e-4, amsgrad=True)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
@@ -170,9 +170,8 @@ if __name__ == '__main__':
     mode = 'cs'
     #mode = 'mse'
 
-    # todo : exp. high weight KD
-    # todo : exp. no KD
-    weight = 2
+    # weight = 2 : better denoising, but worse regularization ...
+    weight = 1
     losses = [KDLoss(teacher, mode=mode, weight=weight), dinv.loss.SupLoss()]
 
     #img_size = 64
@@ -181,7 +180,10 @@ if __name__ == '__main__':
     path = os.path.join(dataset_path(), 'DIV2K')
 
     save_path = checkpoint_path()
-    transform = transforms.Compose([transforms.ToTensor(), transforms.RandomCrop((img_size, img_size))])
+    transform_vec = [transforms.ToTensor(), transforms.RandomCrop((img_size, img_size))]
+    if chan == 1:
+        transform_vec.append(torchvision.transforms.Grayscale(num_output_channels=1))
+    transform = transforms.Compose(transform_vec)
 
 
     sigma_generator = dinv.physics.generator.SigmaGenerator(sigma_min=0.01, sigma_max=0.2, device=device)
@@ -192,10 +194,10 @@ if __name__ == '__main__':
     eval_dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
     wandb_setup = {
-        'name': f'student_teacher_{mode}_c32_ic2_10L_weight{weight}',
+        'name': f'student_teacher_{mode}_c32_ic2_10L_weight{weight}_{chan}chan',
         'project': 'student_teacher'}
 
-    trainer = CustomTrainer(wandb_vis=True, wandb_setup=wandb_setup, losses=losses, model=student, ckp_interval=5,
+    trainer = CustomTrainer(wandb_vis=False, wandb_setup=wandb_setup, losses=losses, model=student, ckp_interval=5,
                          physics=physics, verbose_individual_losses=True, ckpt_pretrained=None,
                          save_path=save_path, online_measurements=True, physics_generator=sigma_generator,
                          scheduler=scheduler, optimizer=optimizer, train_dataloader=train_dataloader,

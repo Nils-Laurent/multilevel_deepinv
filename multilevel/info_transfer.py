@@ -16,7 +16,12 @@ class DownsamplingTransfer:
             shape = x.shape
         else:
             shape = x.shape[1:]
-        self.op = deepinv.physics.Downsampling(shape, filter=self.filt_2d, factor=2, device=x.device, padding=padding)
+
+        if isinstance(def_filter, Dirac):
+            padding = "valid"
+
+        self.factor = 2
+        self.op = deepinv.physics.Downsampling(shape, filter=self.filt_2d, factor=self.factor, device=x.device, padding=padding)
 
     def set_2d_filter(self, k0, dtype):
         #k0 = k0 / torch.sum(k0)
@@ -95,4 +100,12 @@ class BlackmannHarris:
         k0 = torch.tensor([
             3.9818e-05, 1.3299e-02, 1.3252e-01, 3.5415e-01, 3.5415e-01, 1.3252e-01, 1.3299e-02, 3.9818e-05]
         )
+        return k0
+
+class Dirac:
+    def __str__(self):
+        return 'dirac'
+
+    def get_filter(self):
+        k0 = torch.tensor([1.0])
         return k0

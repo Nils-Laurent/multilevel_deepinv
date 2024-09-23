@@ -7,7 +7,7 @@ from deepinv.physics.blur import gaussian_blur
 from deepinv.utils.demo import load_dataset
 
 from multilevel.iterator import CoarseModel, MultiLevelParams
-from multilevel.info_transfer import CFir
+from multilevel.info_transfer import CFir, BlackmannHarris, Dirac, SincFilter
 from tests.parameters import standard_multilevel_param, _finalize_params
 from utils.paths import dataset_path
 
@@ -15,6 +15,7 @@ from utils.paths import dataset_path
 def params():
     # We assume regularization gradient is 1-Lipschitz
     params_algo = {
+        #'cit': SincFilter(),
         'cit': CFir(),
         'scale_coherent_grad': True
     }
@@ -71,8 +72,6 @@ def test_blur():
     dataset = load_dataset('astro_ml', original_data_dir, transform=val_transform)
     x0 = dataset[0][0].to(device).unsqueeze(0)
 
-    cit = cm.cit_op
-
     #x0_p = cm.projection(x0)
     #print("x0_p min = ", torch.min(x0_p))
     #print("x0_p max = ", torch.max(x0_p))
@@ -84,6 +83,7 @@ def test_blur():
     y = physics(x0)
     y_coarse = cm.projection(y)
 
+    cit = cm.cit_op
     x_coarse = cit.projection(x0)
     v1 = cit.projection(physics.A_adjoint(physics.A(cit.prolongation(x_coarse))))
     v2 = cm.physics.A_adjoint(cm.physics.A(x_coarse))

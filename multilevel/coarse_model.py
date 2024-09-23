@@ -1,3 +1,5 @@
+import os
+
 import deepinv.physics.functional
 import torch
 from deepinv.optim import PnP, Prior, RED
@@ -15,6 +17,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import copy
+
+from utils.paths import get_out_dir
 
 
 class CoarseModel(torch.nn.Module):
@@ -120,6 +124,11 @@ class CoarseModel(torch.nn.Module):
             lw = x_coarse.shape[2]
             lh = x_coarse.shape[3]
             m_coarse = m_fine[:, :, lw//2:(lw//2 + lw), lh//2:(lh//2 + lh)]
+            #from torchvision.utils import save_image
+            #save_image(
+            #    m_coarse[0, 0, ::].unsqueeze(0),
+            #    os.path.join(get_out_dir(), f"m_coarse{self.pc.level}.png")
+            #)
             if m_coarse.dim() == 4:
                 c_mask = torch.squeeze(m_coarse, 0)
             else:
@@ -161,15 +170,20 @@ class CoarseModel(torch.nn.Module):
             data_fidelity=self.f,
             prior=self.g,
             custom_init=f_init,
-            max_iter=self.pc.iters(),
+            max_iter=self.pc.iters_init(),
             params_algo=self.pc.params,
         )
         x_est_coarse = model(y, self.physics)
-        return self.prolongation(x_est_coarse)
+        return self.prolongation(x_est_coarse) * self.cit_op.factor**2
 
     def forward(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
         coarse_iter_class = self.pc.coarse_iterator()
+        #from torchvision.utils import save_image
+        #save_image(
+        #    torch.norm(y[0, ::], dim=0, keepdim=True),
+        #    os.path.join(get_out_dir(), f"y_coarse{self.pc.level}.png")
+        #)
 
         if self.ph.scale_coherent_gradient() is True:
             if grad is None:

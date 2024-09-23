@@ -46,9 +46,9 @@ def physics_from_exp(params_exp, noise_model, device):
             print("motion_blur seed =", seed)
             physics = Blur(psf_gen.step(seed=seed)['filter'], noise_model=noise_model, device=device, padding='reflect')
         case 'mri':
-            gen = RandomMaskGenerator(img_size=params_exp['shape'], device=device)
             problem_full = problem + "_" + str(noise_pow)
-            physics = MRI(gen.step()['mask'], img_size=params_exp['shape'], device=device)
+            gen = RandomMaskGenerator(img_size=params_exp['shape'], device=device, acceleration=2)
+            physics = MRI(gen.step()['mask'], noise_model=noise_model, img_size=params_exp['shape'], device=device)
         case _:
             raise NotImplementedError("Problem " + problem + " not supported")
 

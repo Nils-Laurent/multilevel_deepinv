@@ -96,6 +96,9 @@ class MultiLevelParams:
     def gamma_moreau(self):
         return self._get_from_ml('gamma_moreau')
 
+    def iters_init(self):
+        return self._get_from_ml('iters_init')
+
     def iters(self):
         return self._get_from_ml('iters')
 

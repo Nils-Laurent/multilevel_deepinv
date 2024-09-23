@@ -9,7 +9,7 @@ from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
 from multilevel.prior import TVPrior as CTV
-from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param
+from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param
 from utils.paths import checkpoint_path
 
 from multilevel_utils.complex_denoiser import to_complex_denoiser
@@ -33,24 +33,28 @@ class ConfParam(metaclass=Singleton):
     iml_max_iter = 0
     use_complex_denoiser = False
     denoiser_in_channels = 3
+    coarse_iters_ini = 80
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
         denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         if self.use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
+        denoiser.eval()
         return denoiser
 
     def get_student(self, device):
         d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(device)
         if ConfParam().use_complex_denoiser is True:
             d = to_complex_denoiser(d, mode="separated")
+        d.eval()
         return d
 
     def get_gsdrunet(self, device):
         denoiser = GSDRUNet(pretrained="download", device=device)
         if ConfParam().use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
+        denoiser.eval()
         return denoiser
 
 
@@ -74,7 +78,7 @@ def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
 def get_parameters_pnp(params_exp):
     params_algo, res = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
-    p_pnp['scale_coherent_grad'] = False
+    #p_pnp['scale_coherent_grad'] = False
 
     import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPML.key]['g_param']
@@ -84,6 +88,7 @@ def get_parameters_pnp(params_exp):
     device = params_exp['device']
     denoiser = ConfParam().get_drunet(device)
     p_pnp['prior'] = PnP(denoiser=denoiser)
+    p_pnp['prior'].eval()
 
     iters_fine = ConfParam().iters_fine
     iters_coarse = 8
@@ -258,7 +263,7 @@ def get_multilevel_init_params(params):
     iters_vec = params['params_multilevel'][0]['iters']
     param_init = params.copy()
     # does not iterate on finest level
-    param_init['init_ml_x0'] = [80] * len(iters_vec)
+    params['params_multilevel'][0]['iters_init'] = [ConfParam().coarse_iters_ini] * len(iters_vec)
     return param_init
 
 def standard_multilevel_param(params, it_vec, lambda_fine):
@@ -315,7 +320,7 @@ def get_param_algo_(params_exp):
             res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'mri':
         for akey in alg:
-            res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
+            res[akey] = mri_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
         pass
     else:
@@ -353,82 +358,3 @@ def prior_lipschitz(prior, param, denoiser=None):
 
     raise ValueError("Unsupported prior")
 
-
-#def get_parameters_red_approx(params_exp):
-#    p_red = get_parameters_red(params_exp)
-#    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
-#    p_red['coarse_prior'] = RED(denoiser=d)
-#    p_red['coherence_prior'] = RED(denoiser=d)
-#
-#    return p_red
-#
-#def get_parameters_red_approx_noreg(params_exp):
-#    p_red = get_parameters_red_approx(params_exp)
-#    p_red['coherence_prior'] = p_red['coarse_prior']
-#    p_red['coarse_prior'] = Zero()
-#    return p_red
-#
-#def get_parameters_red_moreau(params_exp):
-#    p_red = get_parameters_red(params_exp)
-#    p_red['coarse_iterator'] = CGDIteration
-#    iters_vec = p_red['params_multilevel'][0]['iters']
-#    gamma_vec = [1.1] * len(iters_vec)
-#    gamma_vec[-1] = 1.0
-#    p_red['params_multilevel'][0]['gamma_moreau'] = gamma_vec
-#    p_red['gamma_moreau'] = gamma_vec[-1]
-#
-#    p_red['coherence_prior'] = CTV()
-#    p_red['coarse_prior'] = CTV()
-#    return p_red
-
-#def get_parameter_pnp_Moreau(params_exp):
-#    p_pnp = get_parameters_pnp_prox(params_exp)
-#    p_pnp['coarse_iterator'] = CGDIteration
-#    iters_vec = p_pnp['params_multilevel'][0]['iters']
-#    gamma_vec = [1.1] * len(iters_vec)
-#    gamma_vec[-1] = 1.0
-#    p_pnp['params_multilevel'][0]['gamma_moreau'] = gamma_vec
-#    p_pnp['gamma_moreau'] = gamma_vec[-1]
-#
-#    p_pnp['coherence_prior'] = CTV()
-#    p_pnp['coarse_prior'] = CTV()
-#
-#    return p_pnp
-
-#def get_parameters_pnp_stud(params_exp):
-#    p_pnp = get_parameters_pnp_prox(params_exp)
-#
-#    #state_file = os.path.join(checkpoint_path(), 'student_v1_5K_kersz1_KD_mse.pth.tar')
-#    #d = Student0(layers=5, nc=64, cnext_ic=4, pretrained=state_file).to(params_exp['device'])
-#    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L.pth.tar')
-#    #state_file = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
-#    #state_file = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
-#    d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(params_exp['device'])
-#
-#    p_pnp['coherence_prior'] = PnP(denoiser=d)
-#    p_pnp['coarse_prior'] = PnP(denoiser=d)
-#
-#    return p_pnp
-
-#def get_parameters_pnp_prox_noreg(params_exp):
-#    p_pnp = get_parameters_pnp_prox(params_exp)
-#    device = params_exp['device']
-#    p_pnp['coherence_prior'] = PnP(denoiser=GSDRUNet(pretrained="download", device=device))
-#    p_pnp['coarse_prior'] = Zero()
-#    return p_pnp
-#
-#def get_parameters_pnp_stud_noreg(params_exp):
-#    p_pnp = get_parameters_pnp_stud(params_exp)
-#    p_pnp['coherence_prior'] = p_pnp['coarse_prior']
-#    p_pnp['coarse_prior'] = Zero()
-#    return p_pnp
-
-#def get_parameters_pnp_prox_nc(params_exp):
-#    p_pnp = get_parameters_pnp_prox(params_exp)
-#    p_pnp['scale_coherent_grad'] = False
-#    return p_pnp
-#
-#def get_parameters_pnp_approx_nc(params_exp):
-#    p_pnp = get_parameters_pnp_stud(params_exp)
-#    p_pnp['scale_coherent_grad'] = False
-#    return p_pnp

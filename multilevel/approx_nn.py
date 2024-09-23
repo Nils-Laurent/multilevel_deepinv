@@ -38,16 +38,17 @@ class Student(torch.nn.Module):
             layers=10,
             nc=32,
             cnext_ic=2,
+            in_channels=3,
             pretrained=None,
     ):
         super(Student, self).__init__()
         self.nc_drunet = 64
         self.nc = nc
 
-        self.convin = Conv2d(in_channels=4, out_channels=nc, kernel_size=1)
+        self.convin = Conv2d(in_channels=in_channels+1, out_channels=nc, kernel_size=1)
         if nc != self.nc_drunet:
             self.convout0 = Conv2d(in_channels=nc, out_channels=self.nc_drunet, kernel_size=1)
-        self.convout = drunet_conv(in_channels=self.nc_drunet, out_channels=3, bias=False, mode="C")
+        self.convout = drunet_conv(in_channels=self.nc_drunet, out_channels=in_channels, bias=False, mode="C")
 
         self.net = torch.nn.Sequential()
         self.internal_out = 0

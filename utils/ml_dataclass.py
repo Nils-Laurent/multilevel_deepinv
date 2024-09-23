@@ -8,6 +8,7 @@ class MPnP:
     key = 'PnP'
     color = 'purple'
     linestyle = 'dashed'
+    single_level = True
     label = key
     param_fn = param.get_parameters_pnp
 @dataclass
@@ -15,6 +16,7 @@ class MPnPInit:
     key = 'PnP_INIT'
     color = 'purple'
     linestyle = 'dashed'
+    single_level = True
     label = key
     use_init = True
     param_fn = param.get_parameters_pnp
@@ -91,6 +93,7 @@ class MPnPProx:
     key = 'PnP_prox'
     color = 'purple'
     linestyle = 'dashed'
+    single_level = True
     label = key
     param_fn = param.get_parameters_pnp_prox
 @dataclass
@@ -98,6 +101,7 @@ class MPnPProxInit:
     key = 'PnP_prox_INIT'
     color = 'purple'
     linestyle = 'dashed'
+    single_level = True
     label = key
     param_fn = param.get_parameters_pnp_prox
     use_init = True
@@ -174,6 +178,7 @@ class MRed:
     key = 'RED'
     color = 'red'
     linestyle = 'dashed'
+    single_level = True
     label = key
     param_fn = param.get_parameters_red
 @dataclass
@@ -181,6 +186,7 @@ class MRedInit:
     key = 'RED_INIT'
     color = 'red'
     linestyle = 'dashed'
+    single_level = True
     label = key
     use_init = True
     param_fn = param.get_parameters_red
@@ -257,6 +263,7 @@ class MFb:
     key = 'FB_TV'
     color = 'blue'
     linestyle = 'dashed'
+    single_level = True
     label = key
     param_fn = param.get_parameters_tv
 @dataclass

@@ -1,16 +1,22 @@
 import sys
 
+#if "/.fork" in sys.prefix:
+sys.path.append('/projects/UDIP/nils_src/deepinv')
+
+from os.path import join
+
 import numpy
 import torch
+import torchvision.transforms
 from deepinv.datasets import FastMRISliceDataset
+from deepinv.models import DRUNet
 from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
-#if "/.fork" in sys.prefix:
-sys.path.append('/projects/UDIP/nils_src/deepinv')
+from utils.transforms import CatZeroChannel
 
-from multilevel.info_transfer import BlackmannHarris, SincFilter, CFir
+from multilevel.info_transfer import BlackmannHarris, SincFilter, CFir, Dirac
 from tests.parameters import get_multilevel_init_params, ConfParam
 from utils.ml_dataclass import *
 
@@ -18,7 +24,7 @@ from utils.ml_dataclass import *
 
 from utils.measure_data import create_measure_data, load_measure_data
 
-import matplotlib
+#import matplotlib
 #matplotlib.use('module://backend_interagg')
 
 import deepinv
@@ -51,16 +57,13 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     rm = ResultManager(b_dataset=b_dataset)
 
     for m_class in list_method:
-        p_method = m_class.param_fn(params_exp)
+        m_param = m_class.param_fn(params_exp)
         ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark, def_name=m_class().key)
         if hasattr(m_class, 'use_init') and m_class.use_init is True:
-            p_init = get_multilevel_init_params(p_method)
-            ra.set_init(p_init)
-        #if not isinstance(res, dict):
-        #    p_method, p_init = res[0], res[1]
-        #    ra.set_init(p_init)
+            init_param = get_multilevel_init_params(m_param)
+            ra.set_init(init_param)
 
-        rm.post_process(ra.run_algorithm(m_class, p_method), m_class)
+        rm.post_process(ra.run_algorithm(m_class, m_param), m_class)
 
     rm.finalize(list_method, params_exp, benchmark)
 
@@ -82,13 +85,19 @@ def main_test(
 ):
     if cpu is True:
         device = "cpu"
-    print(device)
+    print(f"=== device : {device} ===")
 
     original_data_dir = dataset_path()
-    val_transform = transforms.Compose([transforms.ToTensor()])
-    if not(img_size is None) and type(img_size) is int:
-        val_transform = transforms.Compose([transforms.CenterCrop(img_size), transforms.ToTensor()])
-        img_size = (3, img_size, img_size)
+    transform_vec = [transforms.ToTensor()]
+    if not(img_size is None) :
+        if type(img_size) is int:
+            if problem == 'mri':
+                img_size = (2, img_size, img_size)
+            else:
+                img_size = (3, img_size, img_size)
+
+            t_crop = (img_size[1], img_size[2])
+            transform_vec = [transforms.CenterCrop(t_crop), transforms.ToTensor(), ]
 
     # inpainting: proportion of pixels to keep
     params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size, 'device': device}
@@ -112,12 +121,18 @@ def main_test(
         data, physics = load_measure_data(params_exp, device, subset_size=subset_size, target=target)
     else:
         params_exp['online'] = True
-        #dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
-        root = original_data_dir/dataset_name/"singlecoil_test"
-        val_transform = transforms.Compose([transforms.ToTensor()])
-        dataset = deepinv.datasets.FastMRISliceDataset(root=root, test=True, challenge="singlecoil",
-            transform_target=val_transform, transform_kspace=val_transform
-        )
+        if dataset_name == 'knee_singlecoil':
+            root = original_data_dir/dataset_name/"singlecoil_val"
+            val_transform = transforms.Compose(transform_vec)
+            dataset = deepinv.datasets.FastMRISliceDataset(root=root, test=False, challenge="singlecoil",
+                transform_target=val_transform, #transform_kspace=val_transform
+            )
+        else:
+            if problem == 'mri':
+                transform_vec.append(transforms.Grayscale(num_output_channels=1))
+                transform_vec.append(CatZeroChannel())
+            val_transform = transforms.Compose(transform_vec)
+            dataset = load_dataset(dataset_name, original_data_dir, transform=val_transform)
         if subset_size is not None:
             dataset = Subset(dataset, range(0, subset_size))
         data = dataset
@@ -146,20 +161,19 @@ def main_test(
 
                 if isinstance(t, tuple):
                     img = t[0].unsqueeze(0).to(device)
-                elif isinstance(t, torch.Tensor):
-                    img = torch.stack([t.real, t.imag], dim=1).to(device)
-                    #img = img.unsqueeze(0).to(device)
-                else:
-                    raise NotImplementedError("Unsupported dataset type")
+                if params_exp['problem'] == "mri":
+                    img = img/torch.max(img)
                 test_settings(img, params_exp, device=device, benchmark=benchmark, list_method=m_vec)
                 id_img += 1
 
 
-def main_tune(plot_and_exit=False):
-    #pb_list = ['inpainting', 'blur', 'tomography']
-    #noise_pow_vec = [0.01, 0.05, 0.1, 0.2, 0.3]
-    pb_list = ['inpainting']
-    noise_pow_vec = [0.01, 0.1, 0.2]
+def main_tune(device, plot_and_exit=False):
+    #noise_pow_vec = [0.05, 0.1, 0.2]
+    #pb_list = ['inpainting', 'blur']
+    pb_list = ['inpainting', 'demosaicing', 'blur', 'mri']
+    pb_list = ['demosaicing', 'blur', 'mri']
+    pb_list = ['mri']
+    noise_pow_vec = [0.1]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
     if plot_and_exit is True:
@@ -167,8 +181,22 @@ def main_tune(plot_and_exit=False):
         return
 
     for pb, noise_pow in product(pb_list, noise_pow_vec):
-        r_pb = main_test(pb, dataset_name='set3c', img_size=256, noise_pow=noise_pow,
-        tune=True, use_file_data=False)
+        if pb == 'blur':
+            conf_param = ConfParam()
+            conf_param.levels = 2
+            conf_param.iters_fine = 200
+            conf_param.iml_max_iter = 5
+        if pb == 'mri':
+            conf_param = ConfParam()
+            conf_param.win = SincFilter()
+            conf_param.levels = 3
+            conf_param.iters_fine = 200
+            conf_param.iml_max_iter = 8
+            conf_param.use_complex_denoiser = True
+            conf_param.denoiser_in_channels = 1  # separated real and imag parts
+            conf_param.coarse_iters_ini = 4
+        r_pb = main_test(pb, dataset_name='gridsearch', img_size=1024, noise_pow=noise_pow,
+                         tune=True, use_file_data=False, device=device)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb + str(noise_pow))
 
     print("_____________________________")
@@ -195,8 +223,7 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
 
             print_gridsearch_max(key_, tensors, axis, noise_pow)
 
-
-if __name__ == "__main__":
+def main_fn():
     print(sys.prefix)
     conf_param = ConfParam()
     #set3c_shape = (3, 256, 256)
@@ -204,6 +231,12 @@ if __name__ == "__main__":
     set3c_sz = 256
     div2k_sz = 1024
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
+
+    #x = torch.rand(1, 3, 64, 65).to(device)
+    #denoiser = DRUNet(pretrained="download", device=device)
+    #denoiser.eval()
+    #sigma = 0.05
+    #y = denoiser(x, sigma)
 
     #methods_noreg = [
     #    MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
@@ -227,10 +260,10 @@ if __name__ == "__main__":
         MDPIR,
     ]
     methods_init = [
-        #MPnP, MPnPML, MPnPMLInit, MPnPMLStudInit, MPnPMoreauInit,
-        MPnPProx, MPnPProxMoreau, MPnPProxInit, MPnPProxMLInit, MPnPProxMLStudInit, MPnPProxMoreauInit,
+        #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
+        MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit, MPnPProxMoreau, MPnPProxMoreauInit,
         MFb, MFbMLGD,
-        MRed, MRedMLMoreau, MRedInit, MRedMLInit, MRedMLStudInit, MRedMLMoreauInit,
+        MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
         MDPIR,
     ]
 
@@ -243,12 +276,93 @@ if __name__ == "__main__":
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
-    #main_tune(plot_and_exit=False)
-    #main_tune(plot_and_exit=True)
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 4
+    conf_param.iters_fine = 200
+    conf_param.iml_max_iter = 8
+    conf_param.iml_max_iter = 1
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
+    return None
 
     # 3 evaluate methods on single image
+    # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
 
-    # -- blur
+    # -- inpainting ----------------------------------------------------------------
+    methods_init = [MPnPML]
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 4
+    conf_param.iters_fine = 200
+    conf_param.iml_max_iter = 8
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    # -- demosaicing ----------------------------------------------------------------
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 4
+    conf_param.iters_fine = 200
+    conf_param.iml_max_iter = 8
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    # -- motion blur ----------------------------------------------------------------
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 2
+    conf_param.iters_fine = 200
+    conf_param.iml_max_iter = 5
+    #main_test(
+    #    'motion_blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+
+    # -- MRI ----------------------------------------------------------------
+    #conf_param.win = Dirac()
+    #conf_param.win = BlackmannHarris()
+    conf_param.win = SincFilter()
+    conf_param.levels = 3
+    conf_param.iters_fine = 200
+    conf_param.iml_max_iter = 8
+    conf_param.use_complex_denoiser = True
+    conf_param.denoiser_in_channels = 1  # separated real and imag parts
+    conf_param.coarse_iters_ini = 4
+    methods_init_mri = [
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
+        MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,# MRedMLStudInit,
+        MFb, MFbMLGD,
+        MDPIR,
+    ]
+    #methods_init_mri = [MRedInit]
+    #main_test(
+    #    'mri', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    img_size = (2, 320, 320)
+    #main_test(
+    #    'mri', img_size=img_size, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    main_test(
+        'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+        target=15, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+
+    # -- inpainting : set3c ----------------------------------------------------------------
+    #main_test(
+    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #main_test(
+    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    # -- blur ----------------------------------------------------------------
     # e.g. windows for downsampling CFir(), BlackmannHarris()
     #conf_param.win = BlackmannHarris()
     #conf_param.levels = 2
@@ -263,73 +377,6 @@ if __name__ == "__main__":
     #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
 
-    # -- inpainting ----------------------------------------------------------------
-    # e.g. windows for downsampling CFir(), BlackmannHarris()
-    #conf_param.win = BlackmannHarris()
-    #conf_param.levels = 4
-    #conf_param.iters_fine = 400
-    #conf_param.iml_max_iter = 8
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
-    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
-    # -- demosaicing ----------------------------------------------------------------
-    # e.g. windows for downsampling CFir(), BlackmannHarris()
-    #conf_param.win = BlackmannHarris()
-    #conf_param.levels = 4
-    #conf_param.iters_fine = 200
-    #conf_param.iml_max_iter = 8
-    ##methods_short = [MRedMLMoreauInit, MPnPProxMoreauInit]
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
-    # -- motion blur ----------------------------------------------------------------
-    #conf_param.win = CFir()
-    #conf_param.win = SincFilter()
-    #conf_param.win = BlackmannHarris()
-    #conf_param.levels = 2
-    #conf_param.iters_fine = 200
-    #conf_param.iml_max_iter = 5
-    #methods_short = [MRedMLMoreauInit, MPnPProxMoreauInit]
-    #main_test(
-    #    'motion_blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
-
-    # -- MRI
-    # e.g. windows for downsampling CFir(), BlackmannHarris()
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 8
-    conf_param.use_complex_denoiser = True
-    conf_param.denoiser_in_channels = 1  # separated real and imag parts
-    methods_short = [MRedMLMoreauInit, MRedMLInit, MRed, MRedInit, MDPIR]
-    methods_short = [MRedMLMoreauInit, MRed, MRedInit, MDPIR]
-    img_size = (2, 640, 368)
-    main_test(
-        'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_short, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-
-    # -- set3c inpainting results
-    #main_test(
-    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #main_test(
-    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
     # 4 statistical tests
     #main_test(
     #    'blur', img_size=set3c_sz, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=True,
@@ -339,3 +386,6 @@ if __name__ == "__main__":
     # FIG GUILLAUME : noise = 0.01, blur_pow = 3.6 ?
     #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
     #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
+
+if __name__ == "__main__":
+    main_fn()

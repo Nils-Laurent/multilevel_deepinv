@@ -1,20 +1,19 @@
-import cProfile
 from os.path import join
 
-import deepinv
+import deepinv.loss
 import torch
-from matplotlib import pyplot
+from deepinv.optim import optim_builder
+from deepinv.physics import MRI
+from torchvision.utils import save_image
 
 from utils.ml_dataclass import *
 from utils.ml_dataclass_exp import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
-from deepinv.utils import plot, plot_curves
-from deepinv.models import DRUNet, GSDRUNet
-from multilevel_utils.fixed_gsdrunet import GSDRUNet
+from deepinv.models import DRUNet
 from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
-from deepinv.optim.prior import ScorePrior, RED, PnP
+from deepinv.optim.prior import PnP
 from deepinv.utils.logger import MetricLogger
 from torch.utils.data import DataLoader
 
@@ -24,9 +23,9 @@ import multilevel
 from multilevel.iterator import MultiLevelIteration, MultiLevelParams
 from multilevel.coarse_model import CoarseModel
 from multilevel_utils.radon import Tomography
-from tests.parameters import standard_multilevel_param, single_level_params
+from tests.parameters import single_level_params
 
-from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_images, gen_mat_dataset_psnr, img_np_convention
+from utils.mat_utils import gen_matlab_conf, gen_mat_cost, gen_mat_dataset_psnr
 from utils.paths import gen_fname, get_out_dir
 
 
@@ -37,7 +36,7 @@ class RunAlgorithm:
         physics,
         params_exp,
         device,
-        param_init=None,
+        #param_init=None,
         r_model=False,
         trainable_params=None,
         return_timer=False,
@@ -51,6 +50,7 @@ class RunAlgorithm:
         self.ret_model = r_model
         self.verbose = False
         self.time_iter = return_timer
+        self.x0 = None
 
         self.trainable_params = trainable_params
         if trainable_params is None:
@@ -60,9 +60,11 @@ class RunAlgorithm:
         self.manual_seed = b
         self.alg_name = def_name
 
-        if param_init is None:
-            param_init = {}
-        self.param_init = param_init
+        self.param_init = None
+
+        self.is_gridsearch = False
+        if ('gridsearch' in params_exp.keys()) and (params_exp['gridsearch'] is True):
+            self.is_gridsearch = True
 
     def set_init(self, param_init):
         self.param_init = param_init
@@ -71,9 +73,13 @@ class RunAlgorithm:
         if hasattr(m_class, "edit_fn"):
             for fn in m_class.edit_fn:
                 params_algo = fn(params_algo, self.params_exp)
+                if self.param_init is not None:
+                    # edit : prior Moreau, Student, NoReg
+                    self.param_init = fn(self.param_init, self.params_exp)
 
         # set single level parameters
-        if m_class in [MFb, MRed, MRedInit, MPnP, MPnPInit, MPnPProx, MPnPProxInit]:
+        if m_class in [MFb, MRed, MRedInit, MPnP, MPnPInit, MPnPProx, MPnPProxInit]\
+                or hasattr(m_class, "single_level"):
             params_algo = single_level_params(params_algo)
 
         #if m_class in [
@@ -172,13 +178,21 @@ class RunAlgorithm:
 
     def DPIR(self, params_algo):
         alg_name = "DPIR"
-        sigma_denoiser, stepsize, max_iter = get_DPIR_params(self.params_exp['noise_pow'])
+        sigma_denoiser, stepsize, max_iter = get_DPIR_params(self.params_exp['noise_pow'], max_iter=400)
         params_algo['stepsize'] = stepsize
         params_algo['g_param'] = sigma_denoiser
         params_algo['iters'] = max_iter
 
         # Specify the denoising prior
-        prior = PnP(denoiser=DRUNet(pretrained="download", device=self.device))
+        if self.params_exp['problem'] == "mri":
+            denoiser = DRUNet(
+                in_channels=ConfParam().denoiser_in_channels,
+                out_channels=ConfParam().denoiser_in_channels,
+                pretrained="download", device=self.device)
+            denoiser = to_complex_denoiser(denoiser, mode="separated")
+            prior = PnP(denoiser=denoiser)
+        else:
+            prior = PnP(denoiser=DRUNet(pretrained="download", device=self.device))
         iteration = 'HQS'
         return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
@@ -188,27 +202,28 @@ class RunAlgorithm:
             print("Using torch.manual_seed(0)")
             torch.manual_seed(0)
 
-        #if isinstance(self.physics, Tomography):
-        #    f_init = lambda x, physics: {'est': [physics.A_adjoint(x)], 'cost': None}
-        #else:
-        #    f_init = lambda x, physics: {'est': [x], 'cost': None}
         f_init = False
 
         params_init = self.param_init
-        if 'init_ml_x0' in params_init.keys():
-            #if alg_name is None:
-            #    alg_name = "None_x0ML"
-            #else:
-            #    alg_name = alg_name + "_x0ML"
-            params_algo_init = params_algo.copy()
-            ml_params = MultiLevelParams(params_algo_init)
+        if params_init is not None:
+            ml_params = MultiLevelParams(params_init)
+            #params_algo_init = params_algo.copy()
+            #ml_params = MultiLevelParams(params_algo_init)
+
+            def use_adjoint(physics):
+                if isinstance(physics, Tomography):
+                    return True
+                elif isinstance(physics, MRI):
+                    return True
 
             def init_ml_x0(y, physics, F_fn=None):
                 cm = CoarseModel(prior, self.data_fidelity, physics, ml_params)
-                if isinstance(physics, Tomography):
+                if use_adjoint(physics):
                     x0 = cm.init_ml_x0({'est': [physics.A_adjoint(y)]}, y)
                 else:
                     x0 = cm.init_ml_x0({'est': [y]}, y)
+
+                self.x0 = x0
 
                 if F_fn is None:
                     return {'est': [x0]}
@@ -218,12 +233,20 @@ class RunAlgorithm:
 
             f_init = init_ml_x0
 
+            # ===== GROUND TRUTH INIT FOR TESTING PURPOSE =====
+            ground_truth_init = False
+            if ground_truth_init is True:
+                def init_gt(y, physics, F_fn=None):
+                    return {'est': [self.data], 'cost': None}
+                f_init = init_gt
+
         if isinstance(iteration, MultiLevelIteration):
             iters = params_algo['params_multilevel'][0]['iters'][-1]
         else:
             iters = params_algo['iters']
 
-        model = unfolded_builder(
+        #model = unfolded_builder(
+        model = optim_builder(
             iteration=iteration,
             prior=prior,
             data_fidelity=self.data_fidelity,
@@ -235,22 +258,32 @@ class RunAlgorithm:
             verbose=True,
             params_algo=params_algo,
             custom_init=f_init,
-            trainable_params=self.trainable_params,
-            device=self.device,
+            #trainable_params=self.trainable_params,
+            #device=self.device,
         )
 
         if self.ret_model:
             return model
 
-        print("run", alg_name)
+        if not self.is_gridsearch:
+            print("run", alg_name)
 
         if isinstance(self.data, DataLoader):
             m = MetricLogger()
             online = self.params_exp['online']
-            test_psnr, test_std_psnr, init_psnr, init_std_psnr = deepinv.test(
+            model.eval()
+            progress_bar = not self.is_gridsearch
+
+            dinv_res = deepinv.test(
                 model, self.data, self.physics,
-                device=self.device, online_measurements=online, metric_logger=m, time_iter=self.time_iter
+                device=self.device, online_measurements=online, metric_logger=m, time_iter=self.time_iter,
+                show_progress_bar=progress_bar
             )
+
+            if self.is_gridsearch:
+                return dinv_res['PSNR']
+
+            test_psnr, test_std_psnr, init_psnr, init_std_psnr = dinv_res
             dict_res = {
                 "test_psnr": test_psnr,
                 "test_std_psnr": test_std_psnr,
@@ -286,55 +319,74 @@ class RunAlgorithm:
             #    filename='runctx_multilevel'
             #)
             x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True, time_iter=self.time_iter)
+
+            #loss = deepinv.loss.PSNR(max_pixel=1)
+            #print("loss(x_est_0, truth_0) =", loss(x_est[:, 0:1, ::], x_ref[:, 0:1, ::]))
+            #print("loss(x_est_1, truth_1) =", loss(x_est[:, 1:2, ::], x_ref[:, 1:2, ::]))
+            #print("loss(x_est, truth) =", loss(x_est, x_ref))
             #return None
 
             # ==================== Save results ====================
             print("saving:", f_prefix)
 
-            if not (f_init is False):
-                x0 = f_init(y, self.physics)['est'][0]
-            else:
-                x0 = y
-
-            dict_img = {
-                "x_ref": x_ref,
-                "y": y,
-                "x0": x0,
-                "x_est": x_est,
-            }
-
             p_exp = self.params_exp
-            exp_prefix = f"{p_exp['img_name']}_n{p_exp['noise_pow']}_{p_exp['problem']}"
+            #exp_prefix = f"{p_exp['img_name']}_n{p_exp['noise_pow']}_{p_exp['problem']}"
 
-            if p_exp['problem'] != "mri":
-                res_img = img_np_convention(x_ref[0, ::])
-                pyplot.imshow(res_img)
-                img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
-                pyplot.savefig(img_name, format="png")
+            x_disp = x_ref
+            y_disp = y
+            xe_disp = x_est
 
-                res_img = img_np_convention(y[0, ::])
-                pyplot.imshow(res_img)
-                img_name = join(get_out_dir(), exp_prefix + "_y.png")
-                pyplot.savefig(img_name, format="png")
+            vmax = torch.max(x_disp)
+            img_prefix, exp_prefix = gen_fname(params_algo, p_exp, alg_name)
 
-                #plot([x_est, x0, x_ref, y], titles=["est", "x0", "ref", "y"])
-                #plot(x_est, figsize=(x_est.shape[2], x_est.shape[3]))
+            if p_exp['problem'] == 'mri':
+                x_disp = torch.norm(x_ref, dim=1, p=2, keepdim=True)
+                y_disp = torch.norm(y, dim=1, p=2, keepdim=True)
+                xe_disp = torch.norm(x_est, dim=1, p=2, keepdim=True)
 
-                res_img = img_np_convention(x_est[0, ::])
-                pyplot.imshow(res_img)
-                img_name = join(get_out_dir(), f_prefix + ".png")
-                pyplot.savefig(img_name, format="png")
+                x_lin = self.physics.A_adjoint(y)
+                x_lin_disp = torch.norm(x_lin, dim=1, p=2, keepdim=True)
 
-                pyplot.close('all')
+                img_name = join(get_out_dir(), exp_prefix + "_xlin.png")
+                save_image(x_lin_disp[0, ::]/vmax, img_name)
 
-            #plot_curves(met)
+            if self.x0 is not None:
+                x0_disp = torch.norm(self.x0, dim=1, p=2, keepdim=True)
+                x0n_disp = x0_disp / torch.max(x0_disp)
+                save_image(
+                    x0_disp[0, ::],
+                    os.path.join(get_out_dir(), f"{img_prefix}_x0.png")
+                )
+                save_image(
+                    x0n_disp[0, ::],
+                    os.path.join(get_out_dir(), f"{img_prefix}_x0n.png")
+                )
+                x0diff = x_disp[0, ::] - x0n_disp[0, ::]
+                save_image(
+                    x0diff/torch.max(x0diff),
+                    os.path.join(get_out_dir(), f"{img_prefix}_x0diffn.png")
+                )
+
+            img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
+            save_image(x_disp[0, ::]/vmax, img_name)
+
+            img_name = join(get_out_dir(), exp_prefix + "_y.png")
+            save_image(y_disp[0, ::]/vmax, img_name)
+
+            img_name = join(get_out_dir(), img_prefix + ".png")
+            save_image(xe_disp[0, ::]/vmax, img_name)
+
+            if p_exp['problem'] == 'mri':
+                img_name = join(get_out_dir(), exp_prefix + "_mask0.png")
+                save_image(self.physics.mask[0, 0, ::].unsqueeze(0), img_name)
+                img_name = join(get_out_dir(), exp_prefix + "_mask1.png")
+                save_image(self.physics.mask[0, 1, ::].unsqueeze(0), img_name)
+
+
             print("PSNR: ", met['psnr'][0][-1])
             print('--')
 
             dict_metrics = met
-
-            #gen_matlab_conf(exp)
-            #gen_mat_images(dict_img, f_prefix, params_algo)
             gen_mat_cost(dict_metrics, f_prefix, params_algo)
 
             return met
