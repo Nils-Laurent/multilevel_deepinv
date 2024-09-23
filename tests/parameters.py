@@ -28,12 +28,12 @@ class Singleton(type):
 
 class ConfParam(metaclass=Singleton):
     win = None
-    levels = 0
-    iters_fine = 0
-    iml_max_iter = 0
+    levels = None
+    iters_fine = None
+    iml_max_iter = None
+    coarse_iters_ini = None
     use_complex_denoiser = False
     denoiser_in_channels = 3
-    coarse_iters_ini = 80
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)

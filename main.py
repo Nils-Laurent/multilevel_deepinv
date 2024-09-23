@@ -169,10 +169,7 @@ def main_test(
 
 def main_tune(device, plot_and_exit=False):
     #noise_pow_vec = [0.05, 0.1, 0.2]
-    #pb_list = ['inpainting', 'blur']
     pb_list = ['inpainting', 'demosaicing', 'blur', 'mri']
-    pb_list = ['demosaicing', 'blur', 'mri']
-    pb_list = ['mri']
     noise_pow_vec = [0.1]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
@@ -180,21 +177,22 @@ def main_tune(device, plot_and_exit=False):
         main_tune_plot(pb_list, noise_pow_vec)
         return
 
+    conf_param = ConfParam()
+    conf_param.win = BlackmannHarris()
+    conf_param.levels = 4
+    conf_param.iters_fine = 200
+    conf_param.coarse_iters_ini = 5
+    conf_param.iml_max_iter = 8
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         if pb == 'blur':
-            conf_param = ConfParam()
             conf_param.levels = 2
-            conf_param.iters_fine = 200
             conf_param.iml_max_iter = 5
         if pb == 'mri':
-            conf_param = ConfParam()
             conf_param.win = SincFilter()
             conf_param.levels = 3
-            conf_param.iters_fine = 200
             conf_param.iml_max_iter = 8
             conf_param.use_complex_denoiser = True
             conf_param.denoiser_in_channels = 1  # separated real and imag parts
-            conf_param.coarse_iters_ini = 4
         r_pb = main_test(pb, dataset_name='gridsearch', img_size=1024, noise_pow=noise_pow,
                          tune=True, use_file_data=False, device=device)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb + str(noise_pow))
@@ -276,11 +274,6 @@ def main_fn():
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 8
-    conf_param.iml_max_iter = 1
     main_tune(device=device, plot_and_exit=False)
     main_tune(device=device, plot_and_exit=True)
     return None

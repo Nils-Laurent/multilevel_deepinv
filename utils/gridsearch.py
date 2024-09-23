@@ -19,32 +19,37 @@ def tune_grid_all(data_in, params_exp, device):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     class_info = {
-        dc.MPnPML : {"coeff": 0.9},
+        dc.MPnPMLInit : {"coeff": 0.9},
         dc.MFbMLGD : {"coeff": 1.9},
         dc.MRedMLInit : {"coeff": 0.9},
     }
     if not (params_exp['problem'] == 'mri'):
-        class_info[dc.MPnPProxML] = {"coeff": 0.9}
+        class_info[dc.MPnPProxMLInit] = {"coeff": 0.9}
     print(f"==============================")
     print(f"GRIDSEARCH (device : {device}, pb : {params_exp['problem']})")
     print(f"==============================")
     res = {}
     with torch.no_grad():
         for m_class in class_info.keys():
-            # TUNE
-            m_param = m_class.param_fn(params_exp)
             print(f"=== device : {device}, m_class key : {m_class.key}, pb : {params_exp['problem']} ===")
             if 'cpu' in str(device):
                 raise Exception("gridsearch should not run on CPU")
 
-            ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
-            if hasattr(m_class, 'use_init') and m_class.use_init is True:
-                p_init = P.get_multilevel_init_params(m_param)
-                ra.set_init(p_init)
+            m_param = m_class.param_fn(params_exp)
             m_param['step_coeff'] = class_info[m_class]["coeff"]
-            obj_fn = lambda par: ra.run_algorithm(m_class, par)
-            res_data, res_keys = tune_algo(m_param, algo=obj_fn, alg_class=m_class, params_exp=params_exp)
+            def objective_fun(params):
+                step_coeff = params['step_coeff']
+                lip_g = params['lip_g']
+                lambda_r = params['lambda']
+                params['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
+                ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
+                if hasattr(m_class, 'use_init') and m_class.use_init is True:
+                    p_init = P.get_multilevel_init_params(m_param)
+                    p_init['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
+                    ra.set_init(p_init)
+                return ra.run_algorithm(m_class, params)
 
+            res_data, res_keys = tune_algo(m_param, algo=objective_fun, alg_class=m_class, params_exp=params_exp)
             res[m_class.key] = {'axis': res_keys, 'tensors': res_data}
 
     return res
@@ -60,10 +65,10 @@ def tune_algo(params_algo, algo, alg_class, params_exp):
 
     d_grid = {}
     recurse = 2
-    if alg_class == dc.MPnPML:
+    if alg_class == dc.MPnPMLInit:
         d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig
-    elif alg_class == dc.MPnPProxML:
+    elif alg_class == dc.MPnPProxMLInit:
         d_grid[k_sig] = par_sig
     elif alg_class == dc.MRedMLInit:
         if pb == "inpainting" and noise_pow >= 0.1:
@@ -81,7 +86,7 @@ def tune_algo(params_algo, algo, alg_class, params_exp):
 
 
 def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
-    TEST_FLAG = True
+    TEST_FLAG = False
 
     recurse = recurse - 1
     sz = []
@@ -109,7 +114,6 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
     it = 0
     for id_map in numpy.ndindex(cost_map.shape):
         it += 1
-        #print("-------------------------------------------------")
         print(f"--- Iteration {it} of {nb_iter} ---")
         for j in range(len(sz)):
             q = id_map[j]
@@ -117,25 +121,12 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
             params_algo[kj] = axis_vec[j][q].item()
             print(f"set {kj} to {params_algo[kj]}")
 
-        step_coeff = params_algo['step_coeff']
-        lip_g = params_algo['lip_g']
-        lambda_r = params_algo['lambda']
-        params_algo['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
-        #try:
         if it >= 2 and TEST_FLAG is True:
             continue
 
         r_psnr = algo(params_algo.copy())
         t_psnr = torch.tensor(r_psnr)
         cost_map[id_map] = t_psnr
-        #except:
-        #    print("Skip iteration: algorithm failed to run with current parameters")
-        #    continue
-        #r_psnr = numpy.mean(r.final_values('psnr'))
-        #t_psnr = torch.tensor(r_psnr)
-        #if not math.isnan(r_psnr):
-        #    cost_map[id_map] = t_psnr
-        #print(f"iter {it} out of {nb_iter} (psnr {r_psnr}, recurse {recurse})")
 
     # for tests only
     if TEST_FLAG is True:
