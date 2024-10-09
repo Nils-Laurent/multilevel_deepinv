@@ -1,5 +1,7 @@
 import sys
 
+from deepinv.optim import PoissonLikelihood, L2
+
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
@@ -155,6 +157,11 @@ def main_test(
                         continue
                     elif id_img > target:
                         break
+                    else:
+                        try:
+                            print(f"reach target: {data.samples[id_img][0]}")
+                        except:
+                            pass
 
                 name_id = dataset_name + "_" + str(id_img)
                 params_exp['img_name'] = name_id
@@ -208,6 +215,7 @@ def main_tune(device, plot_and_exit=False):
 def main_tune_plot(pb_list, in_noise_pow_vec):
     noise_pow_vec = numpy.sort(in_noise_pow_vec)
     for pb, noise_pow in product(pb_list, noise_pow_vec):
+        print(f"pb = {pb}")
         file_pb = grid_search_npy_filename(suffix=pb + str(noise_pow))
         data = load_variables_from_npy(file_pb)
 
@@ -224,34 +232,10 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
 def main_fn():
     print(sys.prefix)
     conf_param = ConfParam()
-    #set3c_shape = (3, 256, 256)
-    #div2k_shape = (3, 2040, 1356)
-    set3c_sz = 256
-    div2k_sz = 1024
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #x = torch.rand(1, 3, 64, 65).to(device)
-    #denoiser = DRUNet(pretrained="download", device=device)
-    #denoiser.eval()
-    #sigma = 0.05
-    #y = denoiser(x, sigma)
-
-    #methods_noreg = [
-    #    MPnP, MPnPML, MPnPMLStudNoR, MPnPMoreau,
-    #    MPnPProx, MPnPProxML, MPnPProxMLStudNoR, MPnPProxMoreau,
-    #    MFb, MFbMLGD,
-    #    MRed, MRedML, MRedMLStudNoR, MRedMLMoreau,
-    #    MDPIR,
-    #]
-    #methods_noreg_init = [
-    #    MPnP, MPnPML, MPnPMLInit, MPnPMLStudNoRInit, MPnPMoreauInit,
-    #    MPnPProx, MPnPProxMLInit, MPnPProxMLStudNoRInit, MPnPProxMoreauInit,
-    #    MFb, MFbMLGD,
-    #    MRed, MRedMLInit,MRedMLStudNoRInit, MRedMLMoreauInit,
-    #    MDPIR,
-    #]
     methods_standard = [
-        #MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
+        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
         MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
         MFb, MFbMLGD,
         MRed, MRedML,MRedMLStud, MRedMLMoreau,
@@ -260,9 +244,10 @@ def main_fn():
     methods_init = [
         #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
         MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit, MPnPProxMoreau, MPnPProxMoreauInit,
-        MFb, MFbMLGD,
-        MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
-        MDPIR,
+        #MFb, MFbMLGD,
+        #MDPIR, MDPIRLong,
+
+        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
     ]
 
     # 1 create degraded datasets
@@ -274,39 +259,40 @@ def main_fn():
     #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
-    main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
-    return None
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
 
     # 3 evaluate methods on single image
     # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
 
-    # -- inpainting ----------------------------------------------------------------
-    methods_init = [MPnPML]
-    conf_param.win = BlackmannHarris()
+    # For : inpainting, demosaicing
+    conf_param.win = SincFilter()
     conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 8
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
+    #conf_param.iters_fine = 200
+    conf_param.iters_fine = 30
+    conf_param.coarse_iters_ini = 5
+    conf_param.iml_max_iter = 2
+
+    #beta = 0.2
+    #conf_param.data_fidelity = lambda: PoissonLikelihood(gain=1.0, bkg=beta, normalize=True)
+
+    # -- inpainting ----------------------------------------------------------------
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
 
     # -- demosaicing ----------------------------------------------------------------
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 8
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=4, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    return None
 
     # -- motion blur ----------------------------------------------------------------
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 2
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 5
+    #conf_param.levels = 2
+    #conf_param.iml_max_iter = 5
     #main_test(
     #    'motion_blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
@@ -314,36 +300,49 @@ def main_fn():
 
 
     # -- MRI ----------------------------------------------------------------
-    #conf_param.win = Dirac()
-    #conf_param.win = BlackmannHarris()
     conf_param.win = SincFilter()
-    conf_param.levels = 3
-    conf_param.iters_fine = 200
-    conf_param.iml_max_iter = 8
+    conf_param.levels = 4
+    #conf_param.iters_fine = 200
+    conf_param.iters_fine = 20
+    conf_param.coarse_iters_ini = 5
+    #conf_param.coarse_iters_ini = 4
+    conf_param.iml_max_iter = 0#
     conf_param.use_complex_denoiser = True
     conf_param.denoiser_in_channels = 1  # separated real and imag parts
-    conf_param.coarse_iters_ini = 4
     methods_init_mri = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
-        MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,# MRedMLStudInit,
-        MFb, MFbMLGD,
-        MDPIR,
+        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit, MRedMLStud, MRedMLStudInit,
+        #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStudInit, MPnPMLStud,
+        MPnPMLStudInit
+        #MFb, MFbMLGD,
+        #MDPIR, MDPIRLong,
     ]
+    main_test(
+        'mri', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+
+    #img_size = (2, 320, 320)
+    #main_test(
+    #    'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+    #    target=15, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    #conf_param.win = Dirac()
+    #conf_param.win = BlackmannHarris()
+    #methods_init_mri = [MPnPMLInit, MPnPMoreauInit]
+    #methods_init_mri = [MFb, MFbMLGD]
+    #methods_init_mri = [MDPIRLong]
+    #methods_init_mri = [MPnPMLStudInit]
+
+    #main_test(
+    #    'mri', img_size=img_size, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
     #methods_init_mri = [MRedInit]
     #main_test(
     #    'mri', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
     #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
-
-    img_size = (2, 320, 320)
-    #main_test(
-    #    'mri', img_size=img_size, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    main_test(
-        'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-        target=15, use_file_data=False, benchmark=True, cpu=False, device=device
-    )
 
     # -- inpainting : set3c ----------------------------------------------------------------
     #main_test(

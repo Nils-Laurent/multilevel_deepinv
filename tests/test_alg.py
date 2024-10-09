@@ -11,7 +11,7 @@ from utils.ml_dataclass_exp import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
 from deepinv.models import DRUNet
-from deepinv.optim.data_fidelity import L2
+#from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import PnP
 from deepinv.utils.logger import MetricLogger
@@ -45,7 +45,8 @@ class RunAlgorithm:
         self.data = data
         self.physics = physics
         self.params_exp = params_exp
-        self.data_fidelity = L2()
+        #self.data_fidelity = L2()
+        self.data_fidelity = ConfParam().data_fidelity()
         self.device = device
         self.ret_model = r_model
         self.verbose = False
@@ -100,6 +101,8 @@ class RunAlgorithm:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML]:
             return self.PnP(params_algo)
+        elif m_class in [MDPIRLong]:
+            return self.DPIR(params_algo, def_iter=200)
         elif m_class in [MDPIR]:
             return self.DPIR(params_algo)
         else:
@@ -176,9 +179,9 @@ class RunAlgorithm:
 
         return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
-    def DPIR(self, params_algo):
+    def DPIR(self, params_algo, def_iter=8):
         alg_name = "DPIR"
-        sigma_denoiser, stepsize, max_iter = get_DPIR_params(self.params_exp['noise_pow'], max_iter=400)
+        sigma_denoiser, stepsize, max_iter = get_DPIR_params(self.params_exp['noise_pow'], def_iter)
         params_algo['stepsize'] = stepsize
         params_algo['g_param'] = sigma_denoiser
         params_algo['iters'] = max_iter
@@ -332,6 +335,7 @@ class RunAlgorithm:
             p_exp = self.params_exp
             #exp_prefix = f"{p_exp['img_name']}_n{p_exp['noise_pow']}_{p_exp['problem']}"
 
+            x0_disp = self.x0
             x_disp = x_ref
             y_disp = y
             xe_disp = x_est
@@ -340,6 +344,8 @@ class RunAlgorithm:
             img_prefix, exp_prefix = gen_fname(params_algo, p_exp, alg_name)
 
             if p_exp['problem'] == 'mri':
+                if self.x0 is not None:
+                    x0_disp = torch.norm(self.x0, dim=1, p=2, keepdim=True)
                 x_disp = torch.norm(x_ref, dim=1, p=2, keepdim=True)
                 y_disp = torch.norm(y, dim=1, p=2, keepdim=True)
                 xe_disp = torch.norm(x_est, dim=1, p=2, keepdim=True)
@@ -350,13 +356,12 @@ class RunAlgorithm:
                 img_name = join(get_out_dir(), exp_prefix + "_xlin.png")
                 save_image(x_lin_disp[0, ::]/vmax, img_name)
 
-            if self.x0 is not None:
-                x0_disp = torch.norm(self.x0, dim=1, p=2, keepdim=True)
-                x0n_disp = x0_disp / torch.max(x0_disp)
+            if False and self.x0 is not None:
                 save_image(
                     x0_disp[0, ::],
                     os.path.join(get_out_dir(), f"{img_prefix}_x0.png")
                 )
+                x0n_disp = x0_disp / torch.max(x0_disp)
                 save_image(
                     x0n_disp[0, ::],
                     os.path.join(get_out_dir(), f"{img_prefix}_x0n.png")

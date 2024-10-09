@@ -1,6 +1,7 @@
 import os
 
 import deepinv
+from deepinv.optim import L2
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 from deepinv.models import DRUNet, GSDRUNet
 
@@ -18,6 +19,9 @@ from multilevel_utils.complex_denoiser import to_complex_denoiser
 state_file_v3 = os.path.join(checkpoint_path(), 'student_v3_cs_c32_ic2_10L_525.pth.tar')
 state_file_v4 = os.path.join(checkpoint_path(), 'student_v4_cs_c32_ic2_10L_weight2_599.pth.tar')
 
+#state_file_1channel = os.path.join(checkpoint_path(), 'student_1channel_ckp_599.pth.tar')
+state_file_1channel = os.path.join(checkpoint_path(), '24-09-20-12:41:35/ckp_599.pth.tar')
+
 
 class Singleton(type):
     _instances = {}
@@ -33,7 +37,18 @@ class ConfParam(metaclass=Singleton):
     iml_max_iter = None
     coarse_iters_ini = None
     use_complex_denoiser = False
+    data_fidelity = L2
+    data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
     denoiser_in_channels = 3
+
+    #iter_coarse_pnp_map = 8
+    #iter_coarse_pnp_pgd = 8
+    #iter_coarse_red = 8
+    #iter_coarse_tv = 5
+    iter_coarse_pnp_map = 4
+    iter_coarse_pnp_pgd = 8
+    iter_coarse_tv = 3
+    iter_coarse_red = 8
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
@@ -50,8 +65,18 @@ class ConfParam(metaclass=Singleton):
         d.eval()
         return d
 
+    def get_student1c(self, device):
+        d = Student(in_channels=self.denoiser_in_channels,
+                    layers=10, nc=32, cnext_ic=2, pretrained=state_file_1channel).to(device)
+        if ConfParam().use_complex_denoiser is True:
+            d = to_complex_denoiser(d, mode="separated")
+        d.eval()
+        return d
+
     def get_gsdrunet(self, device):
-        denoiser = GSDRUNet(pretrained="download", device=device)
+        net = GSDRUNet(pretrained="download", device=device)
+        denoiser = net
+        #denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         if ConfParam().use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
         denoiser.eval()
@@ -78,11 +103,12 @@ def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
 def get_parameters_pnp(params_exp):
     params_algo, res = get_param_algo_(params_exp)
     p_pnp = params_algo.copy()
-    #p_pnp['scale_coherent_grad'] = False
 
     import utils.ml_dataclass as dcl
-    p_pnp['g_param'] = res[dcl.MPnPML.key]['g_param']
-    lambda_pnp = res[dcl.MPnPML.key]['lambda']
+    p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
+    lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
+    #lambda_pnp = 0.01
+    #lambda_pnp = 0.1
     print("lambda_pnp:", lambda_pnp)
 
     device = params_exp['device']
@@ -91,12 +117,8 @@ def get_parameters_pnp(params_exp):
     p_pnp['prior'].eval()
 
     iters_fine = ConfParam().iters_fine
-    iters_coarse = 8
-    if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
-        iters_coarse = 20
+    iters_coarse = ConfParam().iter_coarse_pnp_map
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    #p_pnp['iml_max_iter'] = 8
-    #p_pnp['iml_max_iter'] = 1
     p_pnp['iml_max_iter'] = ConfParam().iml_max_iter
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
@@ -104,9 +126,19 @@ def get_parameters_pnp(params_exp):
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
-    stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
+    #CC = 80
+    #lambda_vec = [CC*lambda_pnp, CC*lambda_pnp, CC*lambda_pnp, CC*lambda_pnp]
+    lf = ConfParam().data_fidelity_lipschitz
+
+    # BUG
+    #stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
+
+    #stepsize_vec = [0.9/(lf + l * p_pnp['lip_g']) for l in lambda_vec]
+    stepsize_vec = [0.9/(lf + l * p_pnp['lip_g']) for l in lambda_vec]
+    stepsize_vec[-1] = 0.9/(lf + lambda_pnp * p_pnp['lip_g'])
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+    p_pnp['scale_coherent_grad'] = False
     return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
@@ -114,9 +146,8 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = params_algo.copy()
 
     import utils.ml_dataclass as dcl
-    p_pnp['g_param'] = res[dcl.MPnPProxML.key]['g_param']
-    #lambda_pnp = hp_pnp['lambda']
-    lambda_pnp = 2.0/3.0
+    p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
+    lambda_pnp = 2.0 * ConfParam().data_fidelity_lipschitz /3.0
     print("lambda_pnp:", lambda_pnp)
 
     device = params_exp['device']
@@ -124,14 +155,9 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['prior'] = PnP(denoiser=denoiser)
 
     iters_fine = ConfParam().iters_fine
-    iters_coarse = 8
-    if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
-        iters_coarse = 20
-
+    iters_coarse = ConfParam().iter_coarse_pnp_pgd
     print("iters_coarse:", iters_coarse)
-    #iters_coarse = 5
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    #p_pnp['iml_max_iter'] = 1
     p_pnp['iml_max_iter'] = ConfParam().iml_max_iter
 
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
@@ -140,10 +166,17 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['backtracking'] = False
     p_pnp['scale_coherent_grad'] = True
 
+    lambda_vec = [lambda_pnp]  * ConfParam().levels
+
+    #stepsize_vec = [1.0/l for l in lambda_vec] #
+    #stepsize_vec[0:-1] = [1.0/(4*lambda_pnp)] * (len(iters_vec) - 1)
+
+    lf = ConfParam().data_fidelity_lipschitz
+    stepsize_vec = [1.9/(lf + lambda_pnp)] * (ConfParam().levels - 1)
+
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
-    lambda_vec = [lambda_pnp]  * len(iters_vec)
-    stepsize_vec = [1.0/l for l in lambda_vec]
-    stepsize_vec[0:-1] = [2.0] * (len(iters_vec) - 1)
+    # lambda_pnp > 2 * data_fidelity_lipschitz / 3
+    stepsize_vec.append(1.0/lambda_pnp)
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
@@ -164,9 +197,7 @@ def get_parameters_red(params_exp):
 
     iters_fine = ConfParam().iters_fine
     #iters_coarse = 3
-    iters_coarse = 8
-    if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
-        iters_coarse = 20
+    iters_coarse = ConfParam().iter_coarse_red
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     #p_red['iml_max_iter'] = 8
     #p_red['iml_max_iter'] = 1
@@ -176,9 +207,9 @@ def get_parameters_red(params_exp):
     p_red['lip_g'] = prior_lipschitz(RED, p_red, DRUNet)
     lambda_vec = p_red['params_multilevel'][0]['lambda']
     step_coeff = 0.9  # non-convex setting
-    lf = 1.0  # data-fidelity Lipschitz cst
+    lf = ConfParam().data_fidelity_lipschitz
     stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec]
-    stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1] * p_red['lip_g'])
+    #stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1] * p_red['lip_g'])
     p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
 
     return p_red
@@ -193,9 +224,7 @@ def get_parameters_tv(params_exp):
     print("lambda_tv:", lambda_tv)
 
     iters_fine = ConfParam().iters_fine
-    iters_coarse = 5
-    if params_exp['noise_pow'] <= 0.05:  # on off system : computation time
-        iters_coarse = 20
+    iters_coarse = ConfParam().iter_coarse_tv
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
     #p_tv['iml_max_iter'] = 3
     p_tv['iml_max_iter'] = ConfParam().iml_max_iter
@@ -207,7 +236,7 @@ def get_parameters_tv(params_exp):
     gamma_vec = [1.1] * len(iters_vec)
     gamma_vec[-1] = 1.0
     lambda_vec = p_tv['params_multilevel'][0]['lambda']
-    lf = 1.0  # data-fidelity gradient lipschitz cst
+    lf = ConfParam().data_fidelity_lipschitz
     step_coeff = 1.9  # convex setting
     stepsize_vec = [step_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
     stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1])
@@ -239,7 +268,10 @@ def set_ml_param_Moreau(params, params_exp):
 
 def set_ml_param_student(params, params_exp):
     device = params_exp['device']
-    denoiser = ConfParam().get_student(device)
+    if params_exp['problem'] == 'mri':
+        denoiser = ConfParam().get_student1c(device)
+    else:
+        denoiser = ConfParam().get_student(device)
 
     prior_class = params['prior'].__class__
     params['coherence_prior'] = prior_class(denoiser=denoiser)
@@ -303,8 +335,8 @@ def get_param_algo_(params_exp):
     import utils.ml_dataclass as dcl
     alg = [
         dcl.MRedMLInit.key,
-        dcl.MPnPML.key,
-        dcl.MPnPProxML.key,
+        dcl.MPnPMLInit.key,
+        dcl.MPnPProxMLInit.key,
         dcl.MFbMLGD.key,
     ]
 

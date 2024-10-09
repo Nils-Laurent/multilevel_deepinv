@@ -283,6 +283,14 @@ class MFbMLProx:
 
 # ============= Others =============
 @dataclass
+class MDPIRLong:
+    key = 'DPIR_Long'
+    color = 'green'
+    linestyle = 'solid'
+    label = key
+    param_fn = param.get_parameters_dpir
+
+@dataclass
 class MDPIR:
     key = 'DPIR'
     color = 'green'
