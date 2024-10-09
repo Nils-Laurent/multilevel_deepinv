@@ -234,29 +234,17 @@ def main_fn():
     conf_param = ConfParam()
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    methods_standard = [
-        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
-        MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
-        MFb, MFbMLGD,
-        MRed, MRedML,MRedMLStud, MRedMLMoreau,
-        MDPIR,
-    ]
     methods_init = [
-        #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
         MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit, MPnPProxMoreau, MPnPProxMoreauInit,
-        #MFb, MFbMLGD,
-        #MDPIR, MDPIRLong,
+        MFb, MFbMLGD,
+        MDPIR, MDPIRLong,
 
         #MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
     ]
 
     # 1 create degraded datasets
-    #create_measure_data('blur', dataset_name='set3c', noise_pow=0.01, img_size=set3c_shape)
-    #create_measure_data('blur', dataset_name='set3c', noise_pow=0.1, img_size=set3c_shape)
-    #create_measure_data('blur', dataset_name='set3c', noise_pow=0.2, img_size=set3c_shape)
-    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.01, img_size=div2k_shape)
-    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.1, img_size=div2k_shape)
-    #create_measure_data('blur', dataset_name='DIV2K', noise_pow=0.2, img_size=div2k_shape)
+    #create_measure_data('blur', dataset_name='...', noise_pow=0.2, img_size=div2k_shape)
 
     # 2 perform grid search
     #main_tune(device=device, plot_and_exit=False)
@@ -270,7 +258,7 @@ def main_fn():
     conf_param.win = SincFilter()
     conf_param.levels = 4
     #conf_param.iters_fine = 200
-    conf_param.iters_fine = 30
+    conf_param.iters_fine = 200
     conf_param.coarse_iters_ini = 5
     conf_param.iml_max_iter = 2
 
@@ -280,46 +268,39 @@ def main_fn():
     # -- inpainting ----------------------------------------------------------------
     main_test(
         'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
 
     # -- demosaicing ----------------------------------------------------------------
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        target=0, use_file_data=False, benchmark=True, cpu=False, device=device
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
     return None
-
-    # -- motion blur ----------------------------------------------------------------
-    #conf_param.levels = 2
-    #conf_param.iml_max_iter = 5
-    #main_test(
-    #    'motion_blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
-    #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
 
 
     # -- MRI ----------------------------------------------------------------
     conf_param.win = SincFilter()
     conf_param.levels = 4
-    #conf_param.iters_fine = 200
-    conf_param.iters_fine = 20
-    conf_param.coarse_iters_ini = 5
+    conf_param.iters_fine = 200
+    conf_param.iters_fine = 60
+    conf_param.coarse_iters_ini = 1
     #conf_param.coarse_iters_ini = 4
-    conf_param.iml_max_iter = 0#
+    conf_param.iml_max_iter = 1
     conf_param.use_complex_denoiser = True
     conf_param.denoiser_in_channels = 1  # separated real and imag parts
     methods_init_mri = [
         #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit, MRedMLStud, MRedMLStudInit,
         #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStudInit, MPnPMLStud,
-        MPnPMLStudInit
+        MPnP, MPnPML, MPnPMoreau, MPnPMLStud,
         #MFb, MFbMLGD,
-        #MDPIR, MDPIRLong,
+        #MDPIR,# MDPIRLong,
     ]
     main_test(
-        'mri', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-        target=4, use_file_data=False, benchmark=True, cpu=False, device=device
+        'mri', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
+    return None
 
     #img_size = (2, 320, 320)
     #main_test(
@@ -327,46 +308,25 @@ def main_fn():
     #    target=15, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
 
-    #conf_param.win = Dirac()
+    # -- motion blur ----------------------------------------------------------------
+    methods_standard = [
+        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
+        MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
+        MFb, MFbMLGD,
+        MRed, MRedML,MRedMLStud, MRedMLMoreau,
+        MDPIR,
+    ]
+    # something is strange here
+    # when win = SincFilter, the algorithm is very slow
+    # when using BlackmannHarris it is normal
+    # the probem also seems very difficult from multilevel perspective
+    #conf_param.win = SincFilter()
     #conf_param.win = BlackmannHarris()
-    #methods_init_mri = [MPnPMLInit, MPnPMoreauInit]
-    #methods_init_mri = [MFb, MFbMLGD]
-    #methods_init_mri = [MDPIRLong]
-    #methods_init_mri = [MPnPMLStudInit]
-
+    #conf_param.levels = 3
+    #methods_init = [MPnPML, MPnPMoreau]
     #main_test(
-    #    'mri', img_size=img_size, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+    #    'motion_blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #methods_init_mri = [MRedInit]
-    #main_test(
-    #    'mri', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
-    # -- inpainting : set3c ----------------------------------------------------------------
-    #main_test(
-    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.01, m_vec=methods_noreg_init, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #main_test(
-    #    'inpainting', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    target=1, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-
-    # -- blur ----------------------------------------------------------------
-    # e.g. windows for downsampling CFir(), BlackmannHarris()
-    #conf_param.win = BlackmannHarris()
-    #conf_param.levels = 2
-    #conf_param.iters_fine = 400
-    #conf_param.iml_max_iter = 1
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.1, m_vec=methods_standard, test_dataset=False,
-    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='DIV2K', noise_pow=0.01, m_vec=methods_noreg, test_dataset=False,
-    #    target=6, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
 
     # 4 statistical tests

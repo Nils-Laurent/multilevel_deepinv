@@ -129,7 +129,7 @@ def mri_hyper_param(noise_pow, gs_key):
         [0.1, 'PnP_ML_INIT', {'lambda': 1.0, 'g_param': 0.05, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 2.0, 'g_param': 0.02, }],
         #[0.1, 'FB_TV_ML', {'lambda': 0.16, }],  # PSNR = 25.31
-        [0.1, 'FB_TV_ML', {'lambda': 0.25, }],  # PSNR = 25.31
+        [0.1, 'FB_TV_ML', {'lambda': 0.15, }],  # PSNR = 25.31
         [0.1, 'RED_ML_INIT', {'lambda': 1.0, 'g_param': 0.0551, }],  # PSNR = 26.22
 
         # fillers ...
