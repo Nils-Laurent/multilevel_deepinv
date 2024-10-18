@@ -68,7 +68,11 @@ def blur_hyper_param(noise_pow, gs_key):
         ##[0.1, 'RED_ML_INIT', {'lambda': 0.52, 'g_param': 0.055, }],  #
         #[0.1, 'RED_ML_INIT', {'lambda': 0.4, 'g_param': 0.05, }],  #
 
-        [0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.05, }],
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.08, }],
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.4, 'g_param': 0.15, }],
+        [0.1, 'PnP_ML_INIT', {'lambda': 0.4, 'g_param': 0.10, }],
         [0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 18.43
         [0.1, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.0751, }],  # PSNR = 19.47
         [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],  # PSNR = 16.58
@@ -126,7 +130,8 @@ def mri_hyper_param(noise_pow, gs_key):
 
         [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.14, }], # filler
         #[0.1, 'PnP_ML_INIT', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 28.92
-        [0.1, 'PnP_ML_INIT', {'lambda': 1.0, 'g_param': 0.05, }],
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.001, 'g_param': 0.08, }],  # manually set
+        [0.1, 'PnP_ML_INIT', {'lambda': 0.01, 'g_param': 0.065, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 2.0, 'g_param': 0.02, }],
         #[0.1, 'FB_TV_ML', {'lambda': 0.16, }],  # PSNR = 25.31
         [0.1, 'FB_TV_ML', {'lambda': 0.15, }],  # PSNR = 25.31

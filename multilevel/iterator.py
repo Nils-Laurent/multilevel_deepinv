@@ -67,6 +67,9 @@ class MultiLevelParams:
     def cit(self):
         return self._get_scalar('cit')
 
+    def scale_coherent_gradient_init(self):
+        return self._get_bool('scale_coherent_grad_init')
+
     def scale_coherent_gradient(self):
         return self._get_bool('scale_coherent_grad')
 

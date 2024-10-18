@@ -30,7 +30,7 @@ from utils.measure_data import create_measure_data, load_measure_data
 #matplotlib.use('module://backend_interagg')
 
 import deepinv
-from deepinv.physics import GaussianNoise
+from deepinv.physics import GaussianNoise, PoissonNoise
 from deepinv.utils.demo import load_dataset
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
@@ -49,7 +49,13 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     print("def_noise:", noise_pow)
 
     tensor_np = torch.tensor(noise_pow).to(device)
-    g = GaussianNoise(sigma=tensor_np)
+    if isinstance(ConfParam().data_fidelity(), PoissonLikelihood):
+        # todo : Poisson
+        #gain = noise_pow
+        gain = 1.5
+        g = PoissonNoise(gain=gain, normalize=False, clip_positive=False, rng=None)
+    else:
+        g = GaussianNoise(sigma=tensor_np)
     exp_physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, exp_physics, params_exp, problem_name, device)
     if physics is None:
@@ -109,6 +115,7 @@ def main_test(
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
+        #params_exp[problem + '_pow'] = 1.1
         params_exp[problem + '_pow'] = 3.6
         #params_exp[problem + '_pow'] = 7.3
     elif problem == 'demosaicing' or problem == "motion_blur" or problem == "mri":
@@ -184,22 +191,21 @@ def main_tune(device, plot_and_exit=False):
         main_tune_plot(pb_list, noise_pow_vec)
         return
 
-    conf_param = ConfParam()
-    conf_param.win = BlackmannHarris()
-    conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.coarse_iters_ini = 5
-    conf_param.iml_max_iter = 8
+    ConfParam().win = BlackmannHarris()
+    ConfParam().levels = 4
+    ConfParam().iters_fine = 200
+    ConfParam().coarse_iters_ini = 5
+    ConfParam().iml_max_iter = 8
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         if pb == 'blur':
-            conf_param.levels = 2
-            conf_param.iml_max_iter = 5
+            ConfParam().levels = 2
+            ConfParam().iml_max_iter = 5
         if pb == 'mri':
-            conf_param.win = SincFilter()
-            conf_param.levels = 3
-            conf_param.iml_max_iter = 8
-            conf_param.use_complex_denoiser = True
-            conf_param.denoiser_in_channels = 1  # separated real and imag parts
+            ConfParam().win = SincFilter()
+            ConfParam().levels = 3
+            ConfParam().iml_max_iter = 8
+            ConfParam().use_complex_denoiser = True
+            ConfParam().denoiser_in_channels = 1  # separated real and imag parts
         r_pb = main_test(pb, dataset_name='gridsearch', img_size=1024, noise_pow=noise_pow,
                          tune=True, use_file_data=False, device=device)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb + str(noise_pow))
@@ -231,7 +237,6 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
 
 def main_fn():
     print(sys.prefix)
-    conf_param = ConfParam()
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
     methods_init = [
@@ -254,48 +259,88 @@ def main_fn():
     # 3 evaluate methods on single image
     # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
 
-    # For : inpainting, demosaicing
-    conf_param.win = SincFilter()
-    conf_param.levels = 4
-    #conf_param.iters_fine = 200
-    conf_param.iters_fine = 200
-    conf_param.coarse_iters_ini = 5
-    conf_param.iml_max_iter = 2
 
-    #beta = 0.2
-    #conf_param.data_fidelity = lambda: PoissonLikelihood(gain=1.0, bkg=beta, normalize=True)
+    ## -- blur ----------------------------------------------------------------
+    ConfParam().win = SincFilter()
+    #ConfParam().win = Dirac()
+    ConfParam().levels = 4
+    #ConfParam().iters_fine = 200
+    ConfParam().iters_fine = 80
+    ConfParam().coarse_iters_ini = 1
+    #ConfParam().coarse_iters_ini = 4
+    ConfParam().iml_max_iter = 3
 
-    # -- inpainting ----------------------------------------------------------------
+    methods_init = [
+        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit, MRedMLStud, MRedMLStudInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStud, MPnPMLStudInit,
+        #MPnPMoreau, MPnPMoreauInit,
+        #MPnP, MPnPML, MPnPMoreau, MPnPMLStud,
+        MFb, MFbMLGD,
+        MDPIR, MDPIRLong,
+    ]
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    #)
+
+    beta = 0.1
+    noise_pow = 0.1
+    #gain = noise_pow
+    gain = 1.5
+    # todo : fix beta and gain
+    # todo : replace denoising with debluring in tests/utils
+    ConfParam().data_fidelity = lambda: PoissonLikelihood(gain=gain, bkg=beta, normalize=False)
+    ConfParam().data_fidelity_lipschitz = 1/(gain*beta)**2
     main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-
-    # -- demosaicing ----------------------------------------------------------------
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
     return None
 
+    # For : inpainting, demosaicing
+    ConfParam().reset()
+    ConfParam().win = SincFilter()
+    ConfParam().levels = 4
+    ConfParam().iters_fine = 200
+    #ConfParam().iters_fine = 20
+    ConfParam().coarse_iters_ini = 5
+    ConfParam().iml_max_iter = 2
+
+    # -- inpainting ----------------------------------------------------------------
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    #)
+
+    # -- demosaicing ----------------------------------------------------------------
+    # both true
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    #)
+    #return None
 
     # -- MRI ----------------------------------------------------------------
-    conf_param.win = SincFilter()
-    conf_param.levels = 4
-    conf_param.iters_fine = 200
-    conf_param.iters_fine = 60
-    conf_param.coarse_iters_ini = 1
-    #conf_param.coarse_iters_ini = 4
-    conf_param.iml_max_iter = 1
-    conf_param.use_complex_denoiser = True
-    conf_param.denoiser_in_channels = 1  # separated real and imag parts
+    ConfParam().win = SincFilter()
+    ConfParam().levels = 3
+    ConfParam().iters_fine = 200
+    ConfParam().coarse_iters_ini = 1
+    ConfParam().iml_max_iter = 2
+    ConfParam().use_complex_denoiser = True
+    ConfParam().denoiser_in_channels = 1  # separated real and imag parts
     methods_init_mri = [
         #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit, MRedMLStud, MRedMLStudInit,
-        #MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStudInit, MPnPMLStud,
-        MPnP, MPnPML, MPnPMoreau, MPnPMLStud,
-        #MFb, MFbMLGD,
-        #MDPIR,# MDPIRLong,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStud, MPnPMLStudInit,
+        MFb, MFbMLGD,
+        MDPIR, MDPIRLong,
     ]
+
+    main_test(
+        'mri', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+
+    ConfParam().win = Dirac()
     main_test(
         'mri', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device, target=3
@@ -320,9 +365,10 @@ def main_fn():
     # when win = SincFilter, the algorithm is very slow
     # when using BlackmannHarris it is normal
     # the probem also seems very difficult from multilevel perspective
-    #conf_param.win = SincFilter()
-    #conf_param.win = BlackmannHarris()
-    #conf_param.levels = 3
+    #ConfParam().reset()
+    #ConfParam().win = SincFilter()
+    #ConfParam().win = BlackmannHarris()
+    #ConfParam().levels = 3
     #methods_init = [MPnPML, MPnPMoreau]
     #main_test(
     #    'motion_blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,

@@ -40,15 +40,30 @@ class ConfParam(metaclass=Singleton):
     data_fidelity = L2
     data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
     denoiser_in_channels = 3
+    s1coherent_algorithm = False
+    s1coherent_init = False
 
-    #iter_coarse_pnp_map = 8
-    #iter_coarse_pnp_pgd = 8
-    #iter_coarse_red = 8
-    #iter_coarse_tv = 5
     iter_coarse_pnp_map = 4
     iter_coarse_pnp_pgd = 8
     iter_coarse_tv = 3
     iter_coarse_red = 8
+
+    def reset(self):
+        self.win = None
+        self.levels = None
+        self.iters_fine = None
+        self.iml_max_iter = None
+        self.coarse_iters_ini = None
+        self.use_complex_denoiser = False
+        self.data_fidelity = L2
+        self.data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
+        self.denoiser_in_channels = 3
+        self.s1coherent_algorithm = False
+        self.s1coherent_init = False
+        self.iter_coarse_pnp_map = 4
+        self.iter_coarse_pnp_pgd = 8
+        self.iter_coarse_tv = 3
+        self.iter_coarse_red = 8
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
@@ -107,8 +122,6 @@ def get_parameters_pnp(params_exp):
     import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
     lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
-    #lambda_pnp = 0.01
-    #lambda_pnp = 0.1
     print("lambda_pnp:", lambda_pnp)
 
     device = params_exp['device']
@@ -126,19 +139,12 @@ def get_parameters_pnp(params_exp):
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
-    #CC = 80
-    #lambda_vec = [CC*lambda_pnp, CC*lambda_pnp, CC*lambda_pnp, CC*lambda_pnp]
     lf = ConfParam().data_fidelity_lipschitz
 
-    # BUG
-    #stepsize_vec = [0.9/(l + p_pnp['lip_g']) for l in lambda_vec]
-
-    #stepsize_vec = [0.9/(lf + l * p_pnp['lip_g']) for l in lambda_vec]
-    stepsize_vec = [0.9/(lf + l * p_pnp['lip_g']) for l in lambda_vec]
-    stepsize_vec[-1] = 0.9/(lf + lambda_pnp * p_pnp['lip_g'])
+    stepsize_vec = [0.9/lf for l in lambda_vec] # PGD : only depends on lipschitz of data-fidelity
+    stepsize_vec[-1] = 0.9/lf  # PGD : only depends on lipschitz of data-fidelity
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
-    p_pnp['scale_coherent_grad'] = False
     return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
@@ -164,15 +170,12 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
     p_pnp['backtracking'] = False
-    p_pnp['scale_coherent_grad'] = True
 
     lambda_vec = [lambda_pnp]  * ConfParam().levels
 
-    #stepsize_vec = [1.0/l for l in lambda_vec] #
-    #stepsize_vec[0:-1] = [1.0/(4*lambda_pnp)] * (len(iters_vec) - 1)
-
     lf = ConfParam().data_fidelity_lipschitz
-    stepsize_vec = [1.9/(lf + lambda_pnp)] * (ConfParam().levels - 1)
+    # stepsize_vec = [1.9/(lf + lambda_pnp)] * (ConfParam().levels - 1)
+    stepsize_vec = [1.0/lambda_pnp] * (ConfParam().levels - 1)
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     # lambda_pnp > 2 * data_fidelity_lipschitz / 3
@@ -209,7 +212,6 @@ def get_parameters_red(params_exp):
     step_coeff = 0.9  # non-convex setting
     lf = ConfParam().data_fidelity_lipschitz
     stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec]
-    #stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1] * p_red['lip_g'])
     p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
 
     return p_red
@@ -217,6 +219,7 @@ def get_parameters_red(params_exp):
 def get_parameters_tv(params_exp):
     # We assume regularization gradient is 1-Lipschitz
     params_algo, res = get_param_algo_(params_exp)
+    params_algo['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
     p_tv = params_algo.copy()
 
     import utils.ml_dataclass as dcl
@@ -226,10 +229,10 @@ def get_parameters_tv(params_exp):
     iters_fine = ConfParam().iters_fine
     iters_coarse = ConfParam().iter_coarse_tv
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    #p_tv['iml_max_iter'] = 3
     p_tv['iml_max_iter'] = ConfParam().iml_max_iter
 
     p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec, lambda_fine=lambda_tv)
+    p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
     p_tv['lip_g'] = prior_lipschitz(TVPrior, p_tv)
     p_tv['prox_crit'] = 1e-6
     p_tv['prox_max_it'] = 1000
@@ -239,8 +242,10 @@ def get_parameters_tv(params_exp):
     lf = ConfParam().data_fidelity_lipschitz
     step_coeff = 1.9  # convex setting
     stepsize_vec = [step_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
-    stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1])
+    #stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1])  # only depends on lipschitz of data-fidelity
+    stepsize_vec[-1] = step_coeff / (lf)  # only depends on lipschitz of data-fidelity
     p_tv = _finalize_params(p_tv, lambda_vec, stepsize_vec, gamma_vec)
+    p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
 
     return p_tv
 
@@ -263,6 +268,8 @@ def set_ml_param_Moreau(params, params_exp):
 
     params['coherence_prior'] = CTV()
     params['coarse_prior'] = CTV()
+
+    params['params_multilevel'][0]['stepsize'] = [1.9 / (ConfParam().data_fidelity_lipschitz + 1/gamma_j) for gamma_j in gamma_vec]
 
     return params
 
@@ -313,6 +320,9 @@ def standard_multilevel_param(params, it_vec, lambda_fine):
     iml_max_iter = params['iml_max_iter']
     params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
 
+    #params['multilevel_step'][100 + -1] = True
+    #params['multilevel_step'][100 + -2] = True
+
     return params
 
 
@@ -360,7 +370,8 @@ def get_param_algo_(params_exp):
 
     params_algo = {
         'cit': ConfParam().win,
-        'scale_coherent_grad': True
+        'scale_coherent_grad': ConfParam().s1coherent_algorithm,
+        'scale_coherent_grad_init': ConfParam().s1coherent_init,
     }
 
     return params_algo, res

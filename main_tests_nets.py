@@ -64,7 +64,7 @@ def main_func():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
     print(device)
     test_nets_time(device)
-    return None
+    #return None
     sigma_generator = deepinv.physics.generator.SigmaGenerator(sigma_min=0.01, sigma_max=0.2, device=device)
     #target_psnr_drunet('DIV2K_valid_HR', sigma_generator, device, batch_size=1, img_size=64)
 

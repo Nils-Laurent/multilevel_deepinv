@@ -5,6 +5,7 @@ import deepinv
 
 class DownsamplingTransfer:
     def __init__(self, x, def_filter, padding="circular"):
+        self.filter_object = def_filter
         if isinstance(def_filter, SincFilter):
             self.filt_2d = def_filter.get_filter_2d()
             self.filt_2d.to(x.device)
@@ -36,7 +37,13 @@ class DownsamplingTransfer:
         return self.op.A(x)
 
     def prolongation(self, x):
-        return self.op.A_adjoint(x)
+        if isinstance(self.filter_object, Dirac):
+            # mri test
+            zf = torch.nn.Upsample(scale_factor=self.factor, mode='nearest')
+            z = zf(x)
+        else:
+            z = self.op.A_adjoint(x) * self.factor ** 2
+        return z
 
 
 # ==========================

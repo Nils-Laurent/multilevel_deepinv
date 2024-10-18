@@ -4,7 +4,7 @@ import deepinv.physics.functional
 import torch
 from deepinv.optim import PnP, Prior, RED
 from deepinv.optim.optim_iterators import GDIteration
-from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing, MRI
+from deepinv.physics import Inpainting, Blur, BlurFFT, Demosaicing, MRI, Denoising
 import deepinv.optim as optim
 
 # multilevel imports
@@ -138,6 +138,8 @@ class CoarseModel(torch.nn.Module):
             theta_c = self.fph.radon.theta
             size_c = x_coarse.shape[-2]
             self.physics = Tomography(angles=theta_c, img_width=size_c, device=x_coarse.device)
+        elif isinstance(self.fph, Denoising):
+            self.physics = self.fph
         else:
             raise NotImplementedError("Coarse physics not implemented for " + str(type(self.fph)))
 
@@ -150,23 +152,40 @@ class CoarseModel(torch.nn.Module):
 
         return cit_len < sz_min
 
-    def init_ml_x0(self, X, y_h):
+    def init_ml_x0(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
+        coarse_iter_class = self.pc.coarse_iterator()
+
+        if self.ph.scale_coherent_gradient_init() is True:
+            if grad is None:
+                grad_x0 = self.grad(x0_h, y_h, self.fph, self.ph)
+            else:
+                grad_x0 = grad(x0_h)
+
+            v = self.projection(grad_x0)
+            v -= self.grad(x0, y, self.physics, self.pc)
+
+            # Coarse gradient (first order coherent)
+            grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc) + v
+            level_iteration = coarse_iter_class(coarse_correction=v)
+        else:
+            grad_coarse = lambda x: self.grad(x, y, self.physics, self.pc)
+            level_iteration = coarse_iter_class()
 
         if self.is_large(x0):
             if self.pc.level > 1:
                 model = CoarseModel(self.g, self.f, self.physics, self.pc)
-                x0 = model.init_ml_x0({'est': [x0]}, y)
+                x0 = model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
         else:
             print(f"Warning: Coarse init: image is small, cannot iterate below level {self.pc.level}")
 
         f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
         #iteration = GDIteration(has_cost=False)
-        iteration_class = self.pc.coarse_iterator()
-        iteration = iteration_class()
+        #iteration_class = self.pc.coarse_iterator()
+        #iteration = iteration_class()
 
         model = optim.optim_builder(
-            iteration,
+            level_iteration,
             data_fidelity=self.f,
             prior=self.g,
             custom_init=f_init,
@@ -174,16 +193,16 @@ class CoarseModel(torch.nn.Module):
             params_algo=self.pc.params,
         )
         x_est_coarse = model(y, self.physics)
-        return self.prolongation(x_est_coarse) * self.cit_op.factor**2
+        return self.prolongation(x_est_coarse)
 
     def forward(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)
         coarse_iter_class = self.pc.coarse_iterator()
-        #from torchvision.utils import save_image
-        #save_image(
-        #    torch.norm(y[0, ::], dim=0, keepdim=True),
-        #    os.path.join(get_out_dir(), f"y_coarse{self.pc.level}.png")
-        #)
+        from torchvision.utils import save_image
+        save_image(
+            #torch.norm(y[0, ::], dim=0, keepdim=True),
+            y[0, ::], os.path.join(get_out_dir(), f"y_coarse{self.pc.level}.png")
+        )
 
         if self.ph.scale_coherent_gradient() is True:
             if grad is None:
@@ -225,8 +244,12 @@ class CoarseModel(torch.nn.Module):
             params_algo=self.pc.params,
         )
         x_est_coarse = model(y, self.physics)
+        save_image(
+            #torch.norm(y[0, ::], dim=0, keepdim=True),
+            x_est_coarse[0, ::], os.path.join(get_out_dir(), f"x_coarse{self.pc.level}.png")
+        )
 
         assert not torch.isnan(x_est_coarse).any()
 
-        return self.prolongation(x_est_coarse - x0)
+        return self.prolongation(x_est_coarse - x0) # / factor**2
 

@@ -5,7 +5,7 @@ from deepinv.optim.optim_iterators import GDIteration
 from deepinv.physics.generator import MotionBlurGenerator, RandomMaskGenerator
 from torch.utils.data import DataLoader, Dataset
 
-from deepinv.physics import Inpainting, Blur, Demosaicing, MRI
+from deepinv.physics import Inpainting, Blur, Demosaicing, MRI, Denoising
 from deepinv.physics.blur import gaussian_blur, BlurFFT
 from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
@@ -39,6 +39,7 @@ def physics_from_exp(params_exp, noise_model, device):
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
             #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
             physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
+            #physics = Denoising(noise_model=noise_model, device=device)
         case 'motion_blur':
             psf_gen = MotionBlurGenerator(psf_size=(64, 64), l=0.8, sigma=1.0, device=device)
             problem_full = problem + "_" + str(noise_pow)
