@@ -39,11 +39,17 @@ def gen_fname(params, p_exp, alg_name):
         exp = f"{p_exp['set_name']}_n{p_exp['noise_pow']}"
 
     problem = p_exp['problem']
-    exp += f"_{problem}"
+    exp = exp + f"_{problem}"
 
     from tests.parameters import ConfParam
+    if ConfParam().s1coherent_algorithm:
+        coh = "ct_"
+    else:
+        coh = "cf_"
     if isinstance(ConfParam().data_fidelity(), PoissonLikelihood):
-        exp = "pl_" + exp
+        exp = coh + "pl_" + exp
+    else:
+        exp = coh + exp
 
     # identifies algorithm for resolution
     f_prefix = exp + f"_{alg_name}"

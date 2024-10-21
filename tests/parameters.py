@@ -9,7 +9,7 @@ from multilevel.approx_nn import Student
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir
-from multilevel.prior import TVPrior as CTV
+from multilevel.prior import TVPrior as CustTV
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param
 from utils.paths import checkpoint_path
 
@@ -36,34 +36,33 @@ class ConfParam(metaclass=Singleton):
     iters_fine = None
     iml_max_iter = None
     coarse_iters_ini = None
-    use_complex_denoiser = False
-    data_fidelity = L2
-    data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
-    denoiser_in_channels = 3
-    s1coherent_algorithm = False
-    s1coherent_init = False
-
-    iter_coarse_pnp_map = 4
-    iter_coarse_pnp_pgd = 8
-    iter_coarse_tv = 3
-    iter_coarse_red = 8
+    use_complex_denoiser = None
+    data_fidelity = None
+    data_fidelity_lipschitz = None
+    denoiser_in_channels = None
+    s1coherent_algorithm = None
+    s1coherent_init = None
+    iter_coarse_pnp_map = None
+    iter_coarse_pnp_pgd = None
+    iter_coarse_tv = None
+    iter_coarse_red = None
 
     def reset(self):
         self.win = None
-        self.levels = None
-        self.iters_fine = None
-        self.iml_max_iter = None
-        self.coarse_iters_ini = None
+        self.levels = 4
+        self.iters_fine = 200
+        self.iml_max_iter = 2
+        self.coarse_iters_ini = 5
         self.use_complex_denoiser = False
         self.data_fidelity = L2
         self.data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
         self.denoiser_in_channels = 3
         self.s1coherent_algorithm = False
         self.s1coherent_init = False
-        self.iter_coarse_pnp_map = 4
-        self.iter_coarse_pnp_pgd = 8
+        self.iter_coarse_pnp_map = 3
+        self.iter_coarse_pnp_pgd = 3
         self.iter_coarse_tv = 3
-        self.iter_coarse_red = 8
+        self.iter_coarse_red = 3
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
@@ -154,7 +153,7 @@ def get_parameters_pnp_prox(params_exp):
     import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
     lambda_pnp = 2.0 * ConfParam().data_fidelity_lipschitz /3.0
-    print("lambda_pnp:", lambda_pnp)
+    print("lambda_pnp_prox:", lambda_pnp)
 
     device = params_exp['device']
     denoiser = ConfParam().get_gsdrunet(device)
@@ -173,8 +172,6 @@ def get_parameters_pnp_prox(params_exp):
 
     lambda_vec = [lambda_pnp]  * ConfParam().levels
 
-    lf = ConfParam().data_fidelity_lipschitz
-    # stepsize_vec = [1.9/(lf + lambda_pnp)] * (ConfParam().levels - 1)
     stepsize_vec = [1.0/lambda_pnp] * (ConfParam().levels - 1)
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
@@ -199,11 +196,8 @@ def get_parameters_red(params_exp):
     p_red['prior'] = RED(denoiser=denoiser)
 
     iters_fine = ConfParam().iters_fine
-    #iters_coarse = 3
     iters_coarse = ConfParam().iter_coarse_red
     iters_vec = _set_iter_vec(iters_coarse, iters_fine)
-    #p_red['iml_max_iter'] = 8
-    #p_red['iml_max_iter'] = 1
     p_red['iml_max_iter'] = ConfParam().iml_max_iter
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec, lambda_fine=lambda_red)
@@ -242,8 +236,7 @@ def get_parameters_tv(params_exp):
     lf = ConfParam().data_fidelity_lipschitz
     step_coeff = 1.9  # convex setting
     stepsize_vec = [step_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
-    #stepsize_vec[-1] = step_coeff / (lf + lambda_vec[-1])  # only depends on lipschitz of data-fidelity
-    stepsize_vec[-1] = step_coeff / (lf)  # only depends on lipschitz of data-fidelity
+    stepsize_vec[-1] = step_coeff / lf  # only depends on lipschitz of data-fidelity
     p_tv = _finalize_params(p_tv, lambda_vec, stepsize_vec, gamma_vec)
     p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
 
@@ -266,8 +259,9 @@ def set_ml_param_Moreau(params, params_exp):
     params['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     params['gamma_moreau'] = gamma_vec[-1]
 
-    params['coherence_prior'] = CTV()
-    params['coarse_prior'] = CTV()
+    # todo : A VALIDER
+    #params['coherence_prior'] = CustTV()
+    params['coarse_prior'] = CustTV()
 
     params['params_multilevel'][0]['stepsize'] = [1.9 / (ConfParam().data_fidelity_lipschitz + 1/gamma_j) for gamma_j in gamma_vec]
 
@@ -281,12 +275,14 @@ def set_ml_param_student(params, params_exp):
         denoiser = ConfParam().get_student(device)
 
     prior_class = params['prior'].__class__
-    params['coherence_prior'] = prior_class(denoiser=denoiser)
+    # todo : A VALIDER
+    #params['coherence_prior'] = prior_class(denoiser=denoiser)
     params['coarse_prior'] = prior_class(denoiser=denoiser)
 
     return params
 
 def set_ml_param_noreg(params, params_exp):
+    assert False  # normally, it is not used anymore
     params['coherence_prior'] = params['prior']
     params['coarse_prior'] = Zero()
     return params
