@@ -1,7 +1,6 @@
 import torch
 from deepinv.optim.optim_iterators import PGDIteration
 from deepinv.optim.optim_iterators.pgd import fStepPGD, gStepPGD
-#from deepinv.optim.optim_iterators.utils import gradient_descent_step
 
 
 class CPGDIteration(PGDIteration):

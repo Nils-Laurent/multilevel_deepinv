@@ -2,6 +2,7 @@
 .venv
 out
 datasets
+ckpts
 measurements
 sync_out.ps1
 __pycache__
