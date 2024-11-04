@@ -3,6 +3,29 @@ from deepinv.optim.optim_iterators import GDIteration
 from deepinv.optim.optim_iterators.gradient_descent import fStepGD, gStepGD
 #from deepinv.optim.optim_iterators.utils import gradient_descent_step
 
+class CoarseGradientDescent:
+    r"""
+    Coarse Gradient Descent
+    """
+
+    def __init__(self, coarse_correction=None):
+        self.coarse_correction = coarse_correction
+    def run(self, x_init, cur_data_fidelity, cur_prior, cur_params, y, physics, max_iter):
+        x = x_init
+
+        for k in range(0, max_iter):
+            grad = cur_params["stepsize"] * (
+                cur_params["lambda"] * cur_prior.grad(x, cur_params["g_param"])
+                + cur_data_fidelity.grad(x, y, physics)
+            )
+
+            if not(self.coarse_correction is None):
+                grad += cur_params["stepsize"] * self.coarse_correction
+
+            x = x - grad
+
+        return x
+
 
 class CGDIteration(GDIteration):
     r"""

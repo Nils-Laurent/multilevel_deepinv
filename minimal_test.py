@@ -8,6 +8,7 @@ from deepinv.physics import Demosaicing, GaussianNoise
 
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.info_transfer import SincFilter
+from multilevel.iterator import MultiLevelIteration
 
 
 def main_fn():
@@ -19,9 +20,9 @@ def main_fn():
     denoiser = DRUNet(in_channels=3, out_channels=3, device=device)
     prior = PnP(denoiser=denoiser)
     nb_iter_fine = 200
-    nb_iter_coarse = 3  # M_j où j < J
-    nb_v_cycle = 2  # paramètre "p" dans le papier
-    nb_levels = 4  # paramètre "J"
+    nb_iter_coarse = 3
+    nb_v_cycle = 2
+    nb_levels = 4
     stepsize = 1.0
 
     params_algo = {
@@ -34,7 +35,8 @@ def main_fn():
         'backtracking': False,
         'n_levels': nb_levels,
         'iml_max_iter': nb_v_cycle,
-        'coarse_iterator': CGDIteration, # Phi_j descente de gradient
+        'lip_g': 1.0,
+        #'coarse_iterator': CGDIteration, # not used ini minimal version
 
         'scale_coherent_grad': True,
         'scale_coherent_grad_init': False,
@@ -56,7 +58,7 @@ def main_fn():
     params_algo['level'] = nb_levels
 
     model = optim_builder(
-        iteration=PGDIteration(),
+        iteration=MultiLevelIteration(fine_iteration=PGDIteration()),
         prior=prior,
         data_fidelity=L2(),
         max_iter=nb_iter_fine,
@@ -70,8 +72,6 @@ def main_fn():
 
     shape = (3, 1024, 1024)
 
-    # remplacer x_ref par une image
-    # attention : adapter la variable shape en conséquence
     x_ref = torch.randn(shape).to(device)
 
     noise_level = torch.tensor(0.1)
