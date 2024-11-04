@@ -4,6 +4,8 @@ from pathlib import Path
 
 from deepinv.optim import PoissonLikelihood
 
+from multilevel_utils.custom_poisson_noise import CPoissonLikelihood
+
 
 def dataset_path():
     BASE_DIR = Path(".")  # emplacement du script qui contient __main__
@@ -46,7 +48,7 @@ def gen_fname(params, p_exp, alg_name):
         coh = "ct_"
     else:
         coh = "cf_"
-    if isinstance(ConfParam().data_fidelity(), PoissonLikelihood):
+    if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
         exp = coh + "pl_" + exp
     else:
         exp = coh + exp

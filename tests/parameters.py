@@ -3,13 +3,14 @@ import os
 import deepinv
 from deepinv.optim import L2
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
-from deepinv.models import DRUNet, GSDRUNet
+from deepinv.models import DRUNet, GSDRUNet, DnCNN
 
 from multilevel.approx_nn import Student
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
-from multilevel.info_transfer import BlackmannHarris, CFir
+from multilevel.info_transfer import BlackmannHarris, CFir, SincFilter
 from multilevel.prior import TVPrior as CustTV
+from multilevel_utils.custom_poisson_noise import CPoissonLikelihood
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param
 from utils.paths import checkpoint_path
 
@@ -48,7 +49,7 @@ class ConfParam(metaclass=Singleton):
     iter_coarse_red = None
 
     def reset(self):
-        self.win = None
+        self.win = SincFilter()
         self.levels = 4
         self.iters_fine = 200
         self.iml_max_iter = 2
@@ -69,6 +70,14 @@ class ConfParam(metaclass=Singleton):
         denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         if self.use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
+        denoiser.eval()
+        return denoiser
+
+    def get_dncnn_nonexp(self, device):
+        net = DnCNN(
+            in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download_lipschitz", device=device
+        )
+        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         denoiser.eval()
         return denoiser
 
@@ -136,6 +145,47 @@ def get_parameters_pnp(params_exp):
     p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
+
+    lambda_vec = p_pnp['params_multilevel'][0]['lambda']
+    lf = ConfParam().data_fidelity_lipschitz
+
+    stepsize_vec = [0.9/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
+    #stepsize_vec = [0.9/lf for l in lambda_vec]
+    #stepsize_vec[-1] = 0.9/lf
+
+    if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
+        # less regularization
+        stepsize_vec = [1.9/lf] * ConfParam().levels
+
+    p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+    return p_pnp
+
+def get_parameters_pnp_non_exp(params_exp):
+    params_algo, res = get_param_algo_(params_exp)
+    p_pnp = params_algo.copy()
+
+    import utils.ml_dataclass as dcl
+    p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
+    lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
+    p_pnp['g_param'] = 0.2
+    #p_pnp['g_param'] = 0.8
+    #lambda_pnp = 0.2
+    print("lambda NE :", lambda_pnp)
+    print("g_param NE :", p_pnp['g_param'])
+
+    device = params_exp['device']
+    denoiser = ConfParam().get_dncnn_nonexp(device)
+    p_pnp['prior'] = PnP(denoiser=denoiser)
+    p_pnp['prior'].eval()
+
+    iters_fine = ConfParam().iters_fine
+    iters_coarse = ConfParam().iter_coarse_pnp_map
+    iters_vec = _set_iter_vec(iters_coarse, iters_fine)
+    p_pnp['iml_max_iter'] = ConfParam().iml_max_iter
+
+    p_pnp = standard_multilevel_param(p_pnp, it_vec=iters_vec, lambda_fine=lambda_pnp)
+    p_pnp['coarse_iterator'] = CPGDIteration
+    p_pnp['lip_g'] = 1.0
 
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz

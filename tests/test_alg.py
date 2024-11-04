@@ -7,6 +7,7 @@ from deepinv.physics import MRI
 from torchvision.utils import save_image
 
 from utils.ml_dataclass import *
+from utils.ml_dataclass_nonexp import *
 from utils.ml_dataclass_exp import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
@@ -83,20 +84,19 @@ class RunAlgorithm:
                 or hasattr(m_class, "single_level"):
             params_algo = single_level_params(params_algo)
 
-        #if m_class in [
-        #    MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,
-        #    MRedMLStud, MRedMLStudInit, MRedMLStudNoR, MRedMLStudNoRInit
-        #]:
         if "RED" in m_class().key:
             return self.RED_GD(params_algo)
         elif m_class in [MFb, MFbMLProx, MFbMLGD]:
             return self.TV_PGD(params_algo, use_cost=True)
         elif m_class in [
-            MPnP, MPnPInit, MPnPProx, MPnPProxInit,
-            MPnPML, MPnPMLInit, MPnPMLNoR, MPnPMLStud, MPnPMLStudInit,
+            MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLNoR, MPnPMLStud, MPnPMLStudInit,
             MPnPMoreau, MPnPMoreauInit, MPnPMLStudNoR, MPnPMLStudNoRInit,
-            MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit,
+
+            MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit,
             MPnPProxMoreau, MPnPProxMoreauInit, MPnPProxMLStudNoR, MPnPProxMLStudNoRInit,
+
+            MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMLStud, MPnPNEMLStudInit,
+            MPnPNEMoreau, MPnPNEMoreauInit,
         ]:
             return self.PnP_PGD(params_algo, use_cost=False)
         elif m_class in [MPnPML]:

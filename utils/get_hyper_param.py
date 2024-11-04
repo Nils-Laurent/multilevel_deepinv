@@ -72,8 +72,8 @@ def blur_hyper_param(noise_pow, gs_key):
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.05, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.08, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.4, 'g_param': 0.15, }],
-        [0.1, 'PnP_ML_INIT', {'lambda': 0.4, 'g_param': 0.10, }],
-        [0.1, 'FB_TV_ML', {'lambda': 0.02, }],  # PSNR = 18.43
+        [0.1, 'PnP_ML_INIT', {'lambda': 0.3, 'g_param': 0.02, }], # 0.01, 0.01
+        [0.1, 'FB_TV_ML', {'lambda': 0.4, }],  # (0.04 fine)
         [0.1, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.0751, }],  # PSNR = 19.47
         [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],  # PSNR = 16.58
 

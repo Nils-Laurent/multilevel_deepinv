@@ -1,6 +1,6 @@
 import sys
 
-from deepinv.optim import PoissonLikelihood, L2
+from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
 
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
@@ -21,6 +21,7 @@ from utils.transforms import CatZeroChannel
 from multilevel.info_transfer import BlackmannHarris, SincFilter, CFir, Dirac
 from tests.parameters import get_multilevel_init_params, ConfParam
 from utils.ml_dataclass import *
+from utils.ml_dataclass_nonexp import *
 
 #from gen_fig.fig_metric_logger import *
 
@@ -30,7 +31,7 @@ from utils.measure_data import create_measure_data, load_measure_data
 #matplotlib.use('module://backend_interagg')
 
 import deepinv
-from deepinv.physics import GaussianNoise, PoissonNoise
+from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input, ResultManager
@@ -49,11 +50,11 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     print("def_noise:", noise_pow)
 
     tensor_np = torch.tensor(noise_pow).to(device)
-    if isinstance(ConfParam().data_fidelity(), PoissonLikelihood):
+    if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
         # todo : Poisson
-        #gain = noise_pow
-        gain = 1.5
-        g = PoissonNoise(gain=gain, normalize=False, clip_positive=False, rng=None)
+        bkg = ConfParam().data_fidelity().bkg
+        gain = ConfParam().data_fidelity().gain
+        g = CPoissonNoise(gain=gain, bkg=bkg, normalize=False, clip_positive=False, rng=None)
     else:
         g = GaussianNoise(sigma=tensor_np)
     exp_physics, problem_name = physics_from_exp(params_exp, g, device)
@@ -247,88 +248,82 @@ def main_fn():
 
         #MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
     ]
+    methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMLStud, MPnPNEMLStudInit, MPnPNEMoreau, MPnPNEMoreauInit]
 
-    # 1 create degraded datasets
-    #create_measure_data('blur', dataset_name='...', noise_pow=0.2, img_size=div2k_shape)
-
-    # 2 perform grid search
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
-
-    # 3 evaluate methods on single image
-    # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
-
-
-    ## -- blur ----------------------------------------------------------------
+    ## -- Poisson ----------------------------------------------------------------
     ConfParam().reset()
-    ConfParam().levels = 2
-    #ConfParam().iters_fine = 80
-    ConfParam().coarse_iters_ini = 1
-    #ConfParam().iml_max_iter = 3
+    #ConfParam().iters_fine = 10
+    bkg = 0.01
+    gain = 1.0
+    # todo : fix bkg and gain
+    # todo : replace denoising with debluring in tests/utils
+    ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, normalize=False)
+    ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
 
-    #methods_init = [
-    #    #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit, MRedMLStud, MRedMLStudInit,
-    #    MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStud, MPnPMLStudInit,
-    #    #MPnPMoreau, MPnPMoreauInit,
-    #    #MPnP, MPnPML, MPnPMoreau, MPnPMLStud,
-    #    MFb, MFbMLGD,
-    #    MDPIR, MDPIRLong,
-    #]
-    ##main_test(
-    ##    'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    ##    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    ##)
-
-    #beta = 0.1
-    #noise_pow = 0.1
-    ##gain = noise_pow
-    #gain = 1.5
-    ## todo : fix beta and gain
-    ## todo : replace denoising with debluring in tests/utils
-    #ConfParam().data_fidelity = lambda: PoissonLikelihood(gain=gain, bkg=beta, normalize=False)
-    #ConfParam().data_fidelity_lipschitz = 1/(gain*beta)**2
-    #main_test(
-    #    'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
-    #return None
-
-    # For : inpainting, demosaicing
-    ConfParam().reset()
-    ConfParam().win = SincFilter()
-    ConfParam().iters_fine = 200
-    #ConfParam().iters_fine = 80
-    ConfParam().iml_max_iter = 2
-    ConfParam().s1coherent_init = False
+    methods_init_pl = [
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
+        MFbMLGD, MDPIR
+    ]
+    #methods_init_pl = [MPnPMoreau, MPnPMoreauInit]
+    ConfParam().s1coherent_algorithm = False
+    main_test(
+        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    ConfParam().s1coherent_algorithm = True
+    main_test(
+        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
 
     # -- inpainting ----------------------------------------------------------------
-    #ConfParam().s1coherent_algorithm = True
+    ConfParam().reset()
+    ConfParam().s1coherent_algorithm = True
     #main_test(
     #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     #)
-    #ConfParam().s1coherent_algorithm = False
+    ConfParam().s1coherent_algorithm = False
     #main_test(
     #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     #)
 
     # -- demosaicing ----------------------------------------------------------------
-    #ConfParam().s1coherent_algorithm = True
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
-    #ConfParam().s1coherent_algorithm = False
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
+    ConfParam().reset()
+
+    ConfParam().s1coherent_algorithm = True
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_ne, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+
+    ConfParam().s1coherent_algorithm = False
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_ne, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
+
+    ConfParam().reset()
+    ConfParam().iter_coarse_pnp_map = 8
+    ConfParam().iter_coarse_pnp_pgd = 8
+    ConfParam().iml_max_iter = 10
+    ConfParam().s1coherent_algorithm = True
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    ConfParam().s1coherent_algorithm = False
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
 
     # -- MRI ----------------------------------------------------------------
     ConfParam().reset()
-    ConfParam().win = SincFilter()
     ConfParam().levels = 3
     ConfParam().coarse_iters_ini = 1
     ConfParam().iml_max_iter = 2
@@ -371,13 +366,24 @@ def main_fn():
     # when using BlackmannHarris it is normal
     # the probem also seems very difficult from multilevel perspective
     #ConfParam().reset()
-    #ConfParam().win = SincFilter()
     #ConfParam().levels = 3
     #methods_init = [MPnPML, MPnPMoreau]
     #main_test(
     #    'motion_blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
     #    target=0, use_file_data=False, benchmark=True, cpu=False, device=device
     #)
+
+
+    # 1 create degraded datasets
+    #create_measure_data('blur', dataset_name='...', noise_pow=0.2, img_size=div2k_shape)
+
+    # 2 perform grid search
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
+
+    # 3 evaluate methods on single image
+    # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
 
     # 4 statistical tests
     #main_test(
