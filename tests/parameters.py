@@ -47,6 +47,7 @@ class ConfParam(metaclass=Singleton):
     iter_coarse_pnp_pgd = None
     iter_coarse_tv = None
     iter_coarse_red = None
+    stepsize_multiplier_pnp = None
 
     def reset(self):
         self.win = SincFilter()
@@ -64,6 +65,7 @@ class ConfParam(metaclass=Singleton):
         self.iter_coarse_pnp_pgd = 3
         self.iter_coarse_tv = 3
         self.iter_coarse_red = 3
+        self.stepsize_multiplier_pnp = 1.0
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
@@ -149,13 +151,8 @@ def get_parameters_pnp(params_exp):
     lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz
 
-    stepsize_vec = [0.9/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
-    #stepsize_vec = [0.9/lf for l in lambda_vec]
-    #stepsize_vec[-1] = 0.9/lf
-
-    if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
-        # less regularization
-        stepsize_vec = [1.9/lf] * ConfParam().levels
+    step_size_coeff = ConfParam().stepsize_multiplier_pnp * 0.9
+    stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
@@ -244,6 +241,7 @@ def get_parameters_red(params_exp):
     device = params_exp['device']
     denoiser = ConfParam().get_drunet(device)
     p_red['prior'] = RED(denoiser=denoiser)
+    p_red['prior'].eval()
 
     iters_fine = ConfParam().iters_fine
     iters_coarse = ConfParam().iter_coarse_red
@@ -252,12 +250,14 @@ def get_parameters_red(params_exp):
 
     p_red = standard_multilevel_param(p_red, it_vec=iters_vec, lambda_fine=lambda_red)
     p_red['lip_g'] = prior_lipschitz(RED, p_red, DRUNet)
+
+    #p_red['params_multilevel'][0]['lambda'] = [lambda_red] * ConfParam().levels
     lambda_vec = p_red['params_multilevel'][0]['lambda']
     step_coeff = 0.9  # non-convex setting
     lf = ConfParam().data_fidelity_lipschitz
-    stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec]
-    p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
+    stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec] # gradient descent
 
+    p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
     return p_red
 
 def get_parameters_tv(params_exp):

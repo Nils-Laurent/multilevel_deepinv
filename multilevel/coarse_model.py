@@ -177,11 +177,15 @@ class CoarseModel(torch.nn.Module):
         if self.is_large(x0):
             if self.params.level > 1:
                 model = CoarseModel(self.g, self.f, self.physics, self.params)
-                x0 = model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
+                x1 = model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
+                #x1 = x0 + model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
+            else:
+                x1 = x0
         else:
             print(f"Warning: Coarse init: image is small, cannot iterate below level {self.params.level}")
+            x1 = x0
 
-        f_init = lambda def_y, def_ph: {'est': [x0], 'cost': None}
+        f_init = lambda def_y, def_ph: {'est': [x1], 'cost': None}
         #iteration = GDIteration(has_cost=False)
         #iteration_class = self.pc.coarse_iterator()
         #iteration = iteration_class()
@@ -196,6 +200,7 @@ class CoarseModel(torch.nn.Module):
         )
         x_est_coarse = model(y, self.physics)
         return self.prolongation(x_est_coarse)
+        #return self.prolongation(x_est_coarse - x0) # / factor**2
 
     def forward(self, X, y_h, grad=None):
         [x0, x0_h, y] = self.coarse_data(X, y_h)

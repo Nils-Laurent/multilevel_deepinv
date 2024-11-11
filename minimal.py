@@ -81,6 +81,7 @@ def main_fn():
     noise_model = GaussianNoise(sigma=noise_level)
     physics = Demosaicing(shape, noise_model=noise_model, device=device)
     y = physics(x_ref)  # A(x) + noise
+    model.eval()
     x_est, met = model(y, physics, x_gt=x_ref, compute_metrics=True)
 
 if __name__ == '__main__':

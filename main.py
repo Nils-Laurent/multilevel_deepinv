@@ -240,87 +240,94 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
+    return None
+
     methods_init = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
-        MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit, MPnPProxMoreau, MPnPProxMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
+        #MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMoreau, MPnPProxMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
 
-        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLStudInit, MRedMLMoreau, MRedMLMoreauInit,
+        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,
     ]
-    methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMLStud, MPnPNEMLStudInit, MPnPNEMoreau, MPnPNEMoreauInit]
+    methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMoreau, MPnPNEMoreauInit]
 
     ## -- Poisson ----------------------------------------------------------------
     ConfParam().reset()
-    #ConfParam().iters_fine = 10
-    bkg = 0.01
-    gain = 1.0
+    ConfParam().iters_fine = 50
+    ConfParam().iml_max_iter = 4
+
+    bkg = 0.05
+    gain = 20
+    #gain = 100.0
+
     # todo : fix bkg and gain
     # todo : replace denoising with debluring in tests/utils
     ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, normalize=False)
     ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
+    ConfParam().stepsize_multiplier_pnp = 1.0
 
+    #methods_init_pl = [
+    #    MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
+    #    MFbMLGD, MDPIR
+    #]
+    #methods_init_pl = [
+    #    MPnPML, MRedML, MFbMLGD, MDPIR
+    #]
+    #ConfParam().iter_coarse_red = 16
     methods_init_pl = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLStud, MPnPMLStudInit, MPnPMoreau, MPnPMoreauInit,
-        MFbMLGD, MDPIR
+        #MRed, MRedML,
+        # MRedInit, MRedMLInit,
+        #MPnP, MPnPInit, MPnPML, MPnPMLInit,
+        MPnP, MPnPInit, MPnPML,
+        #MFbMLGD, MDPIR, MDPIRLong
     ]
-    #methods_init_pl = [MPnPMoreau, MPnPMoreauInit]
+
+    #methods_init_pl = [MRed, MPnP, MRedML, MPnPML, MDPIR, MFbMLGD]
     ConfParam().s1coherent_algorithm = False
     main_test(
         'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=1
     )
     ConfParam().s1coherent_algorithm = True
     main_test(
         'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=1
     )
     return None
 
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
     ConfParam().s1coherent_algorithm = True
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
+    ConfParam().coarse_iters_ini = 20
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
     ConfParam().s1coherent_algorithm = False
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
+    #ConfParam().iter_coarse_pnp_map = 3
+    #ConfParam().iml_max_iter = 2
 
-    ConfParam().s1coherent_algorithm = True
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_ne, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-
-    ConfParam().s1coherent_algorithm = False
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_ne, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-    return None
-
-    ConfParam().reset()
-    ConfParam().iter_coarse_pnp_map = 8
-    ConfParam().iter_coarse_pnp_pgd = 8
-    ConfParam().iml_max_iter = 10
     ConfParam().s1coherent_algorithm = True
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
+
     ConfParam().s1coherent_algorithm = False
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
-    return None
+    #return None
 
     # -- MRI ----------------------------------------------------------------
     ConfParam().reset()
@@ -330,7 +337,7 @@ def main_fn():
     ConfParam().use_complex_denoiser = True
     ConfParam().denoiser_in_channels = 1  # separated real and imag parts
     methods_init_mri = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit, MPnPMLStud, MPnPMLStudInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
     ]
@@ -355,10 +362,10 @@ def main_fn():
 
     # -- motion blur ----------------------------------------------------------------
     methods_standard = [
-        MPnP, MPnPML, MPnPMLStud, MPnPMoreau,
-        MPnPProx, MPnPProxML, MPnPProxMLStud, MPnPProxMoreau,
+        MPnP, MPnPML, MPnPMoreau,
+        MPnPProx, MPnPProxML, MPnPProxMoreau,
         MFb, MFbMLGD,
-        MRed, MRedML,MRedMLStud, MRedMLMoreau,
+        MRed, MRedML,MRedMLMoreau,
         MDPIR,
     ]
     # something is strange here
