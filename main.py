@@ -293,12 +293,11 @@ def main_fn():
 
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
-    ##ConfParam().coarse_iters_ini = 20
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
-    #return None
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()

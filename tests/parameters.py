@@ -126,13 +126,15 @@ def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
     return params
 
 def get_parameters_pnp(params_exp):
-    params_algo, res = get_param_algo_(params_exp)
+    import utils.ml_dataclass as dcl
+    key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
+    params_algo, res = get_param_algo_(params_exp, key_vec)
     p_pnp = params_algo.copy()
 
-    import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
-    lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
-    print("lambda_pnp:", lambda_pnp)
+
+    # in case the smooth approx. of TV is used in coarse scales
+    lambda_pnp = res[dcl.MPnPMoreauInit.key]['lambda']
 
     device = params_exp['device']
     denoiser = ConfParam().get_drunet(device)
@@ -158,10 +160,11 @@ def get_parameters_pnp(params_exp):
     return p_pnp
 
 def get_parameters_pnp_non_exp(params_exp):
-    params_algo, res = get_param_algo_(params_exp)
+    import utils.ml_dataclass as dcl
+    key_vec = [dcl.MPnPMLInit.key]
+    params_algo, res = get_param_algo_(params_exp, key_vec)
     p_pnp = params_algo.copy()
 
-    import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
     lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
     p_pnp['g_param'] = 0.2
@@ -194,10 +197,11 @@ def get_parameters_pnp_non_exp(params_exp):
     return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
-    params_algo, res = get_param_algo_(params_exp)
+    import utils.ml_dataclass as dcl
+    key_vec = [dcl.MPnPProxMLInit.key]
+    params_algo, res = get_param_algo_(params_exp, key_vec)
     p_pnp = params_algo.copy()
 
-    import utils.ml_dataclass as dcl
     p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
     lambda_pnp = 2.0 * ConfParam().data_fidelity_lipschitz /3.0
     print("lambda_pnp_prox:", lambda_pnp)
@@ -230,10 +234,11 @@ def get_parameters_pnp_prox(params_exp):
 
 
 def get_parameters_red(params_exp):
-    params_algo, res = get_param_algo_(params_exp)
+    import utils.ml_dataclass as dcl
+    key_vec = [dcl.MRedMLInit.key]
+    params_algo, res = get_param_algo_(params_exp, key_vec)
     p_red = params_algo.copy()
 
-    import utils.ml_dataclass as dcl
     p_red['g_param'] = res[dcl.MRedMLInit.key]['g_param']
     lambda_red = res[dcl.MRedMLInit.key]['lambda']
     print("lambda_red:", lambda_red)
@@ -261,12 +266,13 @@ def get_parameters_red(params_exp):
     return p_red
 
 def get_parameters_tv(params_exp):
+    import utils.ml_dataclass as dcl
+    key_vec = [dcl.MFbMLGD.key]
     # We assume regularization gradient is 1-Lipschitz
-    params_algo, res = get_param_algo_(params_exp)
+    params_algo, res = get_param_algo_(params_exp, key_vec)
     params_algo['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
     p_tv = params_algo.copy()
 
-    import utils.ml_dataclass as dcl
     lambda_tv = res[dcl.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
 
@@ -302,6 +308,12 @@ def get_parameters_tv_coarse_pgd(params_exp):
 
 # ============== multilevel specific modifiers ==============
 def set_ml_param_Moreau(params, params_exp):
+    if isinstance(params['prior'], PnP):
+        import utils.ml_dataclass as dcl
+        key_vec = [dcl.MPnPMoreauInit.key]
+        params_algo, res = get_param_algo_(params_exp, key_vec)
+        params['g_param'] = res[dcl.MPnPMoreauInit.key]['g_param']
+
     params['coarse_iterator'] = CGDIteration
     iters_vec = params['params_multilevel'][0]['iters']
     gamma_vec = [1.1] * len(iters_vec)
@@ -383,34 +395,27 @@ def single_level_params(params_ml):
     return params
 
 
-def get_param_algo_(params_exp):
+def get_param_algo_(params_exp, key_vec):
     noise_pow = params_exp["noise_pow"]
     problem = params_exp['problem']
 
     res = {}
-    import utils.ml_dataclass as dcl
-    alg = [
-        dcl.MRedMLInit.key,
-        dcl.MPnPMLInit.key,
-        dcl.MPnPProxMLInit.key,
-        dcl.MFbMLGD.key,
-    ]
 
     print("def_noise:", noise_pow)
     if 'gridsearch' in params_exp.keys() and params_exp['gridsearch'] is True:
-        for akey in alg:
+        for akey in key_vec:
             res[akey] = {'lambda': 0, 'g_param': 0}
     elif problem == 'inpainting' or problem == 'demosaicing':
-        for akey in alg:
+        for akey in key_vec:
             res[akey] = inpainting_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'blur' or problem == 'motion_blur':
-        for akey in alg:
+        for akey in key_vec:
             res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'mri':
-        for akey in alg:
+        for akey in key_vec:
             res[akey] = mri_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'denoising':
-        for akey in alg:
+        for akey in key_vec:
             res[akey] = poisson_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
         pass
