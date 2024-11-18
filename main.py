@@ -113,13 +113,14 @@ def main_test(
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = 0.5
+        #params_exp[problem] = 0.8
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
         #params_exp[problem + '_pow'] = 1.1
         params_exp[problem + '_pow'] = 3.6
         #params_exp[problem + '_pow'] = 7.3
-    elif problem == 'demosaicing' or problem == "motion_blur" or problem == "mri":
+    elif problem == 'demosaicing' or problem == "motion_blur" or problem == "mri" or problem == "denoising":
         # nothing to be done
         pass
     else:
@@ -192,22 +193,18 @@ def main_tune(device, plot_and_exit=False):
         main_tune_plot(pb_list, noise_pow_vec)
         return
 
-    ConfParam().win = BlackmannHarris()
-    ConfParam().levels = 4
-    ConfParam().iters_fine = 200
-    ConfParam().coarse_iters_ini = 5
-    ConfParam().iml_max_iter = 8
     for pb, noise_pow in product(pb_list, noise_pow_vec):
-        if pb == 'blur':
-            ConfParam().levels = 2
-            ConfParam().iml_max_iter = 5
+        ConfParam().reset()
         if pb == 'mri':
-            ConfParam().win = SincFilter()
             ConfParam().levels = 3
-            ConfParam().iml_max_iter = 8
+            ConfParam().coarse_iters_ini = 1
             ConfParam().use_complex_denoiser = True
             ConfParam().denoiser_in_channels = 1  # separated real and imag parts
-        r_pb = main_test(pb, dataset_name='gridsearch', img_size=1024, noise_pow=noise_pow,
+        #dataset_name = 'gridsearch'  # high resolution images
+        #img_size = 1024
+        dataset_name = 'set3c'  # fast (small images)
+        img_size = 256
+        r_pb = main_test(pb, dataset_name=dataset_name, img_size=img_size, noise_pow=noise_pow,
                          tune=True, use_file_data=False, device=device)
         file_pb = save_grid_tune_info(data=r_pb, suffix=pb + str(noise_pow))
 
@@ -240,10 +237,12 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
     return None
 
     methods_init = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit,# MPnPMoreau, MPnPMoreauInit,
         #MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMoreau, MPnPProxMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
@@ -283,61 +282,49 @@ def main_fn():
         #MFbMLGD, MDPIR, MDPIRLong
     ]
 
-    #methods_init_pl = [MRed, MPnP, MRedML, MPnPML, MDPIR, MFbMLGD]
-    ConfParam().s1coherent_algorithm = False
-    main_test(
-        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=1
-    )
-    ConfParam().s1coherent_algorithm = True
-    main_test(
-        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=1
-    )
-    return None
+    #ConfParam().reset()
+    #methods_init_pl = [MPnPML, MPnPMLInit]
+    #methods_init_pl = [MPnPMLInit]
+    #main_test(
+    #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=1
+    #)
+    #return None
 
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
-    ConfParam().s1coherent_algorithm = True
-    ConfParam().coarse_iters_ini = 20
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-    return None
-    ConfParam().s1coherent_algorithm = False
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
+    ##ConfParam().coarse_iters_ini = 20
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    #)
+    #return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
-    #ConfParam().iter_coarse_pnp_map = 3
-    #ConfParam().iml_max_iter = 2
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
 
-    ConfParam().s1coherent_algorithm = True
+    # -- blur ----------------------------------------------------------------
+    ConfParam().reset()
+    #methods_init = [MPnPMoreau]
+    methods_init = [MFb, MFbMLGD]
     main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=0
     )
-
-    ConfParam().s1coherent_algorithm = False
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-    #return None
+    return None
 
     # -- MRI ----------------------------------------------------------------
     ConfParam().reset()
     ConfParam().levels = 3
     ConfParam().coarse_iters_ini = 1
-    ConfParam().iml_max_iter = 2
     ConfParam().use_complex_denoiser = True
     ConfParam().denoiser_in_channels = 1  # separated real and imag parts
     methods_init_mri = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, #MPnPMoreau, MPnPMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
     ]
@@ -345,20 +332,9 @@ def main_fn():
     ConfParam().s1coherent_algorithm = True
     main_test(
         'mri', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-    ConfParam().s1coherent_algorithm = False
-    main_test(
-        'mri', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device
     )
     return None
-
-    #img_size = (2, 320, 320)
-    #main_test(
-    #    'mri', img_size=img_size, dataset_name='knee_singlecoil', noise_pow=0.1, m_vec=methods_init_mri, test_dataset=False,
-    #    target=15, use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
 
     # -- motion blur ----------------------------------------------------------------
     methods_standard = [

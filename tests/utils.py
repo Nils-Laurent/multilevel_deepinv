@@ -39,7 +39,6 @@ def physics_from_exp(params_exp, noise_model, device):
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
             #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
             physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
-            #physics = Denoising(noise_model=noise_model, device=device)
         case 'motion_blur':
             psf_gen = MotionBlurGenerator(psf_size=(64, 64), l=0.8, sigma=1.0, device=device)
             problem_full = problem + "_" + str(noise_pow)
@@ -50,6 +49,9 @@ def physics_from_exp(params_exp, noise_model, device):
             problem_full = problem + "_" + str(noise_pow)
             gen = RandomMaskGenerator(img_size=params_exp['shape'], device=device, acceleration=2)
             physics = MRI(gen.step()['mask'], noise_model=noise_model, img_size=params_exp['shape'], device=device)
+        case 'denoising':
+            problem_full = problem
+            physics = Denoising(noise_model=noise_model, device=device)
         case _:
             raise NotImplementedError("Problem " + problem + " not supported")
 

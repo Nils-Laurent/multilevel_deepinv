@@ -18,7 +18,7 @@ def main_fn():
     # hyper paramètres
     lambda_pnp = 1.0
     zeta_denoiser = 0.05
-    denoiser = DRUNet(in_channels=3, out_channels=3, device=device)
+    denoiser = DRUNet(in_channels=3, out_channels=3, device=device, pretrained="download")
     prior = PnP(denoiser=denoiser)
     nb_iter_fine = 200
     nb_iter_coarse = 3  # M_j où j < J

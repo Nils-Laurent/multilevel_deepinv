@@ -275,7 +275,8 @@ class RunAlgorithm:
             m = MetricLogger()
             online = self.params_exp['online']
             model.eval()
-            progress_bar = not self.is_gridsearch
+            #progress_bar = not self.is_gridsearch
+            progress_bar = True
 
             dinv_res = deepinv.test(
                 model, self.data, self.physics,

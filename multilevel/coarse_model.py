@@ -76,9 +76,7 @@ class CoarseModel(torch.nn.Module):
         if isinstance(self.params.coherence_prior(), Prior):
             assert False # should not be used
 
-        # todo : A VALIDER
         if isinstance(grad_prior, PnP):
-            #print(f"Grad: : Id - denoiser")
             grad_g = x - grad_prior.denoiser(x, sigma=params.g_param())
         elif hasattr(grad_prior, 'denoiser'):
             grad_g = grad_prior.grad(x, sigma_denoiser=params.g_param())
@@ -115,7 +113,6 @@ class CoarseModel(torch.nn.Module):
             rep = self.cit_op.filt_2d.repeat(f0.shape[1], 1, 1, 1).to(x_coarse.device)
             filt = F.conv2d(f0, rep, groups=f0.shape[1], padding="valid")
             filt = filt[:, :, :: 2, :: 2]  # downsample
-            #filt = F.interpolate(self.fph.filter, scale_factor=0.5, mode='bilinear')
             if isinstance(self.ph_f, BlurFFT):
                 self.physics = BlurFFT(img_size=x_coarse.shape[1:], filter=filt, device=x_coarse.device)
             else:
@@ -158,6 +155,7 @@ class CoarseModel(torch.nn.Module):
         coarse_iter_class = self.params.coarse_iterator()
 
         if self.par_f.scale_coherent_gradient_init() is True:
+            assert False  # should not be used
             if grad is None:
                 print(f"coherence: lv{self.par_f.level}")
                 grad_x0 = self.grad(x0_h, y_h, self.ph_f, self.gfine, self.par_f)
@@ -186,9 +184,6 @@ class CoarseModel(torch.nn.Module):
             x1 = x0
 
         f_init = lambda def_y, def_ph: {'est': [x1], 'cost': None}
-        #iteration = GDIteration(has_cost=False)
-        #iteration_class = self.pc.coarse_iterator()
-        #iteration = iteration_class()
 
         model = optim.optim_builder(
             level_iteration,

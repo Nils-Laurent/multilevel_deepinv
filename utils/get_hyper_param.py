@@ -68,12 +68,12 @@ def blur_hyper_param(noise_pow, gs_key):
         ##[0.1, 'RED_ML_INIT', {'lambda': 0.52, 'g_param': 0.055, }],  #
         #[0.1, 'RED_ML_INIT', {'lambda': 0.4, 'g_param': 0.05, }],  #
 
-        #[0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
+        [0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.05, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.5, 'g_param': 0.08, }],
         #[0.1, 'PnP_ML_INIT', {'lambda': 0.4, 'g_param': 0.15, }],
-        [0.1, 'PnP_ML_INIT', {'lambda': 0.3, 'g_param': 0.02, }], # 0.01, 0.01
-        [0.1, 'FB_TV_ML', {'lambda': 1.0, }],  # (0.04 fine)
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.3, 'g_param': 0.02, }], # 0.01, 0.01
+        [0.1, 'FB_TV_ML', {'lambda': 0.04, }],  # (0.04 fine)
         #[0.1, 'RED_ML_INIT', {'lambda': 0.5, 'g_param': 0.0751, }],  # PSNR = 19.47
         [0.1, 'RED_ML_INIT', {'lambda': 8.0, 'g_param': 0.15, }],
         [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],  # PSNR = 16.58
@@ -90,6 +90,25 @@ def blur_hyper_param(noise_pow, gs_key):
         return res
     else:
         return affine_interpolation(res, noise_pow=noise_pow)
+
+def poisson_hyper_param(noise_pow, gs_key):
+    gs_vec = [
+        [0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.07, }],
+        [0.1, 'FB_TV_ML', {'lambda': 1.0, }],
+        [0.1, 'RED_ML_INIT', {'lambda': 8.0, 'g_param': 0.15, }],
+        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],
+        [0.2, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],
+        [0.2, 'FB_TV_ML', {'lambda': 1.0, }],
+        [0.2, 'RED_ML_INIT', {'lambda': 8.0, 'g_param': 0.15, }],
+        [0.2, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],
+    ]
+
+    res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
+    if isinstance(res, dict):
+        return res
+    else:
+        return affine_interpolation(res, noise_pow=noise_pow)
+
 
 def inpainting_hyper_param(noise_pow, gs_key):
     gs_vec = [

@@ -11,7 +11,7 @@ from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import BlackmannHarris, CFir, SincFilter
 from multilevel.prior import TVPrior as CustTV
 from multilevel_utils.custom_poisson_noise import CPoissonLikelihood
-from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param
+from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param, poisson_hyper_param
 from utils.paths import checkpoint_path
 
 from multilevel_utils.complex_denoiser import to_complex_denoiser
@@ -59,7 +59,7 @@ class ConfParam(metaclass=Singleton):
         self.data_fidelity = L2
         self.data_fidelity_lipschitz = 1.0  # data-fidelity Lipschitz cst
         self.denoiser_in_channels = 3
-        self.s1coherent_algorithm = False
+        self.s1coherent_algorithm = True
         self.s1coherent_init = False
         self.iter_coarse_pnp_map = 3
         self.iter_coarse_pnp_pgd = 3
@@ -409,6 +409,9 @@ def get_param_algo_(params_exp):
     elif problem == 'mri':
         for akey in alg:
             res[akey] = mri_hyper_param(noise_pow=noise_pow, gs_key=akey)
+    elif problem == 'denoising':
+        for akey in alg:
+            res[akey] = poisson_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
         pass
     else:
