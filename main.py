@@ -1,7 +1,5 @@
 import sys
 
-from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
-
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
@@ -39,6 +37,8 @@ from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_s
 from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d, print_gridsearch_max
 from utils.paths import dataset_path, get_out_dir
+
+from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
 
 
 def test_settings(data_in, params_exp, device, benchmark=False, physics=None, list_method=None):
