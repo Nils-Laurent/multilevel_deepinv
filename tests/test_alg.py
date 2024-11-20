@@ -1,3 +1,4 @@
+import os
 from os.path import join
 
 import deepinv.loss
@@ -11,7 +12,7 @@ from utils.ml_dataclass_nonexp import *
 from utils.ml_dataclass_exp import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.unfolded import unfolded_builder
-from deepinv.models import DRUNet
+from deepinv.models import DRUNet, to_complex_denoiser
 #from deepinv.optim.data_fidelity import L2
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
 from deepinv.optim.prior import PnP
@@ -65,7 +66,7 @@ class RunAlgorithm:
         self.param_init = None
 
         self.is_gridsearch = False
-        if ('gridsearch' in params_exp.keys()) and (params_exp['gridsearch'] is True):
+        if 'gridsearch' in params_exp.keys():
             self.is_gridsearch = True
 
     def set_init(self, param_init):

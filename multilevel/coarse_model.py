@@ -79,13 +79,14 @@ class CoarseModel(torch.nn.Module):
         if isinstance(grad_prior, PnP):
             grad_g = x - grad_prior.denoiser(x, sigma=params.g_param())
         elif hasattr(grad_prior, 'denoiser'):
-            grad_g = grad_prior.grad(x, sigma_denoiser=params.g_param())
+            assert False  # should not be used
+            grad_g = params.lambda_r() * grad_prior.grad(x, sigma_denoiser=params.g_param())
         elif hasattr(grad_prior, 'moreau_grad'):
-            grad_g = grad_prior.moreau_grad(x, gamma=params.gamma_moreau())
+            grad_g = params.lambda_r() * grad_prior.moreau_grad(x, gamma=params.gamma_moreau())
         else:
             raise NotImplementedError("Gradient not defined in this case")
 
-        return grad_f + params.lambda_r() * grad_g
+        return grad_f + grad_g
 
     def coarse_data(self, X, y_h):
         x0_h = X['est']

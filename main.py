@@ -3,29 +3,20 @@ import sys
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
-from os.path import join
-
 import numpy
 import torch
-import torchvision.transforms
-from deepinv.datasets import FastMRISliceDataset
-from deepinv.models import DRUNet
 from torch.utils.data import Subset, Dataset, DataLoader
 from torchvision import transforms
 from itertools import product
 
 from utils.transforms import CatZeroChannel
 
-from multilevel.info_transfer import BlackmannHarris, SincFilter, CFir, Dirac
-from tests.parameters import get_multilevel_init_params, ConfParam
+from tests.parameters import ConfParam
 from utils.ml_dataclass import *
 from utils.ml_dataclass_nonexp import *
 
-#from gen_fig.fig_metric_logger import *
-
 from utils.measure_data import create_measure_data, load_measure_data
 
-#import matplotlib
 #matplotlib.use('module://backend_interagg')
 
 import deepinv
@@ -39,6 +30,7 @@ from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d, print_gridsear
 from utils.paths import dataset_path, get_out_dir
 
 from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
+from tests.parameters_utils import get_multilevel_init_params
 
 
 def test_settings(data_in, params_exp, device, benchmark=False, physics=None, list_method=None):
@@ -184,7 +176,6 @@ def main_test(
 
 
 def main_tune(device, plot_and_exit=False):
-    #noise_pow_vec = [0.05, 0.1, 0.2]
     pb_list = ['inpainting', 'demosaicing', 'blur', 'mri']
     noise_pow_vec = [0.1]
 
@@ -242,7 +233,7 @@ def main_fn():
     return None
 
     methods_init = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit,# MPnPMoreau, MPnPMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
         #MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMoreau, MPnPProxMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
@@ -270,9 +261,7 @@ def main_fn():
     #    MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
     #    MFbMLGD, MDPIR
     #]
-    #methods_init_pl = [
-    #    MPnPML, MRedML, MFbMLGD, MDPIR
-    #]
+    #methods_init_pl = [MPnPML, MRedML, MFbMLGD, MDPIR]
     #ConfParam().iter_coarse_red = 16
     methods_init_pl = [
         #MRed, MRedML,

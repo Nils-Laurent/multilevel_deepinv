@@ -1,15 +1,15 @@
 import utils.ml_dataclass as dc
-import tests.parameters as P
 import torch
 import numpy
 from deepinv.physics import GaussianNoise
 
+from tests.parameters_utils import get_multilevel_init_params
 from tests.test_alg import RunAlgorithm
 from tests.utils import physics_from_exp, data_from_user_input
 
 
 def tune_grid_all(data_in, params_exp, device):
-    params_exp['gridsearch'] = True
+    params_exp['gridsearch'] = {}
     noise_pow = params_exp["noise_pow"]
     print("def_noise:", noise_pow)
 
@@ -36,26 +36,21 @@ def tune_grid_all(data_in, params_exp, device):
             if 'cpu' in str(device):
                 raise Exception("gridsearch should not run on CPU")
 
-            m_param = m_class.param_fn(params_exp)
-            m_param['step_coeff'] = class_info[m_class]["coeff"]
-            def objective_fun(params):
-                step_coeff = params['step_coeff']
-                lip_g = params['lip_g']
-                lambda_r = params['lambda']
-                params['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
+            def objective_fun(params_gs):
+                params_exp['gridsearch'] = params_gs
+                m_param = m_class.param_fn(params_exp)
                 ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
                 if hasattr(m_class, 'use_init') and m_class.use_init is True:
-                    p_init = P.get_multilevel_init_params(m_param)
-                    p_init['stepsize'] = step_coeff / (1.0 + lambda_r * lip_g)
-                    ra.set_init(p_init)
-                return ra.run_algorithm(m_class, params)
+                    init_param = get_multilevel_init_params(m_param)
+                    ra.set_init(init_param)
+                return ra.run_algorithm(m_class, m_param)
 
-            res_data, res_keys = tune_algo(m_param, algo=objective_fun, alg_class=m_class, params_exp=params_exp)
+            res_data, res_keys = tune_algo(algo=objective_fun, alg_class=m_class, params_exp=params_exp)
             res[m_class.key] = {'axis': res_keys, 'tensors': res_data}
 
     return res
 
-def tune_algo(params_algo, algo, alg_class, params_exp):
+def tune_algo(algo, alg_class, params_exp):
     noise_pow = params_exp["noise_pow"]
     pb = params_exp["problem"]
 
@@ -85,10 +80,10 @@ def tune_algo(params_algo, algo, alg_class, params_exp):
     else:
         raise ValueError("Invalid gridsearch class: {}".format(alg_class))
 
-    return _tune(params_algo, algo, d_grid, recurse)
+    return _tune(algo, d_grid, recurse)
 
 
-def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
+def _tune(algo, d_grid, recurse, prec=None, log=False):
     TEST_FLAG = False
 
     recurse = recurse - 1
@@ -118,16 +113,17 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
     for id_map in numpy.ndindex(cost_map.shape):
         it += 1
         print(f"--- Iteration {it} of {nb_iter} ---")
+        params_gs = {}
         for j in range(len(sz)):
             q = id_map[j]
             kj = list(params_name)[j]
-            params_algo[kj] = axis_vec[j][q].item()
-            print(f"set {kj} to {params_algo[kj]}")
+            params_gs[kj] = axis_vec[j][q].item()
+            print(f"set {kj} to {params_gs[kj]}")
 
         if it >= 2 and TEST_FLAG is True:
             continue
 
-        r_psnr = algo(params_algo.copy())
+        r_psnr = algo(params_gs)
         t_psnr = torch.tensor(r_psnr)
         cost_map[id_map] = t_psnr
 
@@ -163,4 +159,4 @@ def _tune(params_algo, algo, d_grid, recurse, prec=None, log=False):
         d_grid2[kj][0][0] = y_min.item()
         d_grid2[kj][0][1] = y_max.item()
 
-    return _tune(params_algo, algo, d_grid2, recurse, prec=prec)
+    return _tune(algo, d_grid2, recurse, prec=prec)
