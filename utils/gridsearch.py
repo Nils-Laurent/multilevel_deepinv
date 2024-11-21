@@ -55,9 +55,9 @@ def tune_algo(algo, alg_class, params_exp):
     pb = params_exp["problem"]
 
     k_lambda = 'lambda'
-    par_lambda = [[1E-5, 1.0], 11]
+    par_lambda = [[1E-5, 2.0], 11]
     k_sig = 'g_param'
-    par_sig = [[0.0001, 0.25], 11]
+    par_sig = [[0.0001, 0.30], 11]
 
     d_grid = {}
     recurse = 2
@@ -69,11 +69,7 @@ def tune_algo(algo, alg_class, params_exp):
     elif alg_class == dc.MPnPProxMLInit:
         d_grid[k_sig] = par_sig
     elif alg_class == dc.MRedMLInit:
-        if pb == "inpainting" and noise_pow >= 0.1:
-            d_grid[k_lambda] = [[2.0, 12.0], 11]
-            recurse = 3
-        else:
-            d_grid[k_lambda] = [[1E-5, 1.0], 11]
+        d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig
     elif alg_class == dc.MFbMLGD:
         d_grid[k_lambda] = par_lambda

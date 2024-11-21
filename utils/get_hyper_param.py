@@ -53,9 +53,15 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
 
 def blur_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
-        [0.1, 'FB_TV_ML', {'lambda': 0.04, }],  # (0.04 fine)
-        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],  # PSNR = 16.58
+        [0.1, 'PnP_ML_INIT', {'g_param': 0.0541, }],  # PSNR = 19.99
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.8, 'g_param': 0.0541, }],  # PSNR = 20.09
+        [0.1, 'FB_TV_ML', {'lambda': 0.04, }],  # PSNR = 18.96
+        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.216, }],  # PSNR = 19.52
+
+        # BACKUP
+        #[0.1, 'PnP_ML_INIT', {'lambda': 0.22, 'g_param': 0.0501, }],  # PSNR = 19.61
+        #[0.1, 'FB_TV_ML', {'lambda': 0.04, }],  # (0.04 fine)
+        #[0.1, 'PnP_prox_ML_INIT', {'g_param': 0.25, }],  # PSNR = 16.58
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
@@ -80,10 +86,30 @@ def poisson_hyper_param(noise_pow, gs_key):
 
 def inpainting_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.1, 'PnP_ML_INIT', {'g_param': 0.0701, }],  # PSNR = 26.56
-        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.01, 'g_param': 0.0701, }],  #
-        [0.1, 'PnP_prox_ML_INIT', {'lambda': 1e-05, 'g_param': 0.0701, }],
-        [0.1, 'FB_TV_ML', {'lambda': 0.12, }],  # PSNR = 22.03
+        [0.1, 'PnP_ML_INIT', {'g_param': 0.0701, }],  # PSNR = 29.19
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.38, 'g_param': 0.0701, }],  # PSNR = 29.22
+        [0.1, 'FB_TV_ML', {'lambda': 0.14, }],  # PSNR = 23.44
+        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.11, }],  # PSNR = 29.05
+
+        # BACKUP
+        #[0.1, 'PnP_ML_INIT', {'g_param': 0.0701, }],  # PSNR = 26.56
+        #[0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.01, 'g_param': 0.0701, }],  #
+        #[0.1, 'PnP_prox_ML_INIT', {'lambda': 1e-05, 'g_param': 0.0701, }],
+        #[0.1, 'FB_TV_ML', {'lambda': 0.12, }],  # PSNR = 22.03
+    ]
+
+    res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
+    if isinstance(res, dict):
+        return res
+    else:
+        return affine_interpolation(res, noise_pow=noise_pow)
+
+def demosaicing_hyper_param(noise_pow, gs_key):
+    gs_vec = [
+        [0.1, 'PnP_ML_INIT', {'g_param': 0.0601, }],  # PSNR = 29.06
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.2, 'g_param': 0.0601, }],  # PSNR = 29.17
+        [0.1, 'FB_TV_ML', {'lambda': 0.1, }],  # PSNR = 22.19
+        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.175, }],  # PSNR = 27.51
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
@@ -94,8 +120,13 @@ def inpainting_hyper_param(noise_pow, gs_key):
 
 def mri_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.1, 'PnP_ML_INIT', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 28.92
-        [0.1, 'FB_TV_ML', {'lambda': 0.15, }],  # PSNR = 25.31
+        [0.1, 'PnP_ML_INIT', {'g_param': 0.0701, }],  # PSNR = 30.97
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.84, 'g_param': 0.0701, }],  # PSNR = 31.08
+        [0.1, 'FB_TV_ML', {'lambda': 0.18, }],  # PSNR = 25.57
+
+        # BACKUP
+        #[0.1, 'PnP_ML_INIT', {'lambda': 1e-05, 'g_param': 0.0751, }],  # PSNR = 28.92
+        #[0.1, 'FB_TV_ML', {'lambda': 0.15, }],  # PSNR = 25.31
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)

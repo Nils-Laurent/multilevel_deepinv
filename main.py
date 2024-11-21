@@ -228,17 +228,17 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
-    return None
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
 
     methods_init = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
-        #MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMoreau, MPnPProxMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
-
-        #MRed, MRedInit, MRedML, MRedMLInit, MRedMLMoreau, MRedMLMoreauInit,
+    ]
+    methods_prox = [
+        MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMoreau, MPnPProxMoreauInit,
     ]
     methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMoreau, MPnPNEMoreauInit]
 
@@ -282,11 +282,11 @@ def main_fn():
 
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    )
-    return None
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
@@ -297,13 +297,11 @@ def main_fn():
 
     # -- blur ----------------------------------------------------------------
     ConfParam().reset()
-    #methods_init = [MPnPMoreau]
-    methods_init = [MFb, MFbMLGD]
-    main_test(
-        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=0
-    )
-    return None
+    #main_test(
+    #    'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #return None
 
     # -- MRI ----------------------------------------------------------------
     ConfParam().reset()
@@ -312,7 +310,7 @@ def main_fn():
     ConfParam().use_complex_denoiser = True
     ConfParam().denoiser_in_channels = 1  # separated real and imag parts
     methods_init_mri = [
-        MPnP, MPnPInit, MPnPML, MPnPMLInit, #MPnPMoreau, MPnPMoreauInit,
+        MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
     ]

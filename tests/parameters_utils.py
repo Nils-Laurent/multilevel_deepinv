@@ -2,7 +2,8 @@ from deepinv.models import GSDRUNet, DRUNet
 
 from multilevel.coarse_gradient_descent import CGDIteration
 from tests.parameters_global import ConfParam
-from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param, poisson_hyper_param
+from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param, poisson_hyper_param, \
+    demosaicing_hyper_param
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
 
 
@@ -97,10 +98,13 @@ def get_param_algo_(params_exp, key_vec):
                 res[akey]['g_param'] = gsd['g_param']
             else:
                 res[akey]['g_param'] = 0
-    elif problem == 'inpainting' or problem == 'demosaicing':
+    elif problem == 'inpainting':
         for akey in key_vec:
             res[akey] = inpainting_hyper_param(noise_pow=noise_pow, gs_key=akey)
-    elif problem == 'blur' or problem == 'motion_blur':
+    elif problem == 'demosaicing':
+        for akey in key_vec:
+            res[akey] = demosaicing_hyper_param(noise_pow=noise_pow, gs_key=akey)
+    elif problem == 'blur':
         for akey in key_vec:
             res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'mri':
