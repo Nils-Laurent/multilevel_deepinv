@@ -1,6 +1,6 @@
 import torch
 from deepinv.optim import DataFidelity
-from deepinv.physics.noise import NoiseModel
+from deepinv.physics.noise import PoissonNoise
 
 def to_nn_parameter(x):
     if isinstance(x, torch.Tensor):
@@ -8,7 +8,7 @@ def to_nn_parameter(x):
     else:
         return torch.nn.Parameter(torch.tensor(x), requires_grad=False)
 
-class CPoissonNoise(NoiseModel):
+class CPoissonNoise(PoissonNoise):
     r"""
 
     Poisson noise :math:`y = \mathcal{P}(\frac{x}{\gamma})`
