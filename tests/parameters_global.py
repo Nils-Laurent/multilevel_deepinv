@@ -38,7 +38,7 @@ class ConfParam(metaclass=Singleton):
     iter_coarse_pnp_pgd = None
     iter_coarse_tv = None
     iter_coarse_red = None
-    stepsize_multiplier_pnp = None
+    inpainting_ratio = None
 
     def reset(self):
         self.win = SincFilter()
@@ -56,7 +56,7 @@ class ConfParam(metaclass=Singleton):
         self.iter_coarse_pnp_pgd = 3
         self.iter_coarse_tv = 3
         self.iter_coarse_red = 3
-        self.stepsize_multiplier_pnp = 1.0
+        self.inpainting_ratio = 0.5
 
     def get_drunet(self, device):
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)

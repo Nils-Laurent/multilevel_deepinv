@@ -104,7 +104,7 @@ def main_test(
     params_exp = {'problem': problem, 'set_name': dataset_name, 'shape': img_size, 'device': device}
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
-        params_exp[problem] = 0.5
+        params_exp[problem] = ConfParam().inpainting_ratio
         #params_exp[problem] = 0.8
     elif problem == 'tomography':
         params_exp[problem] = 0.6
@@ -249,31 +249,11 @@ def main_fn():
 
     bkg = 0.05
     gain = 20
-    #gain = 100.0
-
-    # todo : fix bkg and gain
-    # todo : replace denoising with debluring in tests/utils
     ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, normalize=False)
     ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
     ConfParam().stepsize_multiplier_pnp = 1.0
 
-    #methods_init_pl = [
-    #    MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
-    #    MFbMLGD, MDPIR
-    #]
-    #methods_init_pl = [MPnPML, MRedML, MFbMLGD, MDPIR]
-    #ConfParam().iter_coarse_red = 16
-    methods_init_pl = [
-        #MRed, MRedML,
-        # MRedInit, MRedMLInit,
-        #MPnP, MPnPInit, MPnPML, MPnPMLInit,
-        MPnP, MPnPInit, MPnPML,
-        #MFbMLGD, MDPIR, MDPIRLong
-    ]
-
-    #ConfParam().reset()
-    #methods_init_pl = [MPnPML, MPnPMLInit]
-    #methods_init_pl = [MPnPMLInit]
+    methods_init_pl = [MPnPInit]
     #main_test(
     #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device, target=1
@@ -282,11 +262,17 @@ def main_fn():
 
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #return None
+    ConfParam().inpainting_ratio = 0.8  # keep 80%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    ConfParam().inpainting_ratio = 0.9  # keep 90%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
