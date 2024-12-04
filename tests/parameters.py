@@ -8,20 +8,40 @@ from tests.parameters_global import ConfParam
 from tests.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, _finalize_params, \
     standard_multilevel_param
 
+def get_parameters_pnp_dncnn(params_exp):
+    device = params_exp['device']
+    import utils.ml_dataclass_denoiser as dcn
+    key_vec = [dcn.MPnPMLDnCNNInit.key, dcn.MPnPMLDnCNNMoreauInit.key]
+    res = get_param_algo_(params_exp, key_vec)
+    g_param = res[dcn.MPnPMLDnCNNInit.key]['g_param']
+    # in case the smooth approx. of TV is used in coarse scales
+    lambda_pnp = res[dcn.MPnPMLDnCNNMoreauInit.key]['lambda']
+    return parameters_pnp_common(ConfParam().get_dncnn(device), g_param, lambda_pnp)
 
-def get_parameters_pnp(params_exp):
+def get_parameters_pnp_scunet(params_exp):
+    device = params_exp['device']
+    import utils.ml_dataclass_denoiser as dcn
+    key_vec = [dcn.MPnPMLSCUNetInit.key, dcn.MPnPMLSCUNetMoreauInit.key]
+    res = get_param_algo_(params_exp, key_vec)
+    g_param = res[dcn.MPnPMLSCUNetInit.key]['g_param']
+    # in case the smooth approx. of TV is used in coarse scales
+    lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
+    return parameters_pnp_common(ConfParam().get_scunet(device), g_param, lambda_pnp)
+
+def get_parameters_pnp_drunet(params_exp):
+    device = params_exp['device']
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
-    params_algo, res = get_param_algo_(params_exp, key_vec)
-    p_pnp = params_algo.copy()
-
-    p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
-
+    res = get_param_algo_(params_exp, key_vec)
+    g_param = res[dcl.MPnPMLInit.key]['g_param']
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcl.MPnPMoreauInit.key]['lambda']
+    return parameters_pnp_common(ConfParam().get_drunet(device), g_param, lambda_pnp)
 
-    device = params_exp['device']
-    denoiser = ConfParam().get_drunet(device)
+def parameters_pnp_common(denoiser, g_param, lambda_pnp):
+    p_pnp = ConfParam().default_param()
+    p_pnp['g_param'] = g_param
+
     p_pnp['prior'] = PnP(denoiser=denoiser)
     p_pnp['prior'].eval()
 
@@ -38,6 +58,7 @@ def get_parameters_pnp(params_exp):
     lf = ConfParam().data_fidelity_lipschitz
 
     step_size_coeff = 0.9
+    print("stepsize =", step_size_coeff/lf)
     stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
 
     p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
@@ -46,14 +67,11 @@ def get_parameters_pnp(params_exp):
 def get_parameters_pnp_non_exp(params_exp):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPMLInit.key]
-    params_algo, res = get_param_algo_(params_exp, key_vec)
-    p_pnp = params_algo.copy()
+    res = get_param_algo_(params_exp, key_vec)
+    p_pnp = ConfParam().default_param()
 
     p_pnp['g_param'] = res[dcl.MPnPMLInit.key]['g_param']
     lambda_pnp = res[dcl.MPnPMLInit.key]['lambda']
-    p_pnp['g_param'] = 0.2
-    #p_pnp['g_param'] = 0.8
-    #lambda_pnp = 0.2
     print("lambda NE :", lambda_pnp)
     print("g_param NE :", p_pnp['g_param'])
 
@@ -83,12 +101,13 @@ def get_parameters_pnp_non_exp(params_exp):
 def get_parameters_pnp_prox(params_exp):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPProxMLInit.key]
-    params_algo, res = get_param_algo_(params_exp, key_vec)
-    p_pnp = params_algo.copy()
+    res = get_param_algo_(params_exp, key_vec)
+    p_pnp = ConfParam().default_param()
 
     p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
     lambda_pnp = 2.0 * ConfParam().data_fidelity_lipschitz /3.0
     print("lambda_pnp_prox:", lambda_pnp)
+    print("g_param_pnp_prox:", p_pnp['g_param'])
 
     device = params_exp['device']
     denoiser = ConfParam().get_gsdrunet(device)
@@ -120,8 +139,8 @@ def get_parameters_pnp_prox(params_exp):
 def get_parameters_red(params_exp):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MRedMLInit.key]
-    params_algo, res = get_param_algo_(params_exp, key_vec)
-    p_red = params_algo.copy()
+    res = get_param_algo_(params_exp, key_vec)
+    p_red = ConfParam().default_param()
 
     p_red['g_param'] = res[dcl.MRedMLInit.key]['g_param']
     lambda_red = res[dcl.MRedMLInit.key]['lambda']
@@ -153,12 +172,15 @@ def get_parameters_tv(params_exp):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MFbMLGD.key]
     # We assume regularization gradient is 1-Lipschitz
-    params_algo, res = get_param_algo_(params_exp, key_vec)
-    params_algo['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
-    p_tv = params_algo.copy()
+    res = get_param_algo_(params_exp, key_vec)
+    p_tv = ConfParam().default_param()
+    p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
 
     lambda_tv = res[dcl.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
+
+    p_tv['prior'] = CustTV(lambda_tv=lambda_tv)
+    p_tv['prior'].eval()
 
     iters_fine = ConfParam().iters_fine
     iters_coarse = ConfParam().iter_coarse_tv
@@ -207,7 +229,7 @@ def set_ml_param_Moreau(params, params_exp):
     if isinstance(params['prior'], PnP):
         import utils.ml_dataclass as dcl
         key_vec = [dcl.MPnPMoreauInit.key]
-        params_algo, res = get_param_algo_(params_exp, key_vec)
+        res = get_param_algo_(params_exp, key_vec)
         params['g_param'] = res[dcl.MPnPMoreauInit.key]['g_param']
 
     params['coarse_iterator'] = CGDIteration

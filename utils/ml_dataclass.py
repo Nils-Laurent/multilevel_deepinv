@@ -10,7 +10,7 @@ class MPnP:
     linestyle = 'dashed'
     single_level = True
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
 @dataclass
 class MPnPInit:
     key = 'PnP_INIT'
@@ -19,21 +19,21 @@ class MPnPInit:
     single_level = True
     label = key
     use_init = True
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
 @dataclass
 class MPnPML:
     key = 'PnP_ML'
     color = 'gray'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
 @dataclass
 class MPnPMLStud:
     key = 'PnP_ML_stud'
     color = 'gray'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_student]
 @dataclass
 class MPnPMLStudNoR:
@@ -41,7 +41,7 @@ class MPnPMLStudNoR:
     color = 'gray'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 @dataclass
 class MPnPMoreau:
@@ -49,7 +49,7 @@ class MPnPMoreau:
     color = 'gray'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_Moreau]
 @dataclass
 class MPnPMLInit:
@@ -57,7 +57,7 @@ class MPnPMLInit:
     color = 'gray'
     linestyle = 'solid'
     label = key
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     use_init = True
 @dataclass
 class MPnPMLStudInit:
@@ -66,7 +66,7 @@ class MPnPMLStudInit:
     linestyle = 'solid'
     label = key
     use_init = True
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_student]
 @dataclass
 class MPnPMLStudNoRInit:
@@ -75,7 +75,7 @@ class MPnPMLStudNoRInit:
     linestyle = 'solid'
     label = key
     use_init = True
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_student, param.set_ml_param_noreg]
 @dataclass
 class MPnPMoreauInit:
@@ -84,7 +84,7 @@ class MPnPMoreauInit:
     linestyle = 'solid'
     label = key
     use_init = True
-    param_fn = param.get_parameters_pnp
+    param_fn = param.get_parameters_pnp_drunet
     edit_fn = [param.set_ml_param_Moreau]
 
 # ============= PnP prox =============

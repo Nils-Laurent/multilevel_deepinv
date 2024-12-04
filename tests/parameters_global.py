@@ -6,7 +6,7 @@ from multilevel.approx_nn import Student
 from multilevel.info_transfer import SincFilter
 from utils.paths import checkpoint_path
 
-from deepinv.models import DRUNet, GSDRUNet, DnCNN
+from deepinv.models import DRUNet, GSDRUNet, DnCNN, UNet, SCUNet
 from multilevel_utils.complex_denoiser import to_complex_denoiser
 
 
@@ -39,6 +39,7 @@ class ConfParam(metaclass=Singleton):
     iter_coarse_tv = None
     iter_coarse_red = None
     inpainting_ratio = None
+    use_equivariance = None
 
     def reset(self):
         self.win = SincFilter()
@@ -57,43 +58,88 @@ class ConfParam(metaclass=Singleton):
         self.iter_coarse_tv = 3
         self.iter_coarse_red = 3
         self.inpainting_ratio = 0.5
+        self.use_equivariance = True
 
     def get_drunet(self, device):
+        # DRUNet : dilated residual UNet
         net = DRUNet(in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download", device=device)
-        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         if self.use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
         denoiser.eval()
         return denoiser
 
-    def get_dncnn_nonexp(self, device):
-        net = DnCNN(
-            in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels, pretrained="download_lipschitz", device=device
+    def get_scunet(self, device):
+        net = SCUNet(
+            in_nc=self.denoiser_in_channels, device=device, pretrained="download"
         )
-        denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        net.to(device)
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         denoiser.eval()
         return denoiser
 
-    def get_student(self, device):
-        d = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(device)
-        if ConfParam().use_complex_denoiser is True:
-            d = to_complex_denoiser(d, mode="separated")
-        d.eval()
-        return d
+    def get_dncnn(self, device):
+        # DnCNN : denoising convolutional neural network
+        net = DnCNN(
+            in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels,
+            pretrained="download", device=device
+        )
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        denoiser.eval()
+        return denoiser
 
-    def get_student1c(self, device):
-        d = Student(in_channels=self.denoiser_in_channels,
-                    layers=10, nc=32, cnext_ic=2, pretrained=state_file_1channel).to(device)
-        if ConfParam().use_complex_denoiser is True:
-            d = to_complex_denoiser(d, mode="separated")
-        d.eval()
-        return d
+    def get_dncnn_nonexp(self, device):
+        net = DnCNN(
+            in_channels=self.denoiser_in_channels, out_channels=self.denoiser_in_channels,
+            pretrained="download_lipschitz", device=device
+        )
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        denoiser.eval()
+        return denoiser
 
     def get_gsdrunet(self, device):
         net = GSDRUNet(pretrained="download", device=device)
         denoiser = net
-        #denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
         if ConfParam().use_complex_denoiser is True:
             denoiser = to_complex_denoiser(denoiser, mode="separated")
         denoiser.eval()
         return denoiser
+
+    def get_student(self, device):
+        net = Student(layers=10, nc=32, cnext_ic=2, pretrained=state_file_v3).to(device)
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        if ConfParam().use_complex_denoiser is True:
+            denoiser = to_complex_denoiser(denoiser, mode="separated")
+        denoiser.eval()
+        return denoiser
+
+    def get_student1c(self, device):
+        net = Student(in_channels=self.denoiser_in_channels,
+                    layers=10, nc=32, cnext_ic=2, pretrained=state_file_1channel).to(device)
+        denoiser = net
+        if self.use_equivariance:
+            denoiser = deepinv.models.EquivariantDenoiser(net, random=True)
+        if ConfParam().use_complex_denoiser is True:
+            denoiser = to_complex_denoiser(denoiser, mode="separated")
+        denoiser.eval()
+        return denoiser
+
+    def default_param(self):
+        params_algo = {
+            'cit': self.win,
+            'scale_coherent_grad': self.s1coherent_algorithm,
+            'scale_coherent_grad_init': self.s1coherent_init,
+        }
+        return params_algo

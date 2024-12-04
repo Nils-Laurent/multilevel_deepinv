@@ -11,6 +11,7 @@ from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
 
 from gen_fig.fig_metric_logger import GenFigMetricLogger
+from multilevel_utils.custom_inpainting import CInpainting
 from multilevel_utils.radon import Tomography
 from utils.paths import get_out_dir
 

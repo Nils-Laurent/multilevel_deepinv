@@ -118,13 +118,7 @@ def get_param_algo_(params_exp, key_vec):
     else:
         raise NotImplementedError("not implem")
 
-    params_algo = {
-        'cit': ConfParam().win,
-        'scale_coherent_grad': ConfParam().s1coherent_algorithm,
-        'scale_coherent_grad_init': ConfParam().s1coherent_init,
-    }
-
-    return params_algo, res
+    return res
 
 
 def red_drunet_lipschitz():

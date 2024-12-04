@@ -10,7 +10,7 @@ from torchvision.utils import save_image
 from multilevel_utils.complex_denoiser import to_complex_denoiser
 from utils.ml_dataclass import *
 from utils.ml_dataclass_nonexp import *
-from utils.ml_dataclass_exp import *
+from utils.ml_dataclass_extra import *
 from deepinv.optim.dpir import get_DPIR_params
 from deepinv.models import DRUNet
 from deepinv.optim.optim_iterators import GDIteration, PGDIteration
@@ -84,27 +84,31 @@ class RunAlgorithm:
                 or hasattr(m_class, "single_level"):
             params_algo = single_level_params(params_algo)
 
-        if "RED" in m_class().key:
-            return self.RED_GD(params_algo)
-        elif m_class in [MFb, MFbMLProx, MFbMLGD]:
-            return self.TV_PGD(params_algo, use_cost=True)
-        elif m_class in [
-            MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLNoR, MPnPMLStud, MPnPMLStudInit,
-            MPnPMoreau, MPnPMoreauInit, MPnPMLStudNoR, MPnPMLStudNoRInit,
-
-            MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit,
-            MPnPProxMoreau, MPnPProxMoreauInit, MPnPProxMLStudNoR, MPnPProxMLStudNoRInit,
-
-            MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMLStud, MPnPNEMLStudInit,
-            MPnPNEMoreau, MPnPNEMoreauInit,
-        ]:
-            return self.PnP_PGD(params_algo, use_cost=False)
-        elif m_class in [MPnPML]:
-            return self.PnP(params_algo)
-        elif m_class in [MDPIRLong]:
+        if m_class in [MDPIRLong]:
             return self.DPIR(params_algo, def_iter=200)
         elif m_class in [MDPIR]:
             return self.DPIR(params_algo)
+
+        if isinstance(params_algo['prior'], RED):
+        #if "RED" in m_class().key:
+            return self.RED_GD(params_algo)
+        elif isinstance(params_algo['prior'], CustTV):
+        # elif m_class in [MFb, MFbMLProx, MFbMLGD]:
+            return self.TV_PGD(params_algo, use_cost=True)
+        elif isinstance(params_algo['prior'], PnP):
+        #elif m_class in [
+        #    MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMLNoR, MPnPMLStud, MPnPMLStudInit,
+        #    MPnPMoreau, MPnPMoreauInit, MPnPMLStudNoR, MPnPMLStudNoRInit,
+
+        #    MPnPProx, MPnPProxInit, MPnPProxML, MPnPProxMLInit, MPnPProxMLStud, MPnPProxMLStudInit,
+        #    MPnPProxMoreau, MPnPProxMoreauInit, MPnPProxMLStudNoR, MPnPProxMLStudNoRInit,
+
+        #    MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMLStud, MPnPNEMLStudInit,
+        #    MPnPNEMoreau, MPnPNEMoreauInit,
+        #]:
+            return self.PnP(params_algo)
+        #elif m_class in [MPnPML]:
+        #    return self.PnP(params_algo)
         else:
             raise NotImplementedError("Unrecognized model {}".format(m_class))
 
@@ -322,6 +326,7 @@ class RunAlgorithm:
             #    filename='runctx_multilevel'
             #)
             x_est, met = model(y, self.physics, x_gt=x_ref, compute_metrics=True, time_iter=self.time_iter)
+            #print('psnr : ', met['psnr'][0])
 
             #loss = deepinv.loss.PSNR(max_pixel=1)
             #print("loss(x_est_0, truth_0) =", loss(x_est[:, 0:1, ::], x_ref[:, 0:1, ::]))

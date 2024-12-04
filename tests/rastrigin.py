@@ -29,7 +29,7 @@ def eval_rastrigin(sup_range, n_sample):
     pylab.clabel(cset, inline=True, fmt='%1.1f', fontsize=6)
     pylab.colorbar(im)  # adding the colobar on the right
     # latex fashion title
-    pylab.title(f"{n_sample} samples: $z=nA + \sum x_i^2 - A cos(2 \pi x_i)$")
+    pylab.title(f"{n_sample}" + " samples: $z=nA + \sum_{i=1}^n x_i^2 - A cos(2 \pi x_i), n=2, A=10$")
     pylab.show()
 
 
