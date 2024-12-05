@@ -179,7 +179,9 @@ def get_parameters_tv(params_exp):
     lambda_tv = res[dcl.MFbMLGD.key]['lambda']
     print("lambda_tv:", lambda_tv)
 
-    p_tv['prior'] = CustTV(lambda_tv=lambda_tv)
+    crit = 1e-6
+    tv_max_it = 1000
+    p_tv['prior'] = CustTV(def_crit=crit, n_it_max=tv_max_it)
     p_tv['prior'].eval()
 
     iters_fine = ConfParam().iters_fine
@@ -190,8 +192,8 @@ def get_parameters_tv(params_exp):
     p_tv = standard_multilevel_param(p_tv, it_vec=iters_vec, lambda_fine=lambda_tv)
     p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
     p_tv['lip_g'] = prior_lipschitz(TVPrior, p_tv)
-    p_tv['prox_crit'] = 1e-6
-    p_tv['prox_max_it'] = 1000
+    p_tv['prox_crit'] = crit
+    p_tv['prox_max_it'] = tv_max_it
     gamma_vec = [1.1] * len(iters_vec)
     gamma_vec[-1] = 1.0
     lambda_vec = p_tv['params_multilevel'][0]['lambda']
