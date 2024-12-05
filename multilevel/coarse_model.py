@@ -255,5 +255,5 @@ class CoarseModel(torch.nn.Module):
 
         assert not torch.isnan(x_est_coarse).any()
 
-        return self.prolongation(x_est_coarse - x0) # / factor**2
+        return self.prolongation(x_est_coarse - x1) # / factor**2
 
