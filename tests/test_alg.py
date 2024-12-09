@@ -31,6 +31,9 @@ from utils.paths import gen_fname, get_out_dir
 
 
 class RunAlgorithm:
+    class_vec_save_img = []
+    save_all_img = False  # override class_vec_save_img
+
     def __init__(
         self,
         data,
@@ -64,6 +67,8 @@ class RunAlgorithm:
 
         self.param_init = None
 
+        self.save_img = False
+
         self.is_gridsearch = False
         if 'gridsearch' in params_exp.keys():
             self.is_gridsearch = True
@@ -72,6 +77,9 @@ class RunAlgorithm:
         self.param_init = param_init
 
     def run_algorithm(self, m_class, params_algo):
+        if m_class in RunAlgorithm.class_vec_save_img or RunAlgorithm.save_all_img:
+            self.save_img = True
+
         if hasattr(m_class, "edit_fn"):
             for fn in m_class.edit_fn:
                 params_algo = fn(params_algo, self.params_exp)
@@ -361,30 +369,31 @@ class RunAlgorithm:
                 img_name = join(get_out_dir(), exp_prefix + "_xlin.png")
                 save_image(x_lin_disp[0, ::]/vmax, img_name)
 
-            if False and self.x0 is not None:
-                save_image(
-                    x0_disp[0, ::],
-                    os.path.join(get_out_dir(), f"{img_prefix}_x0.png")
-                )
-                x0n_disp = x0_disp / torch.max(x0_disp)
-                save_image(
-                    x0n_disp[0, ::],
-                    os.path.join(get_out_dir(), f"{img_prefix}_x0n.png")
-                )
-                x0diff = x_disp[0, ::] - x0n_disp[0, ::]
-                save_image(
-                    x0diff/torch.max(x0diff),
-                    os.path.join(get_out_dir(), f"{img_prefix}_x0diffn.png")
-                )
+            #if False and self.x0 is not None:
+            #    save_image(
+            #        x0_disp[0, ::],
+            #        os.path.join(get_out_dir(), f"{img_prefix}_x0.png")
+            #    )
+            #    x0n_disp = x0_disp / torch.max(x0_disp)
+            #    save_image(
+            #        x0n_disp[0, ::],
+            #        os.path.join(get_out_dir(), f"{img_prefix}_x0n.png")
+            #    )
+            #    x0diff = x_disp[0, ::] - x0n_disp[0, ::]
+            #    save_image(
+            #        x0diff/torch.max(x0diff),
+            #        os.path.join(get_out_dir(), f"{img_prefix}_x0diffn.png")
+            #    )
 
-            img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
-            save_image(x_disp[0, ::]/vmax, img_name)
+            if self.save_img is True:
+                img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
+                save_image(x_disp[0, ::]/vmax, img_name)
 
-            img_name = join(get_out_dir(), exp_prefix + "_y.png")
-            save_image(y_disp[0, ::]/vmax, img_name)
+                img_name = join(get_out_dir(), exp_prefix + "_y.png")
+                save_image(y_disp[0, ::]/vmax, img_name)
 
-            img_name = join(get_out_dir(), img_prefix + ".png")
-            save_image(xe_disp[0, ::]/vmax, img_name)
+                img_name = join(get_out_dir(), img_prefix + ".png")
+                save_image(xe_disp[0, ::]/vmax, img_name)
 
             if p_exp['problem'] == 'mri':
                 img_name = join(get_out_dir(), exp_prefix + "_mask0.png")

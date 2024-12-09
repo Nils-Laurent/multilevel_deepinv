@@ -57,19 +57,17 @@ def img_zoom_gen(file_name, ext, area):
     # Display the result
     #plt.show(block=False)
 
-def zoomed_images(pb, k, init=True):
+def zoomed_images(pb):
     zoom_area = {
         '0': [40, 780, 80, 80],
         '1': [50, 800, 80, 80],
         '2': [380, 190, 80, 80],
         '3': [720, 20, 80, 80],
     }
+    img_id = zoom_area.keys()
 
     win = 'sinc'
     level = '4'
-    names = [
-        'ct_cset_' + k + '_n0.1_' + pb,
-    ]
 
     mlevel_suffix = level + "L" + win
 
@@ -79,23 +77,41 @@ def zoomed_images(pb, k, init=True):
         'DPIR_Long',
         'FB_TV_ML' + '_' + mlevel_suffix,
         'PnP',
+        'PnP_ML_INIT' + '_' + mlevel_suffix,
+        'PnP_ML_DnCNN_init' + '_' + mlevel_suffix,
+        'PnP_ML_SCUNet_init' + '_' + mlevel_suffix,
+        'PnP_prox_ML_INIT' + '_' + mlevel_suffix,
+        'PnP_prox',
     ]
 
-    if init == True:
-        methods.append('PnP_ML_INIT' + '_' + mlevel_suffix)
-    else:
-        methods.append('PnP_ML' + '_' + mlevel_suffix)
+    gen_grid = True
+    scale = 3
+    fig, axarr = plt.subplots(nrows=1, ncols=len(img_id), figsize=(scale*len(img_id), scale*1))
 
-    for n in names:
-        for m in methods:
-            file_n = n + '_' + m
+    for m in methods:
+        col_k = -1
+        for k in img_id:
+            col_k += 1
+            prefix_pb = 'ct_cset_' + k + '_n0.1_' + pb
+            file_n = prefix_pb + '_' + m
             print(file_n)
-            img_zoom_gen(file_n, ext="png", area=zoom_area[k])
+            if gen_grid is True:
+                img = plt.imread('zoom_' + file_n + ".png")
+                axarr[col_k].imshow(img)
+                axarr[col_k].axis('off')
+            else:
+                img_zoom_gen(file_n, ext="png", area=zoom_area[k])
+
+        plt.tight_layout()
+        plt.subplots_adjust(wspace=0, hspace=0)
+
+        png_name = 'zoom_mult_ct_cset_n0.1_' + pb + '_' + m
+        fig.savefig(png_name+".png", dpi=256 / 6, bbox_inches='tight', pad_inches=0)
 
 
 if __name__ == '__main__':
-    k = '1'
-    zoomed_images('inpainting', k)
-    zoomed_images('demosaicing', k)
-    zoomed_images('blur', k)
-
+    zoomed_images('inpainting0.5')
+    zoomed_images('inpainting0.8')
+    zoomed_images('inpainting0.9')
+    zoomed_images('demosaicing')
+    zoomed_images('blur')

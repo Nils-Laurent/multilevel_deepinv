@@ -233,16 +233,14 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #poisson_test(device)
-    #return None
-
-    main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
+    poisson_test(device)
     return None
 
-    # todo : (PnP) CNN, UNet, GSDRUNet
-    # todo : (PnP ML) CNN, UNet, GSDRUNet
-    methods_init = [
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
+
+    methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
@@ -250,6 +248,10 @@ def main_fn():
     methods_alt = [MPnPDnCNN, MPnPMLDnCNNInit, MPnPSCUNet, MPnPMLSCUNetInit, MPnPProx, MPnPProxMLInit]
     methods_alt_moreau = [MPnPMLDnCNNMoreauInit, MPnPMLSCUNetMoreauInit, MPnPProxMoreauInit]
     methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMoreau, MPnPNEMoreauInit]
+
+    methods_init = methods_base + methods_alt + methods_alt_moreau
+    methods_img = [MPnP, MPnPMLInit, MPnPMLDnCNNInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD, MPnPProx]
+    RunAlgorithm.class_vec_save_img = methods_img
 
     ## -- Poisson ----------------------------------------------------------------
     ConfParam().reset()
@@ -266,36 +268,37 @@ def main_fn():
     #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device, target=0
     #)
-    #return None
+    return None
 
     #methods_init = methods_prox
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
-    ConfParam().inpainting_ratio = 0.5  # keep 90%
+    ConfParam().inpainting_ratio = 0.5  # keep 50%
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    #return None
+    ConfParam().reset()
+    ConfParam().inpainting_ratio = 0.8  # keep 80%
     main_test(
         'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device
     )
     #return None
-    #ConfParam().inpainting_ratio = 0.8  # keep 80%
-    #ConfParam().reset()
-    #methods_init = [MPnP]
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
-    #ConfParam().inpainting_ratio = 0.9  # keep 90%
-    #main_test(
-    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
+    ConfParam().reset()
+    ConfParam().inpainting_ratio = 0.9  # keep 90%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
     #return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device
     )
     #return None
 
@@ -303,7 +306,7 @@ def main_fn():
     ConfParam().reset()
     main_test(
         'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+        use_file_data=False, benchmark=True, cpu=False, device=device
     )
     return None
 

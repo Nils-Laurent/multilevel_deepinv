@@ -23,9 +23,7 @@ def tune_grid_all(data_in, params_exp, device):
         dc.MPnPMLInit : {"coeff": 0.9},
         dc.MPnPMoreauInit : {"coeff": 0.9},  # parametre lambda
         dc.MFbMLGD : {"coeff": 1.9},
-        dcn.MPnPMLDnCNNInit : {"coeff": 0.9},
         dcn.MPnPMLDnCNNMoreauInit : {"coeff": 0.9},
-        dcn.MPnPMLSCUNetInit : {"coeff": 0.9},
         dcn.MPnPMLSCUNetMoreauInit : {"coeff": 0.9},
     }
     if not (params_exp['problem'] == 'mri'):
@@ -67,16 +65,15 @@ def tune_algo(algo, alg_class, params_exp):
     d_grid = {}
     recurse = 2
     if alg_class == dc.MPnPMLInit \
-            or alg_class == dcn.MPnPMLSCUNetInit \
-            or alg_class == dcn.MPnPMLDnCNNInit \
             or alg_class == dc.MPnPProxMLInit:
         d_grid[k_sig] = par_sig
     elif alg_class == dc.MPnPMoreauInit\
-            or alg_class == dcn.MPnPMLSCUNetMoreauInit \
-            or alg_class == dcn.MPnPMLDnCNNMoreauInit \
             or alg_class == dc.MPnPProxMoreauInit:
         d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig
+    elif alg_class == dcn.MPnPMLSCUNetMoreauInit \
+            or alg_class == dcn.MPnPMLDnCNNMoreauInit:
+        d_grid[k_lambda] = par_lambda
     elif alg_class == dc.MRedMLInit:
         d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig

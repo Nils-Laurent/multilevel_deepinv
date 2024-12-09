@@ -11,9 +11,9 @@ from tests.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_v
 def get_parameters_pnp_dncnn(params_exp):
     device = params_exp['device']
     import utils.ml_dataclass_denoiser as dcn
-    key_vec = [dcn.MPnPMLDnCNNInit.key, dcn.MPnPMLDnCNNMoreauInit.key]
+    key_vec = [dcn.MPnPMLDnCNNMoreauInit.key]
     res = get_param_algo_(params_exp, key_vec)
-    g_param = res[dcn.MPnPMLDnCNNInit.key]['g_param']
+    g_param = 0  # NOT USED (DnCNN is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcn.MPnPMLDnCNNMoreauInit.key]['lambda']
     return parameters_pnp_common(ConfParam().get_dncnn(device), g_param, lambda_pnp)
@@ -21,9 +21,9 @@ def get_parameters_pnp_dncnn(params_exp):
 def get_parameters_pnp_scunet(params_exp):
     device = params_exp['device']
     import utils.ml_dataclass_denoiser as dcn
-    key_vec = [dcn.MPnPMLSCUNetInit.key, dcn.MPnPMLSCUNetMoreauInit.key]
+    key_vec = [dcn.MPnPMLSCUNetMoreauInit.key]
     res = get_param_algo_(params_exp, key_vec)
-    g_param = res[dcn.MPnPMLSCUNetInit.key]['g_param']
+    g_param = 0  # NOT USED (SCUNet is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
     return parameters_pnp_common(ConfParam().get_scunet(device), g_param, lambda_pnp)
