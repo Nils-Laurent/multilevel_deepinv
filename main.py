@@ -22,7 +22,7 @@ from utils.measure_data import load_measure_data
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-from tests.test_alg import RunAlgorithm
+from utils.run_alg import RunAlgorithm
 from utils.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all

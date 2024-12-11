@@ -33,6 +33,7 @@ def main_fn():
         'cit': SincFilter(),
         'prior': prior,
         'backtracking': False,
+        'ml_init': True,
         'n_levels': nb_levels,
         'iml_max_iter': nb_v_cycle,
         'coarse_iterator': CPGDIteration, # Phi_j forward-backward
@@ -52,7 +53,16 @@ def main_fn():
         'stepsize': stepsize_vec,
     }
 
-    params_algo['multilevel_step'] = [k < nb_v_cycle for k in range(0, nb_iter_fine)]
+    params_algo['it_index'] = list(range(0, nb_iter_fine))
+    if params_algo['ml_init'] is True:
+        # number of coarse iterations in coarse levels
+        iters_init = [5] * (nb_levels - 1)
+        iters_init.append(0)  # does not iterate on finest level
+        ml_dict['iters_init'] = iters_init
+        params_algo['level_init'] = nb_levels
+        params_algo['multilevel_indices'] = [list(range(1, nb_v_cycle+1))]
+    else:
+        params_algo['multilevel_indices'] = [list(range(0, nb_v_cycle))]
     params_algo['params_multilevel'] = [ml_dict]
     params_algo['level'] = nb_levels
 
