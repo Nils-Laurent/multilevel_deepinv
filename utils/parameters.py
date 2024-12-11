@@ -4,7 +4,7 @@ from deepinv.models import DRUNet, GSDRUNet
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.prior import TVPrior as CustTV
-from utils.parameters_global import ConfParam
+from utils.parameters_global import ConfParam, FixedParams
 from utils.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, \
     standard_multilevel_param
 
@@ -57,6 +57,8 @@ def parameters_pnp_common(denoiser, g_param, lambda_pnp):
     lf = ConfParam().data_fidelity_lipschitz
 
     step_size_coeff = 0.9
+    if FixedParams().stepsize_coeff is not None:
+        step_size_coeff = FixedParams().get_stepsize_coeff()
     print("stepsize =", step_size_coeff/lf)
     stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
     p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
@@ -125,10 +127,6 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
     p_pnp['backtracking'] = False
 
-    lambda_vec = [lambda_pnp]  * ConfParam().levels
-
-    #stepsize_vec = [1.0/lambda_pnp] * (ConfParam().levels - 1)
-
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     # lambda_pnp > 2 * data_fidelity_lipschitz / 3
     lambda_vec = [lambda_pnp]  * ConfParam().levels
@@ -165,9 +163,11 @@ def get_parameters_red(params_exp):
 
     #p_red['params_multilevel'][0]['lambda'] = [lambda_red] * ConfParam().levels
     lambda_vec = p_red['params_multilevel'][0]['lambda']
-    step_coeff = 0.9  # non-convex setting
+    step_size_coeff = 0.9  # non-convex setting
+    if FixedParams().stepsize_coeff is not None:
+        step_size_coeff = FixedParams().get_stepsize_coeff()
     lf = ConfParam().data_fidelity_lipschitz
-    stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec] # gradient descent
+    stepsize_vec = [step_size_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec] # gradient descent
     p_red['params_multilevel'][0]['stepsize'] = stepsize_vec
 
     #p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
@@ -261,8 +261,6 @@ def set_ml_param_student(params, params_exp):
         denoiser = ConfParam().get_student(device)
 
     prior_class = params['prior'].__class__
-    # todo : A VALIDER
-    #params['coherence_prior'] = prior_class(denoiser=denoiser)
     params['coarse_prior'] = prior_class(denoiser=denoiser)
 
     return params

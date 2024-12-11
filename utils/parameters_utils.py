@@ -1,7 +1,7 @@
 from deepinv.models import GSDRUNet, DRUNet
 
 from multilevel.coarse_gradient_descent import CGDIteration
-from utils.parameters_global import ConfParam
+from utils.parameters_global import ConfParam, FixedParams
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param, poisson_hyper_param, \
     demosaicing_hyper_param
 from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
@@ -74,7 +74,7 @@ def prior_lipschitz(prior, param, denoiser=None):
 
 
 
-def get_param_algo_(params_exp, key_vec):
+def get_param_algo_(params_exp, method_key_vec):
     noise_pow = params_exp["noise_pow"]
     problem = params_exp['problem']
 
@@ -82,7 +82,7 @@ def get_param_algo_(params_exp, key_vec):
 
     print("def_noise:", noise_pow)
     if 'gridsearch' in params_exp.keys():
-        for akey in key_vec:
+        for akey in method_key_vec:
             gsd = params_exp['gridsearch']
             res[akey] = {}
             if 'lambda' in gsd.keys():
@@ -94,27 +94,28 @@ def get_param_algo_(params_exp, key_vec):
             else:
                 res[akey]['g_param'] = 0
     elif problem == 'inpainting':
-        for akey in key_vec:
+        for akey in method_key_vec:
             res[akey] = inpainting_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'demosaicing':
-        for akey in key_vec:
+        for akey in method_key_vec:
             res[akey] = demosaicing_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'blur':
-        for akey in key_vec:
+        for akey in method_key_vec:
             res[akey] = blur_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'mri':
-        for akey in key_vec:
+        for akey in method_key_vec:
             res[akey] = mri_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'denoising':
-        for akey in key_vec:
+        for akey in method_key_vec:
             res[akey] = poisson_hyper_param(noise_pow=noise_pow, gs_key=akey)
     elif problem == 'tomography':
         pass
     else:
         raise NotImplementedError("not implem")
 
-    if FIXED_PARAM:
-        pass
+    if FixedParams().g_param is not None:
+        for akey in method_key_vec:
+            res[akey]['g_param'] = FixedParams().get_g_param()
 
     return res
 

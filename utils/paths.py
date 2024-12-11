@@ -43,9 +43,9 @@ def gen_fname(params, p_exp, alg_name):
 
     if problem == 'inpainting':
         ir = ConfParam().inpainting_ratio
-        exp = exp + f"_{problem}{ir}"
+        exp += f"_{problem}{ir}"
     else:
-        exp = exp + f"_{problem}"
+        exp += f"_{problem}"
 
     if ConfParam().s1coherent_algorithm:
         coh = "ct_"
@@ -55,6 +55,9 @@ def gen_fname(params, p_exp, alg_name):
         exp = coh + "pl_" + exp
     else:
         exp = coh + exp
+
+    from utils.parameters_global import FixedParams
+    exp = FixedParams().get_str() + exp
 
     # identifies algorithm for resolution
     f_prefix = exp + f"_{alg_name}"

@@ -143,3 +143,31 @@ class ConfParam(metaclass=Singleton):
             'scale_coherent_grad_init': self.s1coherent_init,
         }
         return params_algo
+
+class FixedParams(metaclass=Singleton):
+    g_param = None
+    stepsize_coeff = None
+
+    def reset(self):
+        self.g_param = None
+        self.stepsize_coeff = None
+
+    def get_g_param(self):
+        print(f"USE FIXED PARAMS g_param {self.g_param}")
+        return self.g_param
+
+    def get_stepsize_coeff(self):
+        print(f"USE FIXED PARAMS stepsize_coeff {self.stepsize_coeff}")
+        return self.stepsize_coeff
+
+    def get_str(self):
+        str = ""
+        if self.g_param is not None:
+            str += f"gp{self.g_param}"
+        if self.stepsize_coeff is not None:
+            str += f"sz{self.stepsize_coeff}"
+
+        if str != "":
+            str = "FPAR_" + str + "_"
+
+        return str
