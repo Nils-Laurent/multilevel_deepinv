@@ -1,12 +1,10 @@
 import deepinv
-import deepinv as dinv
 import torch
 from deepinv.models import DRUNet
 from deepinv.optim import PnP, optim_builder, L2
 from deepinv.optim.optim_iterators import PGDIteration
 from deepinv.physics import Demosaicing, GaussianNoise
 
-from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.info_transfer import SincFilter
 from multilevel.iterator import MultiLevelIteration

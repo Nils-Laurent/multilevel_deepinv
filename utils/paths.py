@@ -2,8 +2,6 @@ from os.path import join, dirname
 import sys
 from pathlib import Path
 
-from deepinv.optim import PoissonLikelihood
-
 from multilevel_utils.custom_poisson_noise import CPoissonLikelihood
 
 
@@ -41,7 +39,7 @@ def gen_fname(params, p_exp, alg_name):
         exp = f"{p_exp['set_name']}_n{p_exp['noise_pow']}"
 
     problem = p_exp['problem']
-    from tests.parameters import ConfParam
+    from utils.parameters import ConfParam
 
     if problem == 'inpainting':
         ir = ConfParam().inpainting_ratio

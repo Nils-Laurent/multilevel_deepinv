@@ -2,22 +2,20 @@ import sys
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
-from utils.test_on_poisson import poisson_test
-
 import numpy
 import torch
-from torch.utils.data import Subset, Dataset, DataLoader
+from torch.utils.data import Subset, Dataset
 from torchvision import transforms
 from itertools import product
 
 from utils.transforms import CatZeroChannel
 
-from tests.parameters import ConfParam
+from utils.parameters import ConfParam
 from utils.ml_dataclass import *
 from utils.ml_dataclass_denoiser import *
 from utils.ml_dataclass_nonexp import *
 
-from utils.measure_data import create_measure_data, load_measure_data
+from utils.measure_data import load_measure_data
 
 #matplotlib.use('module://backend_interagg')
 
@@ -25,15 +23,14 @@ import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
 from tests.test_alg import RunAlgorithm
-from tests.utils import physics_from_exp, data_from_user_input, ResultManager
+from utils.utils import physics_from_exp, data_from_user_input, ResultManager
 from utils.npy_utils import save_grid_tune_info, load_variables_from_npy, grid_search_npy_filename
 from utils.gridsearch import tune_grid_all
 from utils.gridsearch_plots import tune_scatter_2d, tune_plot_1d, print_gridsearch_max
-from utils.paths import dataset_path, get_out_dir
+from utils.paths import dataset_path
 
-from deepinv.physics import PoissonNoise
 from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
-from tests.parameters_utils import get_multilevel_init_params
+from utils.parameters_utils import set_multilevel_init_params
 
 
 def test_settings(data_in, params_exp, device, benchmark=False, physics=None, list_method=None):
@@ -50,7 +47,8 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
         bkg = ConfParam().data_fidelity().bkg
         gain = ConfParam().data_fidelity().gain
         #g = CPoissonNoise(gain=gain, bkg=bkg, normalize=False, clip_positive=False, rng=None)
-        g = CPoissonNoise(gain=gain, normalize=False, clip_positive=False, rng=None)
+        #g = CPoissonNoise(gain=gain, normalize=False, clip_positive=False, rng=None)
+        g = CPoissonNoise(gain=gain)
     else:
         g = GaussianNoise(sigma=tensor_np)
     exp_physics, problem_name = physics_from_exp(params_exp, g, device)
@@ -65,8 +63,9 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
         m_param = m_class.param_fn(params_exp)
         ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark, def_name=m_class().key)
         if hasattr(m_class, 'use_init') and m_class.use_init is True:
-            init_param = get_multilevel_init_params(m_param)
-            ra.set_init(init_param)
+            set_multilevel_init_params(m_param)
+            #init_param = set_multilevel_init_params(m_param)
+            #ra.set_init(init_param)
 
         rm.post_process(ra.run_algorithm(m_class, m_param), m_class)
 
@@ -109,7 +108,6 @@ def main_test(
     params_exp['noise_pow'] = noise_pow
     if problem == 'inpainting':
         params_exp[problem] = ConfParam().inpainting_ratio
-        #params_exp[problem] = 0.8
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
@@ -233,9 +231,6 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    poisson_test(device)
-    return None
-
     #main_tune(device=device, plot_and_exit=False)
     #main_tune(device=device, plot_and_exit=True)
     #return None
@@ -254,53 +249,56 @@ def main_fn():
     RunAlgorithm.class_vec_save_img = methods_img
 
     ## -- Poisson ----------------------------------------------------------------
-    ConfParam().reset()
-    ConfParam().iters_fine = 8
-    #ConfParam().iml_max_iter = 4
+    #ConfParam().reset()
+    #ConfParam().iters_fine = 200
+    ##ConfParam().iml_max_iter = 4
 
     #bkg = 1
-    #gain = 1/30
+    #gain = 1/10
     #ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, denormalize=True)
-    #ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
+    #ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2 + 800
+    ##ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2 + 400
+    #ConfParam().use_equivariance = True
 
-    #methods_init_pl = [MPnP]
+    #methods_init_pl = [MPnPML, MPnP]
     #main_test(
     #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=0
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     #)
-    return None
+    #return None
 
     #methods_init = methods_prox
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
     ConfParam().inpainting_ratio = 0.5  # keep 50%
+
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    #return None
+    #ConfParam().reset()
+    #ConfParam().inpainting_ratio = 0.8  # keep 80%
     #main_test(
     #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device
     #)
-    #return None
-    ConfParam().reset()
-    ConfParam().inpainting_ratio = 0.8  # keep 80%
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    #return None
-    ConfParam().reset()
-    ConfParam().inpainting_ratio = 0.9  # keep 90%
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    #return None
+    ##return None
+    #ConfParam().reset()
+    #ConfParam().inpainting_ratio = 0.9  # keep 90%
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+    ##return None
 
     # -- demosaicing ----------------------------------------------------------------
     ConfParam().reset()
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
     )
-    #return None
+    return None
 
     # -- blur ----------------------------------------------------------------
     ConfParam().reset()

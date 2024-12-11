@@ -1,4 +1,4 @@
-from tests.parameters import *
+from utils.parameters import *
 from dataclasses import dataclass
 
 

@@ -1,4 +1,4 @@
-import tests.parameters as param
+import utils.parameters as param
 from dataclasses import dataclass
 
 

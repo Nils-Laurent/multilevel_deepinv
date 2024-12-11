@@ -2,7 +2,7 @@ import os
 import sys
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision import transforms
 
 if "/.fork" in sys.prefix:
@@ -12,7 +12,7 @@ from torch.utils.data import Subset, Dataset
 import deepinv
 from deepinv.physics import GaussianNoise
 from deepinv.utils.demo import load_dataset
-from tests.utils import physics_from_exp
+from utils.utils import physics_from_exp
 from utils.paths import dataset_path, measurements_path
 
 

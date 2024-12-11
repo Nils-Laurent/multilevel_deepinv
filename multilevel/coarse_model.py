@@ -157,18 +157,6 @@ class CoarseModel(torch.nn.Module):
 
         if self.par_f.scale_coherent_gradient_init() is True:
             assert False  # should not be used
-            if grad is None:
-                print(f"coherence: lv{self.par_f.level}")
-                grad_x0 = self.grad(x0_h, y_h, self.ph_f, self.gfine, self.par_f)
-            else:
-                grad_x0 = grad(x0_h)
-
-            v = self.projection(grad_x0)
-            v -= self.grad(x0, y, self.physics, self.g, self.params)
-
-            # Coarse gradient (first order coherent)
-            grad_coarse = lambda x: self.grad(x, y, self.physics, self.g, self.params) + v
-            level_iteration = coarse_iter_class(coarse_correction=v)
         else:
             grad_coarse = lambda x: self.grad(x, y, self.physics, self.g, self.params)
             level_iteration = coarse_iter_class()
@@ -177,7 +165,6 @@ class CoarseModel(torch.nn.Module):
             if self.params.level > 1:
                 model = CoarseModel(self.g, self.f, self.physics, self.params)
                 x1 = model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
-                #x1 = x0 + model.init_ml_x0({'est': [x0]}, y, grad=grad_coarse)
             else:
                 x1 = x0
         else:

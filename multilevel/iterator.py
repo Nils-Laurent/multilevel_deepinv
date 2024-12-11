@@ -11,9 +11,16 @@ class MultiLevelIteration(OptimIterator):
         self.has_cost = fine_iteration.has_cost
         self.grad_fn = grad_fn
 
+    def ml_init(self, X, data_fidelity, prior, params, y, physics):
+        ml_params = MultiLevelParams(params, params_init=True)
+        model = CoarseModel(prior, data_fidelity, physics, ml_params)
+        x0 = model.init_ml_x0(X, y)
+        return {'est': [x0]}
+
     def multilevel_step(self, X, data_fidelity, prior, params, y, physics):
         ml_params = MultiLevelParams(params)
-        if ml_params.level == 1 or not ml_params.multilevel_step():
+        if (ml_params.level == 1
+                or not (ml_params.it_index() in ml_params.multilevel_indices())):
             return X
 
         model = CoarseModel(prior, data_fidelity, physics, ml_params)
@@ -38,17 +45,26 @@ class MultiLevelIteration(OptimIterator):
         return Y
 
     def forward(self, X, cur_data_fidelity, cur_prior, cur_params, y, physics):
+        # initialization block
+        if cur_params['it_index'] == 0 and cur_params['ml_init'] is True:
+            return self.ml_init(X, cur_data_fidelity, cur_prior, cur_params, y, physics)
+
+        # ML block
         Y = self.multilevel_step(X, cur_data_fidelity, cur_prior, cur_params, y, physics)
 
+        # fine level scheme block
         X2 = self.fine_iteration(Y, cur_data_fidelity, cur_prior, cur_params, y, physics)
+
         return X2
 
 
 class MultiLevelParams:
-    def __init__(self, params):
+    def __init__(self, params, params_init=False):
         self.params = params
         self.n_level = self._get_scalar_init('n_levels', params)
         self.level = self._get_scalar_init('level', params)
+        if params_init is True:
+            self.level = self._get_scalar_init('level_init', params)
         self.g_lipschitz = self._get_scalar_init('lip_g', params)
         self.f_lipschitz = 1.0
 
@@ -76,11 +92,14 @@ class MultiLevelParams:
     def iml_max_iter(self):
         return self._get_scalar('iml_max_iter')
 
+    def it_index(self):
+        return self._get_scalar('it_index')
+
     def backtracking(self):
         return self._get_bool('backtracking')
 
-    def multilevel_step(self):
-        return self._get_scalar('multilevel_step')
+    def multilevel_indices(self):
+        return self._get_list('multilevel_indices')
 
     def coarse_iterator(self):
         return self._get_class('coarse_iterator')
@@ -118,6 +137,10 @@ class MultiLevelParams:
 
     def _get_scalar(self, key):
         return self._get_scalar_init(key, self.params)
+
+    def _get_list(self, key):
+        assert isinstance(self.params[key], list)
+        return self.params[key]
 
     def _get_class(self, key):
         r_class = self.params[key]
@@ -158,6 +181,8 @@ class MultiLevelParams:
         for key, value in self.params.items():
             if (isinstance(value, torch.nn.parameter.Parameter) or
                 isinstance(value, torch.Tensor)):
+                self.params[key] = [value]
+            if key == 'multilevel_indices' and len(value) > 1:
                 self.params[key] = [value]
 
 

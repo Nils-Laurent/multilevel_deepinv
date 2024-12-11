@@ -35,9 +35,12 @@ def poisson_test(device):
 
     params_algo = {"stepsize": stepsize, "g_param": g_param}
 
+    d1 = DRUNet(pretrained="download", device=device)
+    d2 = deepinv.models.EquivariantDenoiser(d1, random=True)
+
     model = optim_builder(
         iteration=PGDIteration(),
-        prior=PnP(denoiser=DRUNet(pretrained="download", device=device)),
+        prior=PnP(denoiser=d1),
         data_fidelity=datafidelity,
         max_iter=10,
         g_first=False,
@@ -52,12 +55,6 @@ def poisson_test(device):
     model.eval()
     y = physics(x_ref)  # poisson noise
     x_est, met = model(y, physics, x_gt=x_ref, compute_metrics=True)
-
-    loss = PSNR()
-    print("est/ref = ", loss(x_est, x_ref))
-    xt = (y) * gain
-    print("t/ref = ", loss(xt, x_ref))
-
     print("psnr :", met['psnr'][0])
 
     return None

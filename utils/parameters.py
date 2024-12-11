@@ -4,8 +4,8 @@ from deepinv.models import DRUNet, GSDRUNet
 from multilevel.coarse_gradient_descent import CGDIteration
 from multilevel.coarse_pgd import CPGDIteration
 from multilevel.prior import TVPrior as CustTV
-from tests.parameters_global import ConfParam
-from tests.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, _finalize_params, \
+from utils.parameters_global import ConfParam
+from utils.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, \
     standard_multilevel_param
 
 def get_parameters_pnp_dncnn(params_exp):
@@ -54,14 +54,14 @@ def parameters_pnp_common(denoiser, g_param, lambda_pnp):
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, DRUNet)
 
-    lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz
 
     step_size_coeff = 0.9
     print("stepsize =", step_size_coeff/lf)
     stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
+    p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+    #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
 def get_parameters_pnp_non_exp(params_exp):
@@ -89,13 +89,14 @@ def get_parameters_pnp_non_exp(params_exp):
     p_pnp['coarse_iterator'] = CPGDIteration
     p_pnp['lip_g'] = 1.0
 
-    lambda_vec = p_pnp['params_multilevel'][0]['lambda']
+    #lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz
 
-    stepsize_vec = [0.9/lf for l in lambda_vec] # PGD : only depends on lipschitz of data-fidelity
+    stepsize_vec = [0.9/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
     stepsize_vec[-1] = 0.9/lf  # PGD : only depends on lipschitz of data-fidelity
+    p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+    #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
@@ -126,13 +127,16 @@ def get_parameters_pnp_prox(params_exp):
 
     lambda_vec = [lambda_pnp]  * ConfParam().levels
 
-    stepsize_vec = [1.0/lambda_pnp] * (ConfParam().levels - 1)
+    #stepsize_vec = [1.0/lambda_pnp] * (ConfParam().levels - 1)
 
     # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
     # lambda_pnp > 2 * data_fidelity_lipschitz / 3
-    stepsize_vec.append(1.0/lambda_pnp)
+    lambda_vec = [lambda_pnp]  * ConfParam().levels
+    p_pnp['params_multilevel'][0]['lambda'] = lambda_vec
+    stepsize_vec = [1.0/lambda_pnp] * ConfParam().levels
+    p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
+    #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
 
@@ -164,8 +168,9 @@ def get_parameters_red(params_exp):
     step_coeff = 0.9  # non-convex setting
     lf = ConfParam().data_fidelity_lipschitz
     stepsize_vec = [step_coeff / (lf + l * p_red['lip_g']) for l in lambda_vec] # gradient descent
+    p_red['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
+    #p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
     return p_red
 
 def get_parameters_tv(params_exp):
@@ -196,12 +201,13 @@ def get_parameters_tv(params_exp):
     p_tv['prox_max_it'] = tv_max_it
     gamma_vec = [1.1] * len(iters_vec)
     gamma_vec[-1] = 1.0
-    lambda_vec = p_tv['params_multilevel'][0]['lambda']
+    p_tv['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     lf = ConfParam().data_fidelity_lipschitz
     step_coeff = 1.9  # convex setting
     stepsize_vec = [step_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
     stepsize_vec[-1] = step_coeff / lf  # only depends on lipschitz of data-fidelity
-    p_tv = _finalize_params(p_tv, lambda_vec, stepsize_vec, gamma_vec)
+    p_tv['params_multilevel'][0]['stepsize'] = stepsize_vec
+    #p_tv = _finalize_params(p_tv, lambda_vec, stepsize_vec, gamma_vec)
     p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
 
     return p_tv

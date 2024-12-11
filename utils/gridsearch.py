@@ -4,9 +4,9 @@ import torch
 import numpy
 from deepinv.physics import GaussianNoise
 
-from tests.parameters_utils import get_multilevel_init_params
-from tests.test_alg import RunAlgorithm
-from tests.utils import physics_from_exp, data_from_user_input
+from utils.parameters_utils import set_multilevel_init_params
+from utils.run_alg import RunAlgorithm
+from utils.utils import physics_from_exp, data_from_user_input
 
 
 def tune_grid_all(data_in, params_exp, device):
@@ -44,8 +44,7 @@ def tune_grid_all(data_in, params_exp, device):
                 m_param = m_class.param_fn(params_exp)
                 ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
                 if hasattr(m_class, 'use_init') and m_class.use_init is True:
-                    init_param = get_multilevel_init_params(m_param)
-                    ra.set_init(init_param)
+                    set_multilevel_init_params(m_param)
                 return ra.run_algorithm(m_class, m_param)
 
             res_data, res_keys = tune_algo(algo=objective_fun, alg_class=m_class, params_exp=params_exp)

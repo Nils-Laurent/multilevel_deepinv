@@ -1,10 +1,10 @@
 from deepinv.models import GSDRUNet, DRUNet
 
 from multilevel.coarse_gradient_descent import CGDIteration
-from tests.parameters_global import ConfParam
+from utils.parameters_global import ConfParam
 from utils.get_hyper_param import inpainting_hyper_param, blur_hyper_param, mri_hyper_param, poisson_hyper_param, \
     demosaicing_hyper_param
-from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior, Zero
+from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
 
 
 def standard_multilevel_param(params, it_vec, lambda_fine):
@@ -18,12 +18,14 @@ def standard_multilevel_param(params, it_vec, lambda_fine):
     params['coarse_iterator'] = CGDIteration
     params['coarse_prior'] = True
     params['backtracking'] = True
+    params['ml_init'] = False
 
     iml_max_iter = params['iml_max_iter']
-    params['multilevel_step'] = [k < iml_max_iter for k in range(0, it_vec[-1])]
-
-    #params['multilevel_step'][100 + -1] = True
-    #params['multilevel_step'][100 + -2] = True
+    ml_indices = list(range(0, iml_max_iter))
+    #ml_indices.append(100 + -1)
+    #ml_indices.append(100 + -2)
+    params['multilevel_indices'] = [ml_indices]
+    params['it_index'] = list(range(0, ConfParam().iters_fine))
 
     return params
 
@@ -33,12 +35,21 @@ def set_new_nb_coarse(params):
     params['params_multilevel'][0]['iters'][0:-1] = [new_nb] * len(l_iter)
     print("iters_coarse:", new_nb)
 
-def get_multilevel_init_params(params):
-    iters_vec = params['params_multilevel'][0]['iters']
-    param_init = params.copy()
-    # does not iterate on finest level
-    params['params_multilevel'][0]['iters_init'] = [ConfParam().coarse_iters_ini] * len(iters_vec)
-    return param_init
+def set_multilevel_init_params(params):
+    iters_init = [ConfParam().coarse_iters_ini] * (ConfParam().levels - 1)
+    iters_init.append(None)  # does not iterate on finest level
+    params['params_multilevel'][0]['iters_init'] = iters_init
+    params['level_init'] = ConfParam().levels
+    params['ml_init'] = True
+
+    # add one ml block since the 1st one is replaced by the init
+    params['multilevel_indices'][0].append(params['iml_max_iter'])
+
+    #param_init = params.copy()
+    ## does not iterate on finest level
+    #params['params_multilevel'][0]['iters_init'] = [ConfParam().coarse_iters_ini] * len(iters_vec)
+    #return param_init
+    return params
 
 def _set_iter_vec(it_coarse, it_fine, levels):
     vec = [it_coarse] * levels
@@ -46,16 +57,16 @@ def _set_iter_vec(it_coarse, it_fine, levels):
     return vec
 
 
-def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
-    params['params_multilevel'][0]['lambda'] = lambda_vec
-    params['lambda'] = lambda_vec[-1]
-    params['params_multilevel'][0]['stepsize'] = stepsize_vec
-    params['stepsize'] = stepsize_vec[-1]
-    if not (gamma_vec is None):
-        params['params_multilevel'][0]['gamma_moreau'] = gamma_vec
-        params['gamma_moreau'] = gamma_vec[-1]
-
-    return params
+#def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
+#    params['params_multilevel'][0]['lambda'] = lambda_vec
+#    params['lambda'] = lambda_vec[-1]
+#    params['params_multilevel'][0]['stepsize'] = stepsize_vec
+#    params['stepsize'] = stepsize_vec[-1]
+#    if not (gamma_vec is None):
+#        params['params_multilevel'][0]['gamma_moreau'] = gamma_vec
+#        params['gamma_moreau'] = gamma_vec[-1]
+#
+#    return params
 
 
 def prior_lipschitz(prior, param, denoiser=None):

@@ -75,9 +75,12 @@ def blur_hyper_param(noise_pow, gs_key):
 def poisson_hyper_param(noise_pow, gs_key):
     gs_vec = [
         [0.1, 'PnP_ML_INIT', {'g_param': 0.05, }],
-        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 0.22, 'g_param': 0.05, }],
-        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.05, }],
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 1.0, 'g_param': 0.05, }],
         [0.1, 'FB_TV_ML', {'lambda': 1.0, }],
+        [0.1, 'PnP_ML_DnCNN_Moreau_init', {'lambda':1.0, }],
+        [0.1, 'PnP_ML_SCUNet_Moreau_init', {'lambda':1.0, }],
+        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.05, }],
+        [0.1, 'PnP_prox_ML_Moreau_INIT', {'lambda':1.0, 'g_param':0.05, }],
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)

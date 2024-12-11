@@ -7,8 +7,8 @@ from deepinv.physics.blur import gaussian_blur
 from deepinv.utils.demo import load_dataset
 
 from multilevel.iterator import CoarseModel, MultiLevelParams
-from multilevel.info_transfer import CFir, BlackmannHarris, Dirac, SincFilter
-from tests.parameters import standard_multilevel_param, _finalize_params
+from multilevel.info_transfer import CFir
+from utils.parameters import standard_multilevel_param
 from utils.paths import dataset_path
 
 
