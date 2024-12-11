@@ -65,8 +65,8 @@ class MultiLevelParams:
         self.level = self._get_scalar_init('level', params)
         if params_init is True:
             self.level = self._get_scalar_init('level_init', params)
-        self.g_lipschitz = self._get_scalar_init('lip_g', params)
-        self.f_lipschitz = 1.0
+        #self.g_lipschitz = self._get_scalar_init('lip_g', params)
+        #self.f_lipschitz = 1.0
 
     def coarse_params(self):
         if self.level == 0:
@@ -171,9 +171,18 @@ class MultiLevelParams:
 
         return ml_dict[key][self.level - 1]
 
+    def _ml_has_key(self, key):
+        ml_dict = self.params['params_multilevel']
+        if isinstance(ml_dict, list):
+            ml_dict = self.params['params_multilevel'][0]
+        if key in ml_dict.keys():
+            return True
+        return False
+
     def _set_coarse(self):
-        self.params['lambda'] = self._get_from_ml('lambda')
         self.params['stepsize'] = self._get_from_ml('stepsize')
+        if self._ml_has_key('lambda'):
+            self.params['lambda'] = self._get_from_ml('lambda')
 
         if isinstance(self.params['params_multilevel'], dict):
             self.params['params_multilevel'] = [self.params['params_multilevel']]

@@ -45,28 +45,12 @@ def set_multilevel_init_params(params):
     # add one ml block since the 1st one is replaced by the init
     params['multilevel_indices'][0].append(params['iml_max_iter'])
 
-    #param_init = params.copy()
-    ## does not iterate on finest level
-    #params['params_multilevel'][0]['iters_init'] = [ConfParam().coarse_iters_ini] * len(iters_vec)
-    #return param_init
     return params
 
 def _set_iter_vec(it_coarse, it_fine, levels):
     vec = [it_coarse] * levels
     vec[-1] = it_fine
     return vec
-
-
-#def _finalize_params(params, lambda_vec, stepsize_vec, gamma_vec=None):
-#    params['params_multilevel'][0]['lambda'] = lambda_vec
-#    params['lambda'] = lambda_vec[-1]
-#    params['params_multilevel'][0]['stepsize'] = stepsize_vec
-#    params['stepsize'] = stepsize_vec[-1]
-#    if not (gamma_vec is None):
-#        params['params_multilevel'][0]['gamma_moreau'] = gamma_vec
-#        params['gamma_moreau'] = gamma_vec[-1]
-#
-#    return params
 
 
 def prior_lipschitz(prior, param, denoiser=None):
@@ -128,6 +112,9 @@ def get_param_algo_(params_exp, key_vec):
         pass
     else:
         raise NotImplementedError("not implem")
+
+    if FIXED_PARAM:
+        pass
 
     return res
 
