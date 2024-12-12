@@ -1,7 +1,5 @@
 import sys
 
-from utils.parameters_global import FixedParams
-
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
@@ -17,6 +15,7 @@ from utils.parameters import ConfParam
 from utils.ml_dataclass import *
 from utils.ml_dataclass_denoiser import *
 from utils.ml_dataclass_nonexp import *
+from utils.parameters_global import FixedParams
 
 from utils.measure_data import load_measure_data
 
@@ -274,10 +273,19 @@ def main_fn():
     # -- inpainting ----------------------------------------------------------------
     ConfParam().reset()
     ConfParam().inpainting_ratio = 0.5  # keep 50%
-    for step_sz in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+    for step_sz in [0.1, 0.3, 0.6, 0.9]:
+        for g_par in [0.02, 0.05, 0.08, 0.11]:
+            FixedParams().g_param = g_par
+            FixedParams().stepsize_coeff = step_sz
+            methods_test = [MPnP, MPnPMLInit, MPnPProx, MPnPProxMLInit]
+            main_test(
+                'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_test, test_dataset=False,
+                use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+            )
+            FixedParams().reset()
+    for step_sz in [0.1, 0.3, 0.6, 0.9]:
         FixedParams().stepsize_coeff = step_sz
-        #methods_test = [MPnP, MPnPMLInit]
-        methods_test = [MPnPML]
+        methods_test = [MPnPDnCNN, MPnPMLDnCNNInit, MPnPSCUNet, MPnPMLSCUNetInit]
         main_test(
             'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_test, test_dataset=False,
             use_file_data=False, benchmark=True, cpu=False, device=device, target=3

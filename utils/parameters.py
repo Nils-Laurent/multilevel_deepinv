@@ -94,11 +94,13 @@ def get_parameters_pnp_non_exp(params_exp):
     #lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz
 
-    stepsize_vec = [0.9/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
-    stepsize_vec[-1] = 0.9/lf  # PGD : only depends on lipschitz of data-fidelity
+    step_size_coeff = 0.9
+    if FixedParams().stepsize_coeff is not None:
+        step_size_coeff = FixedParams().get_stepsize_coeff()
+    stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
+    stepsize_vec[-1] = stepsize_vec/lf  # PGD : only depends on lipschitz of data-fidelity
     p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
 def get_parameters_pnp_prox(params_exp):
@@ -108,7 +110,7 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp = ConfParam().default_param()
 
     p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
-    lambda_pnp = 2.0 * ConfParam().data_fidelity_lipschitz /3.0
+    lambda_pnp = 2.0 /3.0  # see further down for this choice
     print("lambda_pnp_prox:", lambda_pnp)
     print("g_param_pnp_prox:", p_pnp['g_param'])
 
@@ -131,10 +133,14 @@ def get_parameters_pnp_prox(params_exp):
     # lambda_pnp > 2 * data_fidelity_lipschitz / 3
     lambda_vec = [lambda_pnp]  * ConfParam().levels
     p_pnp['params_multilevel'][0]['lambda'] = lambda_vec
-    stepsize_vec = [1.0/lambda_pnp] * ConfParam().levels
+    step_size_coeff = 1.0/lambda_pnp
+    if FixedParams().stepsize_coeff is not None:
+        step_size_coeff = FixedParams().get_stepsize_coeff()
+
+    lf = ConfParam().data_fidelity_lipschitz
+    stepsize_vec = [step_size_coeff/lf] * ConfParam().levels
     p_pnp['params_multilevel'][0]['stepsize'] = stepsize_vec
 
-    #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
 
