@@ -45,11 +45,8 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
 
     tensor_np = torch.tensor(noise_pow).to(device)
     if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
-        # todo : Poisson
         bkg = ConfParam().data_fidelity().bkg
         gain = ConfParam().data_fidelity().gain
-        #g = CPoissonNoise(gain=gain, bkg=bkg, normalize=False, clip_positive=False, rng=None)
-        #g = CPoissonNoise(gain=gain, normalize=False, clip_positive=False, rng=None)
         g = CPoissonNoise(gain=gain)
     else:
         g = GaussianNoise(sigma=tensor_np)
@@ -113,9 +110,7 @@ def main_test(
     elif problem == 'tomography':
         params_exp[problem] = 0.6
     elif problem == 'blur':
-        #params_exp[problem + '_pow'] = 1.1
         params_exp[problem + '_pow'] = 3.6
-        #params_exp[problem + '_pow'] = 7.3
     elif problem == 'demosaicing' or problem == "motion_blur" or problem == "mri" or problem == "denoising":
         # nothing to be done
         pass
@@ -181,7 +176,8 @@ def main_test(
 
 def main_tune(device, plot_and_exit=False):
     #pb_list = ['inpainting', 'demosaicing', 'blur', 'mri']
-    pb_list = ['inpainting', 'demosaicing', 'blur']
+    #pb_list = ['inpainting', 'demosaicing', 'blur', 'denoising']
+    pb_list = ['denoising']
     noise_pow_vec = [0.1]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
@@ -191,6 +187,11 @@ def main_tune(device, plot_and_exit=False):
 
     for pb, noise_pow in product(pb_list, noise_pow_vec):
         ConfParam().reset()
+        if pb == 'denoising':
+            bkg = 1
+            gain = 1/10
+            ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, denormalize=True)
+            ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
         if pb == 'mri':
             ConfParam().levels = 3
             ConfParam().coarse_iters_ini = 1
@@ -224,7 +225,7 @@ def main_tune_plot(pb_list, in_noise_pow_vec):
             tensors = data[key_]['tensors']
             if len(axis) == 2:
                 tune_scatter_2d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_scatter2d")
-            else:
+            elif len(axis) == 1:
                 tune_plot_1d(tensors, axis, fig_name=f"{pb}_{noise_pow}_{key_}_plot1d")
 
             print_gridsearch_max(key_, tensors, axis, noise_pow)
@@ -233,9 +234,9 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
+    return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
@@ -251,23 +252,22 @@ def main_fn():
     RunAlgorithm.class_vec_save_img = methods_img
 
     ## -- Poisson ----------------------------------------------------------------
-    #ConfParam().reset()
-    #ConfParam().iters_fine = 200
-    ##ConfParam().iml_max_iter = 4
+    ConfParam().reset()
+    ConfParam().iters_fine = 200
+    #ConfParam().iml_max_iter = 4
 
-    #bkg = 1
-    #gain = 1/10
-    #ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, denormalize=True)
-    #ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2 + 800
-    ##ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2 + 400
-    #ConfParam().use_equivariance = True
+    bkg = 1
+    gain = 1/10
+    ConfParam().data_fidelity = lambda: CPoissonLikelihood(gain=gain, bkg=bkg, denormalize=True)
+    ConfParam().data_fidelity_lipschitz = 1/(gain*bkg)**2
+    ConfParam().use_equivariance = True
 
-    #methods_init_pl = [MPnPML, MPnP]
-    #main_test(
-    #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #)
-    #return None
+    methods_init_pl = methods_init
+    main_test(
+        'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
+    )
+    return None
 
     #methods_init = methods_prox
     # -- inpainting ----------------------------------------------------------------

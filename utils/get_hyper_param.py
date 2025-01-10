@@ -74,13 +74,13 @@ def blur_hyper_param(noise_pow, gs_key):
 
 def poisson_hyper_param(noise_pow, gs_key):
     gs_vec = [
-        [0.1, 'PnP_ML_INIT', {'g_param': 0.05, }],
-        [0.1, 'PnP_ML_Moreau_INIT', {'lambda': 1.0, 'g_param': 0.05, }],
-        [0.1, 'FB_TV_ML', {'lambda': 1.0, }],
-        [0.1, 'PnP_ML_DnCNN_Moreau_init', {'lambda':1.0, }],
-        [0.1, 'PnP_ML_SCUNet_Moreau_init', {'lambda':1.0, }],
-        [0.1, 'PnP_prox_ML_INIT', {'g_param': 0.05, }],
-        [0.1, 'PnP_prox_ML_Moreau_INIT', {'lambda':1.0, 'g_param':0.05, }],
+        [0.1, 'PnP_ML_INIT', {'g_param':0.0061, 'stepsz_coeff':1.89, }],  # PSNR = 18.66
+        [0.1, 'PnP_ML_Moreau_INIT', {'lambda':0.306, 'g_param':0.01, 'stepsz_coeff':1.0, }],  # PSNR = 18.06
+        [0.1, 'FB_TV_ML', {'lambda':0.25, }],  # PSNR = 19.81
+        [0.1, 'PnP_ML_DnCNN_Moreau_init', {'lambda':0.5, 'stepsz_coeff':1.0, }],  # PSNR = 16.81
+        [0.1, 'PnP_ML_SCUNet_Moreau_init', {'lambda':1.17, 'stepsz_coeff':0.333, }],  # PSNR = 7.83
+        [0.1, 'PnP_prox_ML_INIT', {'g_param':0.0031, 'stepsz_coeff':1.67, }],  # PSNR = 19.31
+        [0.1, 'PnP_prox_ML_Moreau_INIT', {'lambda':0.778, 'g_param':0.01, 'stepsz_coeff':0.75, }],  # PSNR = 18.72
     ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)

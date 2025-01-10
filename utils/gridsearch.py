@@ -4,10 +4,12 @@ import torch
 import numpy
 from deepinv.physics import GaussianNoise
 
+from utils.parameters_global import ConfParam
 from utils.parameters_utils import set_multilevel_init_params
 from utils.run_alg import RunAlgorithm
 from utils.utils import physics_from_exp, data_from_user_input
 
+from multilevel_utils.custom_poisson_noise import CPoissonNoise, CPoissonLikelihood
 
 def tune_grid_all(data_in, params_exp, device):
     params_exp['gridsearch'] = {}
@@ -15,32 +17,40 @@ def tune_grid_all(data_in, params_exp, device):
     print("def_noise:", noise_pow)
 
     tensor_np = torch.tensor(float(noise_pow)).to(device)
-    g = GaussianNoise(sigma=tensor_np)
+    if isinstance(ConfParam().data_fidelity(), CPoissonLikelihood):
+        bkg = ConfParam().data_fidelity().bkg
+        gain = ConfParam().data_fidelity().gain
+        g = CPoissonNoise(gain=gain)
+    else:
+        g = GaussianNoise(sigma=tensor_np)
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    class_info = {
-        dc.MPnPMLInit : {"coeff": 0.9},
-        dc.MPnPMoreauInit : {"coeff": 0.9},  # parametre lambda
-        dc.MFbMLGD : {"coeff": 1.9},
-        dcn.MPnPMLDnCNNMoreauInit : {"coeff": 0.9},
-        dcn.MPnPMLSCUNetMoreauInit : {"coeff": 0.9},
-    }
+    class_list = [
+        dc.MPnPMLInit,
+        dc.MPnPMoreauInit,  # parametre lambda
+        dc.MFbMLGD,
+        dcn.MPnPMLDnCNNMoreauInit,
+        dcn.MPnPMLSCUNetMoreauInit,
+    ]
     if not (params_exp['problem'] == 'mri'):
-        class_info[dc.MPnPProxMLInit] = {"coeff": 0.9}
-        class_info[dc.MPnPProxMoreauInit] = {"coeff": 0.9}
+        class_list.append(dc.MPnPProxMLInit)
+        class_list.append(dc.MPnPProxMoreauInit)
+
     print(f"==============================")
     print(f"GRIDSEARCH (device : {device}, pb : {params_exp['problem']})")
     print(f"==============================")
     res = {}
     with torch.no_grad():
-        for m_class in class_info.keys():
+        for m_class in class_list:
             print(f"=== device : {device}, m_class key : {m_class.key}, pb : {params_exp['problem']} ===")
             if 'cpu' in str(device):
                 raise Exception("gridsearch should not run on CPU")
 
             def objective_fun(params_gs):
                 params_exp['gridsearch'] = params_gs
+                if 'stepsz_coeff' in params_gs.keys():
+                    params_exp['stepsz_coeff'] = params_gs['stepsz_coeff']
                 m_param = m_class.param_fn(params_exp)
                 ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
                 if hasattr(m_class, 'use_init') and m_class.use_init is True:
@@ -60,19 +70,24 @@ def tune_algo(algo, alg_class, params_exp):
     par_lambda = [[1E-5, 2.0], 13]
     k_sig = 'g_param'
     par_sig = [[0.0001, 0.30], 11]
+    k_coeff = 'stepsz_coeff'
+    par_coeff = [[0.0001, 2.00], 7]
 
     d_grid = {}
     recurse = 2
     if alg_class == dc.MPnPMLInit \
             or alg_class == dc.MPnPProxMLInit:
         d_grid[k_sig] = par_sig
+        d_grid[k_coeff] = par_coeff
     elif alg_class == dc.MPnPMoreauInit\
             or alg_class == dc.MPnPProxMoreauInit:
         d_grid[k_lambda] = par_lambda
-        d_grid[k_sig] = par_sig
+        d_grid[k_sig] = [[0.01, 0.2], 3]
+        d_grid[k_coeff] = [[0.0001, 2.00], 5]
     elif alg_class == dcn.MPnPMLSCUNetMoreauInit \
             or alg_class == dcn.MPnPMLDnCNNMoreauInit:
         d_grid[k_lambda] = par_lambda
+        d_grid[k_coeff] = par_coeff
     elif alg_class == dc.MRedMLInit:
         d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig

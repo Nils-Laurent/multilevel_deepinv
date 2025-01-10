@@ -387,7 +387,10 @@ class CPoissonLikelihood(DataFidelity):
     def __init__(self, gain=1.0, bkg=0, denormalize=True):
         d = PoissonLikelihoodDistance(gain=gain, bkg=bkg, denormalize=denormalize)
         super().__init__(d=d)
-        self.d = d
+        self.pl_d = d
         self.bkg = bkg
         self.gain = gain
         self.normalize = denormalize
+
+    def grad_d(self, u, y, *args, **kwargs):
+        return self.pl_d.grad(u, y, *args, **kwargs)

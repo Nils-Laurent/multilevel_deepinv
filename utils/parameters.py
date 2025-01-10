@@ -16,7 +16,11 @@ def get_parameters_pnp_dncnn(params_exp):
     g_param = 0  # NOT USED (DnCNN is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcn.MPnPMLDnCNNMoreauInit.key]['lambda']
-    return parameters_pnp_common(ConfParam().get_dncnn(device), g_param, lambda_pnp)
+    if 'stepsz_coeff' in params_exp.keys():
+        coeff = params_exp['stepsz_coeff']
+    else:
+        coeff = None
+    return parameters_pnp_common(ConfParam().get_dncnn(device), g_param, lambda_pnp, coeff)
 
 def get_parameters_pnp_scunet(params_exp):
     device = params_exp['device']
@@ -26,7 +30,11 @@ def get_parameters_pnp_scunet(params_exp):
     g_param = 0  # NOT USED (SCUNet is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
-    return parameters_pnp_common(ConfParam().get_scunet(device), g_param, lambda_pnp)
+    if 'stepsz_coeff' in params_exp.keys():
+        coeff = params_exp['stepsz_coeff']
+    else:
+        coeff = None
+    return parameters_pnp_common(ConfParam().get_scunet(device), g_param, lambda_pnp, coeff)
 
 def get_parameters_pnp_drunet(params_exp):
     device = params_exp['device']
@@ -36,9 +44,13 @@ def get_parameters_pnp_drunet(params_exp):
     g_param = res[dcl.MPnPMLInit.key]['g_param']
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcl.MPnPMoreauInit.key]['lambda']
-    return parameters_pnp_common(ConfParam().get_drunet(device), g_param, lambda_pnp)
+    if 'stepsz_coeff' in params_exp.keys():
+        coeff = params_exp['stepsz_coeff']
+    else:
+        coeff = None
+    return parameters_pnp_common(ConfParam().get_drunet(device), g_param, lambda_pnp, coeff)
 
-def parameters_pnp_common(denoiser, g_param, lambda_pnp):
+def parameters_pnp_common(denoiser, g_param, lambda_pnp, step_size_coeff=None):
     p_pnp = ConfParam().default_param()
     p_pnp['g_param'] = g_param
 
@@ -56,7 +68,8 @@ def parameters_pnp_common(denoiser, g_param, lambda_pnp):
 
     lf = ConfParam().data_fidelity_lipschitz
 
-    step_size_coeff = 0.9
+    if step_size_coeff is None:
+        step_size_coeff = 0.9
     if FixedParams().stepsize_coeff is not None:
         step_size_coeff = FixedParams().get_stepsize_coeff()
     print("stepsize =", step_size_coeff/lf)
@@ -94,7 +107,10 @@ def get_parameters_pnp_non_exp(params_exp):
     #lambda_vec = p_pnp['params_multilevel'][0]['lambda']
     lf = ConfParam().data_fidelity_lipschitz
 
-    step_size_coeff = 0.9
+    if 'stepsz_coeff' in params_exp.keys():
+        step_size_coeff = params_exp['stepsz_coeff']
+    else:
+        step_size_coeff = 0.9
     if FixedParams().stepsize_coeff is not None:
         step_size_coeff = FixedParams().get_stepsize_coeff()
     stepsize_vec = [step_size_coeff/lf] * ConfParam().levels # PGD : only depends on lipschitz of data-fidelity
@@ -129,11 +145,14 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['lip_g'] = prior_lipschitz(PnP, p_pnp, GSDRUNet)
     p_pnp['backtracking'] = False
 
-    # CANNOT CHOOSE STEPSIZE : see S. Hurault Thesis, Theorem 19.
+    # Cannot choose stepsize : see S. Hurault Thesis, Theorem 19.
     # lambda_pnp > 2 * data_fidelity_lipschitz / 3
     lambda_vec = [lambda_pnp]  * ConfParam().levels
     p_pnp['params_multilevel'][0]['lambda'] = lambda_vec
-    step_size_coeff = 1.0/lambda_pnp
+    if 'stepsz_coeff' in params_exp.keys():
+        step_size_coeff = params_exp['stepsz_coeff']
+    else:
+        step_size_coeff = 1.0/lambda_pnp
     if FixedParams().stepsize_coeff is not None:
         step_size_coeff = FixedParams().get_stepsize_coeff()
 
@@ -169,7 +188,10 @@ def get_parameters_red(params_exp):
 
     #p_red['params_multilevel'][0]['lambda'] = [lambda_red] * ConfParam().levels
     lambda_vec = p_red['params_multilevel'][0]['lambda']
-    step_size_coeff = 0.9  # non-convex setting
+    if 'stepsz_coeff' in params_exp.keys():
+        step_size_coeff = params_exp['stepsz_coeff']
+    else:
+        step_size_coeff = 0.9  # non-convex setting
     if FixedParams().stepsize_coeff is not None:
         step_size_coeff = FixedParams().get_stepsize_coeff()
     lf = ConfParam().data_fidelity_lipschitz
@@ -209,9 +231,9 @@ def get_parameters_tv(params_exp):
     gamma_vec[-1] = 1.0
     p_tv['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     lf = ConfParam().data_fidelity_lipschitz
-    step_coeff = 1.9  # convex setting
-    stepsize_vec = [step_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
-    stepsize_vec[-1] = step_coeff / lf  # only depends on lipschitz of data-fidelity
+    step_size_coeff = 1.9  # convex setting
+    stepsize_vec = [step_size_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
+    stepsize_vec[-1] = step_size_coeff / lf  # only depends on lipschitz of data-fidelity
     p_tv['params_multilevel'][0]['stepsize'] = stepsize_vec
     #p_tv = _finalize_params(p_tv, lambda_vec, stepsize_vec, gamma_vec)
     p_tv['scale_coherent_grad'] = True  # for FB TV we always use 1order coherence
