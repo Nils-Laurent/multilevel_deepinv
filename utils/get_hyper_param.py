@@ -93,6 +93,7 @@ def poisson_hyper_param(noise_pow, gs_key):
 def inpainting_hyper_param(noise_pow, gs_key):
     gs_vec = [
         [0.1, 'PnP_ML_INIT', {'g_param':0.0661, }],  # PSNR = 29.20
+        #[0.1, 'PnP_ML_INIT', {'g_param':0.25, }],  # VALUE FOR PnP with stepsize = 0.9!!
         [0.1, 'PnP_ML_Moreau_INIT', {'lambda':1.28, 'g_param':0.0661, }],  # PSNR = 29.18
         [0.1, 'FB_TV_ML', {'lambda':0.139, }],  # PSNR = 23.46
         [0.1, 'PnP_ML_DnCNN_Moreau_init', {'lambda':1.69, }],  # PSNR = 19.88

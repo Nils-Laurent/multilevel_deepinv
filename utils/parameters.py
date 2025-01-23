@@ -8,44 +8,59 @@ from utils.parameters_global import ConfParam, FixedParams
 from utils.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, \
     standard_multilevel_param
 
-def get_parameters_pnp_dncnn(params_exp):
+def get_parameters_pnp_dncnn(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass_denoiser as dcn
     key_vec = [dcn.MPnPMLDnCNNMoreauInit.key]
-    res = get_param_algo_(params_exp, key_vec)
+    res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
     g_param = 0  # NOT USED (DnCNN is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
-    lambda_pnp = res[dcn.MPnPMLDnCNNMoreauInit.key]['lambda']
-    if 'stepsz_coeff' in params_exp.keys():
+    lambda_pnp = res['lambda']
+    if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
+    elif 'stepsz_coeff' in res.keys():
+        coeff = res['stepsz_coeff']
     else:
         coeff = None
     return parameters_pnp_common(ConfParam().get_dncnn(device), g_param, lambda_pnp, coeff)
 
-def get_parameters_pnp_scunet(params_exp):
+def get_parameters_pnp_scunet(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass_denoiser as dcn
-    key_vec = [dcn.MPnPMLSCUNetMoreauInit.key]
-    res = get_param_algo_(params_exp, key_vec)
-    g_param = 0  # NOT USED (SCUNet is a blind model)
+    key_vec = [dcn.MPnPMLSCUNetInit.key]
+    if m_class.key == dcn.MPnPSCUNet.key:
+        key_vec = [dcn.MPnPSCUNet.key]
+
+    res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
+    g_param = 0  # Not used (SCUNet is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
-    lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
-    if 'stepsz_coeff' in params_exp.keys():
+    #lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
+    lambda_pnp = 0
+    if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
+    elif 'stepsz_coeff' in res.keys():
+        coeff = res['stepsz_coeff']
     else:
         coeff = None
     return parameters_pnp_common(ConfParam().get_scunet(device), g_param, lambda_pnp, coeff)
 
-def get_parameters_pnp_drunet(params_exp):
+def get_parameters_pnp_drunet(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
+    if m_class.key == dcl.MPnP.key:
+        key_vec = [dcl.MPnP.key, dcl.MPnPMoreauInit.key]
+    if m_class.key == dcl.MPnPMoreauInit.key:
+        key_vec = [dcl.MPnPMoreauInit.key]
+
     res = get_param_algo_(params_exp, key_vec)
-    g_param = res[dcl.MPnPMLInit.key]['g_param']
+    g_param = res[key_vec[0]]['g_param']
     # in case the smooth approx. of TV is used in coarse scales
     lambda_pnp = res[dcl.MPnPMoreauInit.key]['lambda']
-    if 'stepsz_coeff' in params_exp.keys():
+    if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
+    elif 'stepsz_coeff' in res[key_vec[0]].keys():
+        coeff = res[key_vec[0]]['stepsz_coeff']
     else:
         coeff = None
     return parameters_pnp_common(ConfParam().get_drunet(device), g_param, lambda_pnp, coeff)
@@ -79,7 +94,7 @@ def parameters_pnp_common(denoiser, g_param, lambda_pnp, step_size_coeff=None):
     #p_pnp = _finalize_params(p_pnp, lambda_vec, stepsize_vec)
     return p_pnp
 
-def get_parameters_pnp_non_exp(params_exp):
+def get_parameters_pnp_non_exp(params_exp, m_class):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPMLInit.key]
     res = get_param_algo_(params_exp, key_vec)
@@ -119,13 +134,15 @@ def get_parameters_pnp_non_exp(params_exp):
 
     return p_pnp
 
-def get_parameters_pnp_prox(params_exp):
+def get_parameters_pnp_prox(params_exp, m_class):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MPnPProxMLInit.key]
-    res = get_param_algo_(params_exp, key_vec)
+    if m_class.key == dcl.MPnPProx.key:
+        key_vec = [m_class.key]
+    res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
     p_pnp = ConfParam().default_param()
 
-    p_pnp['g_param'] = res[dcl.MPnPProxMLInit.key]['g_param']
+    p_pnp['g_param'] = res['g_param']
     lambda_pnp = 2.0 /3.0  # see further down for this choice
     print("lambda_pnp_prox:", lambda_pnp)
     print("g_param_pnp_prox:", p_pnp['g_param'])
@@ -151,6 +168,8 @@ def get_parameters_pnp_prox(params_exp):
     p_pnp['params_multilevel'][0]['lambda'] = lambda_vec
     if 'stepsz_coeff' in params_exp.keys():
         step_size_coeff = params_exp['stepsz_coeff']
+    elif 'stepsz_coeff' in res.keys():
+        step_size_coeff = res['stepsz_coeff']
     else:
         step_size_coeff = 1.0/lambda_pnp
     if FixedParams().stepsize_coeff is not None:
@@ -163,7 +182,7 @@ def get_parameters_pnp_prox(params_exp):
     return p_pnp
 
 
-def get_parameters_red(params_exp):
+def get_parameters_red(params_exp, m_class):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MRedMLInit.key]
     res = get_param_algo_(params_exp, key_vec)
@@ -201,7 +220,7 @@ def get_parameters_red(params_exp):
     #p_red = _finalize_params(p_red, lambda_vec=lambda_vec, stepsize_vec=stepsize_vec)
     return p_red
 
-def get_parameters_tv(params_exp):
+def get_parameters_tv(params_exp, m_class):
     import utils.ml_dataclass as dcl
     key_vec = [dcl.MFbMLGD.key]
     # We assume regularization gradient is 1-Lipschitz
@@ -240,11 +259,11 @@ def get_parameters_tv(params_exp):
 
     return p_tv
 
-def get_parameters_dpir(params_exp):
+def get_parameters_dpir(params_exp, m_class):
     return {}
 
-def get_parameters_tv_coarse_pgd(params_exp):
-    p_tv = get_parameters_tv(params_exp)
+def get_parameters_tv_coarse_pgd(params_exp, m_class):
+    p_tv = get_parameters_tv(params_exp, m_class)
     p_tv['coarse_iterator'] = CPGDIteration
     return p_tv
 
@@ -262,12 +281,6 @@ def single_level_params(params_ml):
 
 # ============== multilevel specific modifiers ==============
 def set_ml_param_Moreau(params, params_exp):
-    if isinstance(params['prior'], PnP):
-        import utils.ml_dataclass as dcl
-        key_vec = [dcl.MPnPMoreauInit.key]
-        res = get_param_algo_(params_exp, key_vec)
-        params['g_param'] = res[dcl.MPnPMoreauInit.key]['g_param']
-
     params['coarse_iterator'] = CGDIteration
     iters_vec = params['params_multilevel'][0]['iters']
     gamma_vec = [1.1] * len(iters_vec)

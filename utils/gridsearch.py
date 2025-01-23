@@ -27,15 +27,16 @@ def tune_grid_all(data_in, params_exp, device):
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
     class_list = [
+        dc.MFbMLGD,
+        dc.MPnP,
         dc.MPnPMLInit,
         dc.MPnPMoreauInit,  # parametre lambda
-        dc.MFbMLGD,
-        dcn.MPnPMLDnCNNMoreauInit,
-        dcn.MPnPMLSCUNetMoreauInit,
+        dcn.MPnPSCUNet,
+        dcn.MPnPMLSCUNetInit,
     ]
     if not (params_exp['problem'] == 'mri'):
+        class_list.append(dc.MPnPProx)
         class_list.append(dc.MPnPProxMLInit)
-        class_list.append(dc.MPnPProxMoreauInit)
 
     print(f"==============================")
     print(f"GRIDSEARCH (device : {device}, pb : {params_exp['problem']})")
@@ -51,7 +52,7 @@ def tune_grid_all(data_in, params_exp, device):
                 params_exp['gridsearch'] = params_gs
                 if 'stepsz_coeff' in params_gs.keys():
                     params_exp['stepsz_coeff'] = params_gs['stepsz_coeff']
-                m_param = m_class.param_fn(params_exp)
+                m_param = m_class.param_fn(params_exp, m_class)
                 ra = RunAlgorithm(data, physics, params_exp, device=device, def_name="GS_"+m_class().key)
                 if hasattr(m_class, 'use_init') and m_class.use_init is True:
                     set_multilevel_init_params(m_param)
@@ -67,27 +68,24 @@ def tune_algo(algo, alg_class, params_exp):
     pb = params_exp["problem"]
 
     k_lambda = 'lambda'
-    par_lambda = [[1E-5, 2.0], 13]
+    par_lambda = [[1E-5, 3.0], 13]
     k_sig = 'g_param'
-    par_sig = [[0.0001, 0.30], 11]
+    par_sig = [[0.0001, 0.50], 11]
     k_coeff = 'stepsz_coeff'
-    par_coeff = [[0.0001, 2.00], 7]
+    par_coeff = [[0.0001, 3.00], 7]
 
     d_grid = {}
     recurse = 2
-    if alg_class == dc.MPnPMLInit \
-            or alg_class == dc.MPnPProxMLInit:
+    if alg_class == dc.MPnPMLInit or alg_class == dc.MPnP \
+            or alg_class == dc.MPnPProxMLInit or alg_class == dc.MPnPProx:
         d_grid[k_sig] = par_sig
         d_grid[k_coeff] = par_coeff
-    elif alg_class == dc.MPnPMoreauInit\
-            or alg_class == dc.MPnPProxMoreauInit:
-        d_grid[k_lambda] = par_lambda
-        d_grid[k_sig] = [[0.01, 0.2], 3]
-        d_grid[k_coeff] = [[0.0001, 2.00], 5]
-    elif alg_class == dcn.MPnPMLSCUNetMoreauInit \
-            or alg_class == dcn.MPnPMLDnCNNMoreauInit:
-        d_grid[k_lambda] = par_lambda
+    elif alg_class == dcn.MPnPMLSCUNetInit or alg_class == dcn.MPnPSCUNet:
         d_grid[k_coeff] = par_coeff
+    elif alg_class == dc.MPnPMoreauInit:
+        d_grid[k_lambda] = [[1E-5, 3.0], 5]
+        d_grid[k_sig] = [[0.01, 0.2], 5]
+        d_grid[k_coeff] = [[0.0001, 3.00], 5]
     elif alg_class == dc.MRedMLInit:
         d_grid[k_lambda] = par_lambda
         d_grid[k_sig] = par_sig

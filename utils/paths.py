@@ -55,6 +55,8 @@ def gen_fname(params, p_exp, alg_name):
         exp = coh + "pl_" + exp
     else:
         exp = coh + exp
+    if ConfParam().use_equivariance is False:
+        exp = "neq_" + exp
 
     from utils.parameters_global import FixedParams
     exp = FixedParams().get_str() + exp

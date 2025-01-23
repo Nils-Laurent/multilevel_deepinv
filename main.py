@@ -59,7 +59,7 @@ def test_settings(data_in, params_exp, device, benchmark=False, physics=None, li
     rm = ResultManager(b_dataset=b_dataset)
 
     for m_class in list_method:
-        m_param = m_class.param_fn(params_exp)
+        m_param = m_class.param_fn(params_exp, m_class)
         ra = RunAlgorithm(data, physics, params_exp, device=device, return_timer=benchmark, def_name=m_class().key)
         if hasattr(m_class, 'use_init') and m_class.use_init is True:
             set_multilevel_init_params(m_param)
@@ -177,7 +177,8 @@ def main_test(
 def main_tune(device, plot_and_exit=False):
     #pb_list = ['inpainting', 'demosaicing', 'blur', 'mri']
     #pb_list = ['inpainting', 'demosaicing', 'blur', 'denoising']
-    pb_list = ['denoising']
+    #pb_list = ['denoising']
+    pb_list = ['inpainting', 'demosaicing']
     noise_pow_vec = [0.1]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
@@ -234,9 +235,9 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
+    return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
@@ -294,13 +295,16 @@ def main_fn():
 
     #return None
     ConfParam().reset()
+    ConfParam().iters_fine = 30
+    #ConfParam().use_equivariance = False
     ConfParam().inpainting_ratio = 0.5  # keep 50%
 
+    methods_init = [MPnP]
     main_test(
         'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
+        use_file_data=False, benchmark=True, cpu=False, device=device, target = 1
     )
-    #return None
+    return None
     ConfParam().reset()
     ConfParam().inpainting_ratio = 0.8  # keep 80%
     main_test(
