@@ -123,3 +123,6 @@ def get_param_algo_(params_exp, method_key_vec):
 def red_drunet_lipschitz():
     # this is for f(x) = (DRUNet_{sigma} - Identity)(x)
     return 1.6
+
+def use_init(m_class):
+    return hasattr(m_class, 'use_init') and (m_class.use_init is True)

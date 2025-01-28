@@ -235,25 +235,59 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
-    return None
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
         MFb, MFbMLGD,
         MDPIR, MDPIRLong,
     ]
-    methods_alt = [MPnPDnCNN, MPnPMLDnCNNInit, MPnPSCUNet, MPnPMLSCUNetInit, MPnPProx, MPnPProxMLInit]
-    methods_alt_moreau = [MPnPMLDnCNNMoreauInit, MPnPMLSCUNetMoreauInit, MPnPProxMoreauInit]
-    methods_ne = [MPnPNE, MPnPNEInit, MPnPNEML, MPnPNEMLInit, MPnPNEMoreau, MPnPNEMoreauInit]
+    methods_alt = [MPnPSCUNet, MPnPMLSCUNetInit, MPnPProx, MPnPProxMLInit]
 
-    methods_init = methods_base + methods_alt + methods_alt_moreau
-    methods_img = [MPnP, MPnPMLInit, MPnPMLDnCNNInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD, MPnPProx]
+    methods_init = methods_base + methods_alt
+    methods_img = [MPnP, MPnPProx, MPnPMLInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD]
     RunAlgorithm.class_vec_save_img = methods_img
 
+    ConfParam().reset()
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+
+    ConfParam().reset()
+    ConfParam().inpainting_ratio = 0.5  # keep 50%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    return None
+
+    ConfParam().reset()
+    ConfParam().inpainting_ratio = 0.8  # keep 80%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    ConfParam().reset()
+    ConfParam().inpainting_ratio = 0.9  # keep 90%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    return None
+
+    # -- blur ----------------------------------------------------------------
+    ConfParam().reset()
+    main_test(
+        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+    return None
+
     ## -- Poisson ----------------------------------------------------------------
-    #ConfParam().reset()
+    ConfParam().reset()
     #ConfParam().iters_fine = 200
     ##ConfParam().iml_max_iter = 4
 
@@ -268,83 +302,6 @@ def main_fn():
     #    'denoising', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init_pl, test_dataset=False,
     #    use_file_data=False, benchmark=True, cpu=False, device=device#, target=3
     #)
-    #return None
-
-    #methods_init = methods_prox
-    # -- inpainting ----------------------------------------------------------------
-    #ConfParam().reset()
-    #ConfParam().inpainting_ratio = 0.5  # keep 50%
-    #for step_sz in [0.1, 0.3, 0.6, 0.9]:
-    #    for g_par in [0.02, 0.05, 0.08, 0.11]:
-    #        FixedParams().g_param = g_par
-    #        FixedParams().stepsize_coeff = step_sz
-    #        methods_test = [MPnP, MPnPMLInit, MPnPProx, MPnPProxMLInit]
-    #        main_test(
-    #            'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_test, test_dataset=False,
-    #            use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #        )
-    #        FixedParams().reset()
-    #for step_sz in [0.1, 0.3, 0.6, 0.9]:
-    #    FixedParams().stepsize_coeff = step_sz
-    #    methods_test = [MPnPDnCNN, MPnPMLDnCNNInit, MPnPSCUNet, MPnPMLSCUNetInit]
-    #    main_test(
-    #        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_test, test_dataset=False,
-    #        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #    )
-    #    FixedParams().reset()
-
-    #return None
-    ConfParam().reset()
-    ConfParam().iters_fine = 30
-    #ConfParam().use_equivariance = False
-    ConfParam().inpainting_ratio = 0.5  # keep 50%
-
-    methods_init = [MPnP]
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target = 1
-    )
-    return None
-    ConfParam().reset()
-    ConfParam().inpainting_ratio = 0.8  # keep 80%
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    #return None
-    ConfParam().reset()
-    ConfParam().inpainting_ratio = 0.9  # keep 90%
-    main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    #return None
-
-    # -- demosaicing ----------------------------------------------------------------
-    #ConfParam().reset()
-    #for step_sz in [0.8, 0.9, 1.0, 1.1, 1.2]:
-    #    FixedParams().stepsize_coeff = step_sz
-    #    methods_test = [MPnP, MPnPMLInit, MPnPProx, MPnPProxMLInit]
-    #    main_test(
-    #        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_test, test_dataset=False,
-    #        use_file_data=False, benchmark=True, cpu=False, device=device, target=3
-    #    )
-    #    FixedParams().reset()
-    #return None
-
-    ConfParam().reset()
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
-    return None
-
-    # -- blur ----------------------------------------------------------------
-    ConfParam().reset()
-    main_test(
-        'blur', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
     return None
 
     # -- MRI ----------------------------------------------------------------
@@ -367,18 +324,11 @@ def main_fn():
     return None
 
     # -- motion blur ----------------------------------------------------------------
-    methods_standard = [
-        MPnP, MPnPML, MPnPMoreau,
-        MPnPProx, MPnPProxML, MPnPProxMoreau,
-        MFb, MFbMLGD,
-        MRed, MRedML,MRedMLMoreau,
-        MDPIR,
-    ]
+    ConfParam().reset()
     # something is strange here
     # when win = SincFilter, the algorithm is very slow
     # when using BlackmannHarris it is normal
     # the probem also seems very difficult from multilevel perspective
-    #ConfParam().reset()
     #ConfParam().levels = 3
     #methods_init = [MPnPML, MPnPMoreau]
     #main_test(
@@ -390,23 +340,6 @@ def main_fn():
     # 1 create degraded datasets
     #create_measure_data('blur', dataset_name='...', noise_pow=0.2, img_size=div2k_shape)
 
-    # 2 perform grid search
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
-
-    # 3 evaluate methods on single image
-    # e.g. windows for downsampling CFir(), BlackmannHarris(), SincFilter()
-
-    # 4 statistical tests
-    #main_test(
-    #    'blur', img_size=set3c_sz, dataset_name='set3c', noise_pow=0.1, m_vec=m_vec_pnp, test_dataset=True,
-    #    use_file_data=True, benchmark=True, cpu=False
-    #)
-
-    # FIG GUILLAUME : noise = 0.01, blur_pow = 3.6 ?
-    #main_test('blur', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
-    #main_test('inpainting', img_size=2048, dataset_name='astro_ml', benchmark=True, test_dataset=False, noise_pow=0.01)
 
 if __name__ == "__main__":
     main_fn()

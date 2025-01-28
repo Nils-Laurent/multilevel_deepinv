@@ -6,7 +6,7 @@ from multilevel.coarse_pgd import CPGDIteration
 from multilevel.prior import TVPrior as CustTV
 from utils.parameters_global import ConfParam, FixedParams
 from utils.parameters_utils import get_param_algo_, prior_lipschitz, _set_iter_vec, \
-    standard_multilevel_param
+    standard_multilevel_param, use_init
 
 def get_parameters_pnp_dncnn(params_exp, m_class):
     device = params_exp['device']
@@ -47,10 +47,10 @@ def get_parameters_pnp_scunet(params_exp, m_class):
 def get_parameters_pnp_drunet(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass as dcl
-    key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
-    if m_class.key == dcl.MPnP.key:
-        key_vec = [dcl.MPnP.key, dcl.MPnPMoreauInit.key]
-    if m_class.key == dcl.MPnPMoreauInit.key:
+    key_vec = [dcl.MPnP.key, dcl.MPnPMoreauInit.key]
+    if use_init(m_class) is True:
+        key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
+    elif m_class.key == dcl.MPnPMoreauInit.key:
         key_vec = [dcl.MPnPMoreauInit.key]
 
     res = get_param_algo_(params_exp, key_vec)
@@ -136,9 +136,9 @@ def get_parameters_pnp_non_exp(params_exp, m_class):
 
 def get_parameters_pnp_prox(params_exp, m_class):
     import utils.ml_dataclass as dcl
-    key_vec = [dcl.MPnPProxMLInit.key]
-    if m_class.key == dcl.MPnPProx.key:
-        key_vec = [m_class.key]
+    key_vec = [m_class.key]
+    if use_init(m_class) is True:
+        key_vec = [dcl.MPnPProxMLInit.key]
     res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
     p_pnp = ConfParam().default_param()
 

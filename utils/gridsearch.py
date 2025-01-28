@@ -76,10 +76,12 @@ def tune_algo(algo, alg_class, params_exp):
 
     d_grid = {}
     recurse = 2
-    if alg_class == dc.MPnPMLInit or alg_class == dc.MPnP \
-            or alg_class == dc.MPnPProxMLInit or alg_class == dc.MPnPProx:
+    if alg_class == dc.MPnPMLInit or alg_class == dc.MPnP:
         d_grid[k_sig] = par_sig
         d_grid[k_coeff] = par_coeff
+    elif alg_class == dc.MPnPProxMLInit or alg_class == dc.MPnPProx:
+        d_grid[k_sig] = par_sig
+        d_grid[k_coeff] = [[1.0, 2.0], 5]
     elif alg_class == dcn.MPnPMLSCUNetInit or alg_class == dcn.MPnPSCUNet:
         d_grid[k_coeff] = par_coeff
     elif alg_class == dc.MPnPMoreauInit:
