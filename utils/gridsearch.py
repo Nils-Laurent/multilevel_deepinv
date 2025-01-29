@@ -29,14 +29,22 @@ def tune_grid_all(data_in, params_exp, device):
     class_list = [
         dc.MFbMLGD,
         dc.MPnP,
+        dc.MPnPInit,
+        dc.MPnPML,
         dc.MPnPMLInit,
-        dc.MPnPMoreauInit,  # parametre lambda
+        dc.MPnPMoreau,
+        dc.MPnPMoreauInit,
+        dc.MPnPProx,
+        dc.MPnPProxMLInit,
+        dcn.MPnPDnCNN,
+        dcn.MPnPMLDnCNNInit,
         dcn.MPnPSCUNet,
         dcn.MPnPMLSCUNetInit,
     ]
-    if not (params_exp['problem'] == 'mri'):
-        class_list.append(dc.MPnPProx)
-        class_list.append(dc.MPnPProxMLInit)
+
+    #if not (params_exp['problem'] == 'mri'):
+    #    class_list.append(dc.MPnPProx)
+    #    class_list.append(dc.MPnPProxMLInit)
 
     print(f"==============================")
     print(f"GRIDSEARCH (device : {device}, pb : {params_exp['problem']})")
@@ -76,15 +84,17 @@ def tune_algo(algo, alg_class, params_exp):
 
     d_grid = {}
     recurse = 2
-    if alg_class == dc.MPnPMLInit or alg_class == dc.MPnP:
+    if alg_class == dc.MPnPML or alg_class == dc.MPnPMLInit \
+            or alg_class == dc.MPnP or alg_class == dc.MPnPInit:
         d_grid[k_sig] = par_sig
         d_grid[k_coeff] = par_coeff
     elif alg_class == dc.MPnPProxMLInit or alg_class == dc.MPnPProx:
         d_grid[k_sig] = par_sig
         d_grid[k_coeff] = [[1.0, 2.0], 5]
-    elif alg_class == dcn.MPnPMLSCUNetInit or alg_class == dcn.MPnPSCUNet:
+    elif alg_class == dcn.MPnPMLSCUNetInit or alg_class == dcn.MPnPSCUNet \
+            or alg_class == dcn.MPnPMLDnCNNInit or alg_class == dcn.MPnPDnCNN:
         d_grid[k_coeff] = par_coeff
-    elif alg_class == dc.MPnPMoreauInit:
+    elif alg_class == dc.MPnPMoreauInit or alg_class == dc.MPnPMoreau:
         d_grid[k_lambda] = [[1E-5, 3.0], 5]
         d_grid[k_sig] = [[0.01, 0.2], 5]
         d_grid[k_coeff] = [[0.0001, 3.00], 5]
@@ -103,6 +113,8 @@ def _tune(algo, d_grid, recurse, prec=None, log=False):
     TEST_FLAG = False
 
     recurse = recurse - 1
+    if TEST_FLAG is True:
+        recurse = 0
     sz = []
     params_name = d_grid.keys()
     axis_vec = []

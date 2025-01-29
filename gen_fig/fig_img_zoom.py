@@ -57,7 +57,7 @@ def img_zoom_gen(file_name, ext, area):
     # Display the result
     #plt.show(block=False)
 
-def zoomed_images(pb):
+def zoomed_images(pb, gen_grid=False):
     zoom_area = {
         '0': [40, 780, 80, 80],
         '1': [50, 800, 80, 80],
@@ -78,13 +78,12 @@ def zoomed_images(pb):
         'FB_TV_ML' + '_' + mlevel_suffix,
         'PnP',
         'PnP_ML_INIT' + '_' + mlevel_suffix,
-        'PnP_ML_DnCNN_init' + '_' + mlevel_suffix,
+        #'PnP_ML_DnCNN_init' + '_' + mlevel_suffix,
         'PnP_ML_SCUNet_init' + '_' + mlevel_suffix,
         'PnP_prox_ML_INIT' + '_' + mlevel_suffix,
         'PnP_prox',
     ]
 
-    gen_grid = True
     scale = 3
     fig, axarr = plt.subplots(nrows=1, ncols=len(img_id), figsize=(scale*len(img_id), scale*1))
 
@@ -110,8 +109,10 @@ def zoomed_images(pb):
 
 
 if __name__ == '__main__':
-    zoomed_images('inpainting0.5')
-    zoomed_images('inpainting0.8')
-    zoomed_images('inpainting0.9')
-    zoomed_images('demosaicing')
-    zoomed_images('blur')
+    #zoomed_images('inpainting0.8')
+    #zoomed_images('inpainting0.9')
+    #zoomed_images('blur')
+    zoomed_images('inpainting0.5', gen_grid=False)
+    zoomed_images('demosaicing', gen_grid=False)
+    zoomed_images('inpainting0.5', gen_grid=True)
+    zoomed_images('demosaicing', gen_grid=True)

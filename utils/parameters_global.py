@@ -58,7 +58,8 @@ class ConfParam(metaclass=Singleton):
         self.iter_coarse_tv = 3
         self.iter_coarse_red = 3
         self.inpainting_ratio = 0.5
-        self.use_equivariance = True
+        #self.use_equivariance = True
+        self.use_equivariance = False
 
     def get_drunet(self, device):
         # DRUNet : dilated residual UNet

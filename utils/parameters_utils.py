@@ -10,7 +10,10 @@ from deepinv.optim.prior import ScorePrior, RED, PnP, TVPrior
 def standard_multilevel_param(params, it_vec, lambda_fine):
     levels = len(it_vec)
     ml_dict = {"iters": it_vec}
-    lambda_vec = [lambda_fine / 4 ** k for k in range(len(it_vec)-1, -1, -1)]
+    if lambda_fine is None:
+        lambda_vec = [None] * levels
+    else:
+        lambda_vec = [lambda_fine / 4 ** k for k in range(len(it_vec)-1, -1, -1)]
     ml_dict['lambda'] = lambda_vec  # smoothing parameter
     params['params_multilevel'] = [ml_dict]
     params['level'] = levels

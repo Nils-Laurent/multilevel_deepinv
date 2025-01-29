@@ -12,10 +12,13 @@ def get_parameters_pnp_dncnn(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass_denoiser as dcn
     key_vec = [dcn.MPnPMLDnCNNMoreauInit.key]
+    if m_class.key == dcn.MPnPDnCNN.key:
+        key_vec = [dcn.MPnPDnCNN.key]
+
     res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
     g_param = 0  # NOT USED (DnCNN is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
-    lambda_pnp = res['lambda']
+    lambda_pnp = 0
     if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
     elif 'stepsz_coeff' in res.keys():
@@ -34,7 +37,6 @@ def get_parameters_pnp_scunet(params_exp, m_class):
     res = get_param_algo_(params_exp, key_vec)[key_vec[0]]
     g_param = 0  # Not used (SCUNet is a blind model)
     # in case the smooth approx. of TV is used in coarse scales
-    #lambda_pnp = res[dcn.MPnPMLSCUNetMoreauInit.key]['lambda']
     lambda_pnp = 0
     if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
@@ -47,16 +49,21 @@ def get_parameters_pnp_scunet(params_exp, m_class):
 def get_parameters_pnp_drunet(params_exp, m_class):
     device = params_exp['device']
     import utils.ml_dataclass as dcl
-    key_vec = [dcl.MPnP.key, dcl.MPnPMoreauInit.key]
-    if use_init(m_class) is True:
-        key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
-    elif m_class.key == dcl.MPnPMoreauInit.key:
-        key_vec = [dcl.MPnPMoreauInit.key]
+    key_vec = [m_class.key]
+    #key_vec = [dcl.MPnP.key, dcl.MPnPMoreauInit.key]
+    #if use_init(m_class) is True:
+    #    key_vec = [dcl.MPnPMLInit.key, dcl.MPnPMoreauInit.key]
+    #elif m_class.key == dcl.MPnPMoreauInit.key:
+    #    key_vec = [dcl.MPnPMoreauInit.key]
 
     res = get_param_algo_(params_exp, key_vec)
     g_param = res[key_vec[0]]['g_param']
     # in case the smooth approx. of TV is used in coarse scales
-    lambda_pnp = res[dcl.MPnPMoreauInit.key]['lambda']
+    if m_class.key == dcl.MPnPMoreauInit.key or m_class.key == dcl.MPnPMoreau.key:
+        lambda_pnp = res[m_class.key]['lambda']
+    else:
+        lambda_pnp = 0
+
     if 'stepsz_coeff' in params_exp.keys():  # gridsearch
         coeff = params_exp['stepsz_coeff']
     elif 'stepsz_coeff' in res[key_vec[0]].keys():

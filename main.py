@@ -235,9 +235,9 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
+    return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
