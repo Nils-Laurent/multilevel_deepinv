@@ -198,6 +198,7 @@ def main_tune(device, plot_and_exit=False):
             ConfParam().coarse_iters_ini = 1
             ConfParam().use_complex_denoiser = True
             ConfParam().denoiser_in_channels = 1  # separated real and imag parts
+        ConfParam().use_equivariance = True
         #dataset_name = 'gridsearch'  # high resolution images
         #img_size = 1024
         dataset_name = 'set3c'  # fast (small images)
@@ -235,9 +236,9 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
-    return None
+    #main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
@@ -251,15 +252,37 @@ def main_fn():
     RunAlgorithm.class_vec_save_img = methods_img
 
     ConfParam().reset()
+    ConfParam().use_equivariance = True
     main_test(
         'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device
     )
 
     ConfParam().reset()
+    ConfParam().use_equivariance = True
     ConfParam().inpainting_ratio = 0.5  # keep 50%
     main_test(
         'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
+
+    return None
+    RunAlgorithm.class_vec_save_img = []
+    RunAlgorithm.class_vec_save_img_target = [MPnP]
+    methods_init = methods_base
+
+    #ConfParam().reset()
+    #ConfParam().use_equivariance = True
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device
+    #)
+
+    ConfParam().reset()
+    ConfParam().use_equivariance = True
+    ConfParam().inpainting_ratio = 0.5  # keep 50%
+    main_test(
+        'inpainting', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device
     )
     return None

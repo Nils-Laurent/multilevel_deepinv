@@ -36,8 +36,8 @@ def tune_grid_all(data_in, params_exp, device):
         dc.MPnPMoreauInit,
         dc.MPnPProx,
         dc.MPnPProxMLInit,
-        dcn.MPnPDnCNN,
-        dcn.MPnPMLDnCNNInit,
+        #dcn.MPnPDnCNN,
+        #dcn.MPnPMLDnCNNInit,
         dcn.MPnPSCUNet,
         dcn.MPnPMLSCUNetInit,
     ]

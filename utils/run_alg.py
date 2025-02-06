@@ -28,6 +28,7 @@ from utils.paths import gen_fname, get_out_dir
 class RunAlgorithm:
     class_vec_save_img = []
     save_all_img = False  # override class_vec_save_img
+    class_vec_save_img_target = []
 
     def __init__(
         self,
@@ -59,6 +60,7 @@ class RunAlgorithm:
         self.alg_name = def_name
 
         self.save_img = False
+        self.save_img_target = False
 
         self.is_gridsearch = False
         if 'gridsearch' in params_exp.keys():
@@ -67,6 +69,8 @@ class RunAlgorithm:
     def run_algorithm(self, m_class, params_algo):
         if m_class in RunAlgorithm.class_vec_save_img or RunAlgorithm.save_all_img:
             self.save_img = True
+        elif m_class in RunAlgorithm.class_vec_save_img_target:
+            self.save_img_target = True
 
         if hasattr(m_class, "edit_fn"):
             for fn in m_class.edit_fn:
@@ -256,6 +260,10 @@ class RunAlgorithm:
 
             img_name = join(get_out_dir(), img_prefix + ".png")
             save_image(xe_disp[0, ::]/vmax, img_name)
+        elif self.save_img_target is True:
+            img_name = join(get_out_dir(), exp_prefix + "_x_truth.png")
+            save_image(x_disp[0, ::]/vmax, img_name)
+
 
         if p_exp['problem'] == 'mri':
             img_name = join(get_out_dir(), exp_prefix + "_mask0.png")
