@@ -95,14 +95,6 @@ def inpainting_hyper_param(noise_pow, gs_key):
         [0.1, 'PnP_ML_DnCNN_init', {'stepsz_coeff':2.5, }],  # PSNR = nan
         [0.1, 'PnP_SCUNet', {'stepsz_coeff':2.0, }],  # PSNR = 22.24
         [0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':1.5, }],  # PSNR = 25.50
-        #[0.1, 'FB_TV_ML', {'lambda':0.125, }],  # PSNR = 23.45
-        #[0.1, 'PnP', {'g_param':0.2, 'stepsz_coeff':1.83, }],  # PSNR = 27.81
-        #[0.1, 'PnP_ML_INIT', {'g_param':0.0701, 'stepsz_coeff':0.833, }],  # PSNR = 29.17
-        #[0.1, 'PnP_ML_Moreau_INIT', {'lambda':2.44, 'g_param':0.0812, 'stepsz_coeff':1.13, }],  # PSNR = 29.12
-        #[0.1, 'PnP_SCUNet', {'stepsz_coeff':2.0, }],  # PSNR = 22.84
-        #[0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':1.67, }],  # PSNR = 25.50
-        #[0.1, 'PnP_prox', {'g_param':0.13, 'stepsz_coeff':1.62, }],  # PSNR = 29.06
-        #[0.1, 'PnP_prox_ML_INIT', {'g_param':0.12, 'stepsz_coeff':1.5, }],  # PSNR = 29.12
     ]
     if ConfParam().use_equivariance is True:
         gs_vec = [
@@ -140,14 +132,6 @@ def demosaicing_hyper_param(noise_pow, gs_key):
         [0.1, 'PnP_ML_DnCNN_init', {'stepsz_coeff':2.58, }],  # PSNR = nan
         [0.1, 'PnP_SCUNet', {'stepsz_coeff':2.33, }],  # PSNR = 25.09
         [0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':2.0, }],  # PSNR = 25.02
-        #[0.1, 'FB_TV_ML', {'lambda':0.0833, }],  # PSNR = 22.19
-        #[0.1, 'PnP', {'g_param':0.15, 'stepsz_coeff':2.0, }],  # PSNR = 28.49
-        #[0.1, 'PnP_ML_INIT', {'g_param':0.0801, 'stepsz_coeff':1.17, }],  # PSNR = 29.23
-        #[0.1, 'PnP_ML_Moreau_INIT', {'lambda':2.25, 'g_param':0.0813, 'stepsz_coeff':2.25, }],  # PSNR = 28.47
-        #[0.1, 'PnP_SCUNet', {'stepsz_coeff':1.83, }],  # PSNR = 24.87
-        #[0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':2.0, }],  # PSNR = 25.01
-        #[0.1, 'PnP_prox', {'g_param': 0.28, 'stepsz_coeff': 2.0, }],  # PSNR = 26.54
-        #[0.1, 'PnP_prox_ML_INIT', {'g_param': 0.1, 'stepsz_coeff': 1.62, }],  # PSNR = 29.11
     ]
     if ConfParam().use_equivariance is True:
         gs_vec = [
