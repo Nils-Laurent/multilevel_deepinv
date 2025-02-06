@@ -4,7 +4,7 @@ import requests
 from PIL import Image
 from io import BytesIO
 import torchvision.transforms as transforms
-from deepinv.models import DRUNet
+from deepinv.models import DRUNet, EquivariantDenoiser
 from deepinv.optim import PnP, optim_builder, L2
 from deepinv.optim.optim_iterators import PGDIteration
 from deepinv.physics import Demosaicing, GaussianNoise, Inpainting
@@ -18,6 +18,7 @@ def main_fn():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
     denoiser = DRUNet(in_channels=3, out_channels=3, device=device, pretrained="download")
+    denoiser = EquivariantDenoiser(denoiser)
     prior = PnP(denoiser=denoiser)
     data_fidelity = L2()
 
