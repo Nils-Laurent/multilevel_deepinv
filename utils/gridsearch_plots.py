@@ -78,9 +78,21 @@ def print_gridsearch_max(key_, d_tune, keys, noise_pow):
     psnr_tensor = d_tune[-1]['cost']
     coord_vec = d_tune[-1]['coord']
 
-    max_v = torch.max(psnr_tensor.view(-1))
-    max_j = torch.argmax(psnr_tensor.view(-1))
-    max_i = torch.unravel_index(max_j, psnr_tensor.shape)
+    max_v = -torch.inf
+    for n in range(0, len(d_tune)):
+        psnr_tmp = d_tune[n]['cost']
+        ftens = psnr_tmp[~torch.isnan(psnr_tmp)]
+
+        if ftens.numel() == 0:
+            break
+        if torch.max(ftens) < max_v:
+            break
+
+        psnr_tensor = torch.nan_to_num(d_tune[n]['cost'], -torch.inf)
+        max_v = torch.max(psnr_tensor.view(-1))
+        coord_vec = d_tune[n]['coord']
+        max_j = torch.argmax(psnr_tensor.view(-1))
+        max_i = torch.unravel_index(max_j, psnr_tensor.shape)
 
     print(f"[{noise_pow}, '{key_}', ", end="")
     print("{", end="")

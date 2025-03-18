@@ -58,11 +58,13 @@ def img_zoom_gen(file_name, ext, area):
     #plt.show(block=False)
 
 def zoomed_images(pb, gen_grid=False):
+    w = 80
+    h = 80
     zoom_area = {
-        '0': [40, 780, 80, 80],
-        '1': [50, 800, 80, 80],
-        '2': [380, 190, 80, 80],
-        '3': [720, 20, 80, 80],
+        #     off_x, off_y, w, h
+        '59': [70, 500, w, h],
+        '66': [200, 775, w, h],
+        '135': [150, 750, w, h],
     }
     img_id = zoom_area.keys()
 
@@ -91,7 +93,7 @@ def zoomed_images(pb, gen_grid=False):
         col_k = -1
         for k in img_id:
             col_k += 1
-            prefix_pb = 'ct_cset_' + k + '_n0.1_' + pb
+            prefix_pb = 'eq_ct_LIU4K-v2_' + k + '_n0.1_' + pb
             file_n = prefix_pb + '_' + m
             print(file_n)
             if gen_grid is True:
@@ -101,11 +103,12 @@ def zoomed_images(pb, gen_grid=False):
             else:
                 img_zoom_gen(file_n, ext="png", area=zoom_area[k])
 
-        plt.tight_layout()
-        plt.subplots_adjust(wspace=0, hspace=0)
+        if gen_grid is True:
+            plt.tight_layout()
+            plt.subplots_adjust(wspace=0, hspace=0)
 
-        png_name = 'zoom_mult_ct_cset_n0.1_' + pb + '_' + m
-        fig.savefig(png_name+".png", dpi=256 / 6, bbox_inches='tight', pad_inches=0)
+            png_name = 'zoom_mult_ct_cset_n0.1_' + pb + '_' + m
+            fig.savefig(png_name+".png", dpi=256 / 6, bbox_inches='tight', pad_inches=0)
 
 
 if __name__ == '__main__':
@@ -114,5 +117,5 @@ if __name__ == '__main__':
     #zoomed_images('blur')
     zoomed_images('inpainting0.5', gen_grid=False)
     zoomed_images('demosaicing', gen_grid=False)
-    zoomed_images('inpainting0.5', gen_grid=True)
-    zoomed_images('demosaicing', gen_grid=True)
+    #zoomed_images('inpainting0.5', gen_grid=True)
+    #zoomed_images('demosaicing', gen_grid=True)

@@ -44,7 +44,7 @@ class ConfParam(metaclass=Singleton):
     def reset(self):
         self.win = SincFilter()
         self.levels = 4
-        self.iters_fine = 200
+        self.iters_fine = 2 * 5 * 400
         self.iml_max_iter = 2
         self.coarse_iters_ini = 5
         self.use_complex_denoiser = False

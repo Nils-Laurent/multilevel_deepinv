@@ -151,7 +151,11 @@ def main_test(
         elif isinstance(data, Dataset):
             id_img = 0
             for t in data:
-                if not (target is None):
+                if isinstance(target, list):
+                    if not (id_img in target):
+                        id_img += 1
+                        continue
+                elif not (target is None):
                     if id_img < target:
                         id_img += 1
                         continue
@@ -201,7 +205,8 @@ def main_tune(device, plot_and_exit=False):
         ConfParam().use_equivariance = True
         #dataset_name = 'gridsearch'  # high resolution images
         #img_size = 1024
-        dataset_name = 'set3c'  # fast (small images)
+        #dataset_name = 'set3c'  # 3 rgb images 256x256
+        dataset_name = 'set_10'  # 10 rgb images 256x256
         img_size = 256
         r_pb = main_test(pb, dataset_name=dataset_name, img_size=img_size, noise_pow=noise_pow,
                          tune=True, use_file_data=False, device=device)
@@ -251,32 +256,38 @@ def main_fn():
     methods_img = [MPnP, MPnPProx, MPnPMLInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD]
     RunAlgorithm.class_vec_save_img = methods_img
 
+    targ_vec = [59, 66, 135]
+    #targ_vec = [66]
+
+    methods_2k = [MPnP, MPnPInit, MPnPMLInit]
+
     ConfParam().reset()
     ConfParam().use_equivariance = True
-    main_test(
-        'demosaicing', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
-    )
+    #main_test(
+    #    'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_2k, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
+    #)
 
+    targ_vec = [135]
     ConfParam().reset()
     ConfParam().use_equivariance = True
     ConfParam().inpainting_ratio = 0.5  # keep 50%
     main_test(
-        'inpainting', img_size=1024, dataset_name='cset', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device
+        'inpainting', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_2k, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
     )
-
     return None
+
     RunAlgorithm.class_vec_save_img = []
-    RunAlgorithm.class_vec_save_img_target = [MPnP]
+    RunAlgorithm.class_vec_save_img_target = []
     methods_init = methods_base
 
-    #ConfParam().reset()
-    #ConfParam().use_equivariance = True
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device
-    #)
+    ConfParam().reset()
+    ConfParam().use_equivariance = True
+    main_test(
+        'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device
+    )
 
     ConfParam().reset()
     ConfParam().use_equivariance = True
