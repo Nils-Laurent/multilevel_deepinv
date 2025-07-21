@@ -111,14 +111,6 @@ def inpainting_hyper_param(noise_pow, gs_key):
             [0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':1.67, }],  # PSNR = 25.53
         ]
 
-    EXP_2K = True
-    if EXP_2K is True:
-        gs_vec = [
-            [0.1, 'PnP', {'g_param': 0.2, 'stepsz_coeff': 1.5, }],  # PSNR = 24.36
-            [0.1, 'PnP_INIT', {'g_param': 0.1, 'stepsz_coeff': 1.5, }],  # PSNR = 25.28
-            [0.1, 'PnP_ML_INIT', {'g_param': 0.1, 'stepsz_coeff': 1.0, }],  # PSNR = 25.03
-        ]
-
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
     if isinstance(res, dict):
         return res
@@ -154,14 +146,6 @@ def demosaicing_hyper_param(noise_pow, gs_key):
             [0.1, 'PnP_prox_ML_INIT', {'g_param':0.1, 'stepsz_coeff':1.62, }],  # PSNR = 29.14
             [0.1, 'PnP_SCUNet', {'stepsz_coeff':2.0, }],  # PSNR = 25.07
             [0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':2.17, }],  # PSNR = 25.05
-        ]
-
-    EXP_2K = True
-    if EXP_2K is True:
-        gs_vec = [
-            [0.1, 'PnP', {'g_param': 0.15, 'stepsz_coeff': 2.0, }],  # PSNR = 24.97
-            [0.1, 'PnP_INIT', {'g_param': 0.15, 'stepsz_coeff': 2.0, }],  # PSNR = 26.25
-            [0.1, 'PnP_ML_INIT', {'g_param': 0.1, 'stepsz_coeff': 1.5, }],  # PSNR = 26.75
         ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)

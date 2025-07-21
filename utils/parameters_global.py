@@ -44,7 +44,7 @@ class ConfParam(metaclass=Singleton):
     def reset(self):
         self.win = SincFilter()
         self.levels = 4
-        self.iters_fine = 2 * 5 * 400
+        self.iters_fine = 400
         self.iml_max_iter = 2
         self.coarse_iters_ini = 5
         self.use_complex_denoiser = False
@@ -53,10 +53,12 @@ class ConfParam(metaclass=Singleton):
         self.denoiser_in_channels = 3
         self.s1coherent_algorithm = True
         self.s1coherent_init = False
-        self.iter_coarse_pnp_map = 3
-        self.iter_coarse_pnp_pgd = 3
-        self.iter_coarse_tv = 3
-        self.iter_coarse_red = 3
+
+        iter_coarse = 3
+        self.iter_coarse_pnp_map = iter_coarse
+        self.iter_coarse_pnp_pgd = iter_coarse
+        self.iter_coarse_tv = iter_coarse
+        self.iter_coarse_red = iter_coarse
         self.inpainting_ratio = 0.5
         self.use_equivariance = True
 

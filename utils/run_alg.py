@@ -222,6 +222,15 @@ class RunAlgorithm:
         vmax = torch.max(x_disp)
         img_prefix, exp_prefix = gen_fname(params_algo, p_exp, self.alg_name)
 
+        #for ij in range(1, 11):
+        #    model.max_iter = ij
+        #    model.fixed_point.max_iter = ij
+        #    x_ij, met_ij = model(y, self.physics, x_gt=x_ref, compute_metrics=True, time_iter=ij)
+        #    img_name_ij = join(get_out_dir(), img_prefix + f"_it{ij}.png")
+        #    vmax_ij = torch.max(x_ij)
+        #    save_image(x_ij[0, ::]/vmax_ij, img_name_ij)
+        #return None
+
         if p_exp['problem'] == 'mri':
             if self.x0 is not None:
                 x0_disp = torch.norm(self.x0, dim=1, p=2, keepdim=True)

@@ -253,29 +253,42 @@ def main_fn():
     methods_alt = [MPnPSCUNet, MPnPMLSCUNetInit, MPnPProx, MPnPProxMLInit]
 
     methods_init = methods_base + methods_alt
-    methods_img = [MPnP, MPnPProx, MPnPMLInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD]
+    methods_init = methods_base
+    #methods_img = [MPnP, MPnPProx, MPnPMLInit, MPnPMLSCUNetInit, MPnPProxMLInit, MDPIRLong, MFbMLGD]
+    methods_img = [
+        MPnP, MPnPInit, MPnPMLInit, MPnPMoreauInit, MFb, MFbMLGD, MDPIR, MDPIRLong
+    ]
     RunAlgorithm.class_vec_save_img = methods_img
 
-    targ_vec = [59, 66, 135]
-    #targ_vec = [66]
+    # targ_vec = [59, 66, 135]
+    #targ_vec = [112, 133, 194]
+    #targ_vec = [52]
+    #targ_vec = [64, 76, 139]
+    #targ_vec = [65, 159]
+    #targ_vec = [41]
+    #targ_vec = [170]
+    #targ_vec = [197]
+    targ_vec = [197, 133, 194]
+    methods_init = [MPnP, MPnPMoreauInit, MPnPMLInit]
+    methods_init = [MDPIRLong, MFbMLGD]
+    methods_init = [MFbMLGD]
 
-    methods_2k = [MPnP, MPnPInit, MPnPMLInit]
+    #methods_2k = [MPnP, MPnPInit, MPnPMLInit]
 
     ConfParam().reset()
     ConfParam().use_equivariance = True
-    #main_test(
-    #    'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_2k, test_dataset=False,
-    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
-    #)
-
-    targ_vec = [135]
-    ConfParam().reset()
-    ConfParam().use_equivariance = True
-    ConfParam().inpainting_ratio = 0.5  # keep 50%
     main_test(
-        'inpainting', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_2k, test_dataset=False,
+        'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
         use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
     )
+
+    #ConfParam().reset()
+    #ConfParam().use_equivariance = True
+    #ConfParam().inpainting_ratio = 0.5  # keep 50%
+    #main_test(
+    #    'inpainting', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_init, test_dataset=False,
+    #    use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
+    #)
     return None
 
     RunAlgorithm.class_vec_save_img = []
