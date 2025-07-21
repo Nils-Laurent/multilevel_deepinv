@@ -12,6 +12,7 @@ from multilevel.info_transfer import DownsamplingTransfer
 from multilevel.coarse_gradient_descent import CGDIteration
 import multilevel.iterator as multi_level
 from multilevel.prior import TVPrior as CustTV
+from multilevel_utils.custom_blur import CBlur
 from multilevel_utils.radon import Tomography
 import torch.nn as nn
 import torch.nn.functional as F
@@ -108,7 +109,11 @@ class CoarseModel(torch.nn.Module):
             else:
                 c_mask = m_coarse
             self.physics = Inpainting(tensor_size=m_coarse.shape, mask=c_mask, device=m_fine.device)
+        elif isinstance(self.ph_f, CBlur):
+            self.physics = self.ph_f.to_coarse(self.cit_op.op)
         elif isinstance(self.ph_f, Blur) or isinstance(self.ph_f, BlurFFT):
+            # Carefull, I think this is not properly implemented
+            raise NotImplementedError("Not yet implemented")
             half_l = self.params.cit().get_filter().shape[0] // 2
             f0 = F.pad(self.ph_f.filter, (half_l,) * 4)
             rep = self.cit_op.filt_2d.repeat(f0.shape[1], 1, 1, 1).to(x_coarse.device)

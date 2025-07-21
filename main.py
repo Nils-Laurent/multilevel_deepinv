@@ -275,6 +275,15 @@ def main_fn():
 
     #methods_2k = [MPnP, MPnPInit, MPnPMLInit]
 
+    # review : adding blur
+    ConfParam().reset()
+    ConfParam().use_equivariance = True
+    main_test(
+        'blur', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=[MPnPMLInit], test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=[0]
+    )
+    return None
+
     ConfParam().reset()
     ConfParam().use_equivariance = True
     main_test(

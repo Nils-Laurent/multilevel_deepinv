@@ -11,6 +11,7 @@ from deepinv.datasets import HDF5Dataset
 from torchvision import transforms
 
 from gen_fig.fig_metric_logger import GenFigMetricLogger
+from multilevel_utils.custom_blur import CBlur
 from multilevel_utils.custom_inpainting import CInpainting
 from multilevel_utils.radon import Tomography
 from utils.paths import get_out_dir
@@ -39,7 +40,8 @@ def physics_from_exp(params_exp, noise_model, device):
             power = params_exp[problem + '_pow']
             problem_full = problem + "_" + str(power) + "_" + str(noise_pow)
             #physics = Blur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
-            physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
+            #physics = BlurFFT(img_size=params_exp['shape'], noise_model=noise_model, filter=gaussian_blur(sigma=(power, power), angle=0), device=device)
+            physics = CBlur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
         case 'motion_blur':
             psf_gen = MotionBlurGenerator(psf_size=(64, 64), l=0.8, sigma=1.0, device=device)
             problem_full = problem + "_" + str(noise_pow)
