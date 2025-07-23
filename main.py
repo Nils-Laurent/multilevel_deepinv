@@ -183,6 +183,7 @@ def main_tune(device, plot_and_exit=False):
     #pb_list = ['inpainting', 'demosaicing', 'blur', 'denoising']
     #pb_list = ['denoising']
     pb_list = ['inpainting', 'demosaicing']
+    pb_list = ['blur']  # deconvolution
     noise_pow_vec = [0.1]
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
@@ -205,8 +206,8 @@ def main_tune(device, plot_and_exit=False):
         ConfParam().use_equivariance = True
         #dataset_name = 'gridsearch'  # high resolution images
         #img_size = 1024
-        #dataset_name = 'set3c'  # 3 rgb images 256x256
-        dataset_name = 'set_10'  # 10 rgb images 256x256
+        dataset_name = 'set3c'  # 3 rgb images 256x256
+        #dataset_name = 'set_10'  # 10 rgb images 256x256
         img_size = 256
         r_pb = main_test(pb, dataset_name=dataset_name, img_size=img_size, noise_pow=noise_pow,
                          tune=True, use_file_data=False, device=device)
@@ -241,9 +242,9 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    #main_tune(device=device, plot_and_exit=False)
-    #main_tune(device=device, plot_and_exit=True)
-    #return None
+    main_tune(device=device, plot_and_exit=False)
+    main_tune(device=device, plot_and_exit=True)
+    return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,

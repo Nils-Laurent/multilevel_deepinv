@@ -26,28 +26,29 @@ def tune_grid_all(data_in, params_exp, device):
     physics, problem_name = physics_from_exp(params_exp, g, device)
     data = data_from_user_input(data_in, physics, params_exp, problem_name, device)
 
-    class_list_origin = [
+    #class_list_origin = [
+    class_list = [
         dc.MFbMLGD,
         dc.MPnP,
         dc.MPnPInit,
         dc.MPnPML,
         dc.MPnPMLInit,
-        dc.MPnPMoreau,
-        dc.MPnPMoreauInit,
-        dc.MPnPProx,
-        dc.MPnPProxMLInit,
+        #dc.MPnPMoreau,
+        #dc.MPnPMoreauInit,
+        #dc.MPnPProx,
+        #dc.MPnPProxMLInit,
         #dcn.MPnPDnCNN,
         #dcn.MPnPMLDnCNNInit,
-        dcn.MPnPSCUNet,
-        dcn.MPnPMLSCUNetInit,
+        #dcn.MPnPSCUNet,
+        #dcn.MPnPMLSCUNetInit,
     ]
 
-    class_list = [
-        dc.MPnP,
-        dc.MPnPInit,
-        dc.MPnPMLInit,
-    ]
-    ConfParam().iters_fine = 2000
+    #class_list = [
+    #    dc.MPnP,
+    #    dc.MPnPInit,
+    #    dc.MPnPMLInit,
+    #]
+    #ConfParam().iters_fine = 2000
 
     #if not (params_exp['problem'] == 'mri'):
     #    class_list.append(dc.MPnPProx)
