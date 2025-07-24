@@ -185,6 +185,7 @@ def main_tune(device, plot_and_exit=False):
     pb_list = ['inpainting', 'demosaicing']
     pb_list = ['blur']  # deconvolution
     noise_pow_vec = [0.1]
+    pb_list = ['inpainting']
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
     if plot_and_exit is True:
@@ -242,7 +243,7 @@ def main_fn():
     print(sys.prefix)
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
-    main_tune(device=device, plot_and_exit=False)
+    #main_tune(device=device, plot_and_exit=False)
     main_tune(device=device, plot_and_exit=True)
     return None
 
@@ -260,16 +261,10 @@ def main_fn():
         MPnP, MPnPInit, MPnPMLInit, MPnPMoreauInit, MFb, MFbMLGD, MDPIR, MDPIRLong
     ]
     RunAlgorithm.class_vec_save_img = methods_img
+    RunAlgorithm.class_vec_save_img = []  # dataset simulation
 
-    # targ_vec = [59, 66, 135]
-    #targ_vec = [112, 133, 194]
-    #targ_vec = [52]
-    #targ_vec = [64, 76, 139]
-    #targ_vec = [65, 159]
-    #targ_vec = [41]
-    #targ_vec = [170]
-    #targ_vec = [197]
-    targ_vec = [197, 133, 194]
+    targ_vec = [59, 66, 135]  # original ML PnP tests
+    # targ_vec = [197, 133, 194]  # Gretsi tests
     methods_init = [MPnP, MPnPMoreauInit, MPnPMLInit]
     methods_init = [MDPIRLong, MFbMLGD]
     methods_init = [MFbMLGD]
@@ -277,11 +272,12 @@ def main_fn():
     #methods_2k = [MPnP, MPnPInit, MPnPMLInit]
 
     # review : adding blur
+    methods_blur = [MDPIRLong, MDPIR, MPnP, MPnPInit, MPnPML, MPnPMLInit, MFb, MFbMLGD]
     ConfParam().reset()
     ConfParam().use_equivariance = True
     main_test(
-        'blur', img_size=256, dataset_name='set3c', noise_pow=0.1, m_vec=[MPnPMLInit], test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device, target=[0]
+        'blur', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_blur, test_dataset=False,
+        use_file_data=False, benchmark=True, cpu=False, device=device#, target=targ_vec
     )
     return None
 

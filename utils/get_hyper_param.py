@@ -54,19 +54,15 @@ def gs_pick_bounds(gs_vec, gs_key, noise_pow):
     return [data[id - 1], data[id]]
 
 def blur_hyper_param(noise_pow, gs_key):
-    gs_vec = [ # copied from inpainting
-            [0.1, 'FB_TV_ML', {'lambda':0.125, }],  # PSNR = 23.43
-            [0.1, 'PnP', {'g_param':0.21, 'stepsz_coeff':2.0, }],  # PSNR = 27.78
-            [0.1, 'PnP_INIT', {'g_param':0.12, 'stepsz_coeff':1.67, }],  # PSNR = 29.29
-            [0.1, 'PnP_ML', {'g_param':0.16, 'stepsz_coeff':1.5, }],  # PSNR = 28.05
-            [0.1, 'PnP_ML_INIT', {'g_param':0.0801, 'stepsz_coeff':1.0, }],  # PSNR = 29.20
-            [0.1, 'PnP_ML_Moreau', {'lambda':1.88, 'g_param':0.188, 'stepsz_coeff':2.44, }],  # PSNR = 25.75
-            [0.1, 'PnP_ML_Moreau_INIT', {'lambda':2.44, 'g_param':0.0812, 'stepsz_coeff':0.75, }],  # PSNR = 29.10
-            [0.1, 'PnP_prox', {'g_param':0.12, 'stepsz_coeff':1.62, }],  # PSNR = 29.06
-            [0.1, 'PnP_prox_ML_INIT', {'g_param':0.11, 'stepsz_coeff':1.38, }],  # PSNR = 29.11
-            [0.1, 'PnP_SCUNet', {'stepsz_coeff':2.0, }],  # PSNR = 22.44
-            [0.1, 'PnP_ML_SCUNet_init', {'stepsz_coeff':1.67, }],  # PSNR = 25.53
-    ]
+    gs_vec = []
+    if ConfParam().use_equivariance is True:
+        gs_vec = [
+            [0.1, 'FB_TV_ML', {'lambda':0.375, }],  # PSNR = 17.05
+            [0.1, 'PnP', {'g_param':0.1, 'stepsz_coeff':1.5, }],  # PSNR = 20.01
+            [0.1, 'PnP_INIT', {'g_param':0.0801, 'stepsz_coeff':1.67, }],  # PSNR = 20.72
+            [0.1, 'PnP_ML', {'g_param':0.0901, 'stepsz_coeff':1.67, }],  # PSNR = 20.29
+            [0.1, 'PnP_ML_INIT', {'g_param':0.0701, 'stepsz_coeff':1.0, }],  # PSNR = 20.50
+        ]
 
     res = gs_pick_bounds(gs_vec, gs_key=gs_key, noise_pow=noise_pow)
     if isinstance(res, dict):
