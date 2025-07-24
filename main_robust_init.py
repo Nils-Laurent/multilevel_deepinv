@@ -1,5 +1,6 @@
 import deepinv
 import torch
+from scipy.io import savemat
 from torchvision import transforms
 from deepinv.models import EquivariantDenoiser, DRUNet
 from deepinv.optim import optim_builder, PnP, L2
@@ -134,26 +135,27 @@ def main_exp(x_ref, y, N_rng, N_iter, device):
         x_est, met = model_ml_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
         r_psnr = met['psnr'][0][-1]
         vec_est_ml_pnp.append(x_est)
-        vec_psnr_ml_pnp.append(r_psnr)
+        vec_psnr_ml_pnp.append(r_psnr.item())
 
         model_pnp.eval()
         x_est, met = model_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
         r_psnr = met['psnr'][0][-1]
         vec_est_pnp.append(x_est)
-        vec_psnr_pnp.append(r_psnr)
+        vec_psnr_pnp.append(r_psnr.item())
 
     stack_est = torch.stack(vec_est_ml_pnp, dim=1).squeeze()
     vec_std = torch.std(stack_est, dim=0)
-    average_std = torch.mean(vec_std)
-    print(f"average_std ML PnP = {average_std}")
+    std_ml_pnp = torch.mean(vec_std).item()
+    print(f"average_std ML PnP = {std_ml_pnp}")
 
     stack_est = torch.stack(vec_est_pnp, dim=1).squeeze()
     vec_std = torch.std(stack_est, dim=0)
-    average_std = torch.mean(vec_std)
-    print(f"average_std PnP = {average_std}")
+    std_pnp = torch.mean(vec_std).item()
+    print(f"average_std PnP = {std_pnp}")
 
     print(vec_psnr_pnp)
     print(vec_psnr_ml_pnp)
+    return std_ml_pnp, vec_psnr_ml_pnp, std_pnp, vec_psnr_pnp
 
 
 def main():
@@ -162,7 +164,13 @@ def main():
     N_iter = 10
 
     x_ref, y = get_img(device)
-    main_exp(x_ref, y, N_rng, N_iter, device)
+    std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, device)
+
+    mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
+                'std_pnp': std, 'vec_psnr_pnp': psnr}
+
+    out_f = f"init_robust_iter{N_iter}_rng{N_rng}.mat"
+    savemat(out_f, mat_data)
 
 
 if __name__ == "__main__":
