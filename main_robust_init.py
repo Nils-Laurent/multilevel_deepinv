@@ -1,3 +1,8 @@
+import sys
+
+#if "/.fork" in sys.prefix:
+sys.path.append('/projects/UDIP/nils_src/deepinv')
+
 import deepinv
 import torch
 from scipy.io import savemat
@@ -129,19 +134,28 @@ def main_exp(x_ref, y, N_rng, N_iter, device):
     vec_psnr_ml_pnp = []
     vec_est_pnp = []
     vec_psnr_pnp = []
-    for i in range(0, N_rng):
-        print(f"i = {i}")
-        model_ml_pnp.eval()
-        x_est, met = model_ml_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
-        r_psnr = met['psnr'][0][-1]
-        vec_est_ml_pnp.append(x_est)
-        vec_psnr_ml_pnp.append(r_psnr.item())
+    if N_iter == 0:
+        for i in range(0, N_rng):
+            x0 = custom_init_rand(y, physics)['est'][0]
+            vec_est_ml_pnp.append(x0)
+        vec_est_pnp = vec_est_ml_pnp
 
-        model_pnp.eval()
-        x_est, met = model_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
-        r_psnr = met['psnr'][0][-1]
-        vec_est_pnp.append(x_est)
-        vec_psnr_pnp.append(r_psnr.item())
+        vec_psnr_ml_pnp = [0] * N_rng
+        vec_psnr_pnp = vec_psnr_ml_pnp
+    else:
+        for i in range(0, N_rng):
+            print(f"i = {i}")
+            model_ml_pnp.eval()
+            x_est, met = model_ml_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
+            r_psnr = met['psnr'][0][-1]
+            vec_est_ml_pnp.append(x_est)
+            vec_psnr_ml_pnp.append(r_psnr.item())
+
+            model_pnp.eval()
+            x_est, met = model_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
+            r_psnr = met['psnr'][0][-1]
+            vec_est_pnp.append(x_est)
+            vec_psnr_pnp.append(r_psnr.item())
 
     stack_est = torch.stack(vec_est_ml_pnp, dim=1).squeeze()
     vec_std = torch.std(stack_est, dim=0)
@@ -160,17 +174,16 @@ def main_exp(x_ref, y, N_rng, N_iter, device):
 
 def main():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    N_rng = 5
-    N_iter = 10
-
     x_ref, y = get_img(device)
-    std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, device)
+    N_rng = 200
+    for N_iter in [0, 1, 2, 3, 7, 20, 55, 200]:
+        std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, device)
 
-    mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
-                'std_pnp': std, 'vec_psnr_pnp': psnr}
+        mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
+                    'std_pnp': std, 'vec_psnr_pnp': psnr}
 
-    out_f = f"init_robust_iter{N_iter}_rng{N_rng}.mat"
-    savemat(out_f, mat_data)
+        out_f = f"init_robust_iter{N_iter}_rng{N_rng}.mat"
+        savemat(out_f, mat_data)
 
 
 if __name__ == "__main__":
