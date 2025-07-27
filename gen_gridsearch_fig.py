@@ -23,8 +23,8 @@ def gen_mat_data(pb_list, in_noise_pow_vec):
 
 
 def gridsearch_to_mat(key_, d_tune, keys, pb, noise_pow):
-    psnr_tensor = d_tune[-1]['cost']
-    coord_vec = d_tune[-1]['coord']
+    psnr_tensor = d_tune[0]['cost']
+    coord_vec = d_tune[0]['coord']
 
     fname = f"gs_{key_}_{pb}_{noise_pow}.mat"
 
@@ -37,6 +37,10 @@ def gridsearch_to_mat(key_, d_tune, keys, pb, noise_pow):
 def main_gridsearch_mat():
     vec_noise_pow = [0.1]
     vec_pb = ['demosaicing']
+    gen_mat_data(vec_pb, vec_noise_pow)
+    vec_pb = ['inpainting']
+    gen_mat_data(vec_pb, vec_noise_pow)
+    vec_pb = ['blur']
     gen_mat_data(vec_pb, vec_noise_pow)
 
 
