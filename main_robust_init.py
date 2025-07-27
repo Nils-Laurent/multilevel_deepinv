@@ -3,6 +3,10 @@ import sys
 #if "/.fork" in sys.prefix:
 sys.path.append('/projects/UDIP/nils_src/deepinv')
 
+from deepinv.physics.blur import gaussian_blur
+
+from multilevel_utils.custom_blur import CBlur
+
 import deepinv
 import torch
 from scipy.io import savemat
@@ -10,7 +14,7 @@ from torchvision import transforms
 from deepinv.models import EquivariantDenoiser, DRUNet
 from deepinv.optim import optim_builder, PnP, L2
 from deepinv.optim.optim_iterators import PGDIteration
-from deepinv.physics import Inpainting, GaussianNoise
+from deepinv.physics import Inpainting, Demosaicing, Blur, GaussianNoise
 from deepinv.utils.demo import load_dataset
 
 from multilevel.coarse_pgd import CPGDIteration
@@ -18,14 +22,24 @@ from multilevel.info_transfer import SincFilter
 from multilevel.iterator import MultiLevelIteration
 from utils.paths import dataset_path
 
-def get_physics(shape, device):
-    noise_level = torch.tensor(0.1)
-    noise_model = GaussianNoise(sigma=noise_level)
-    physics = Inpainting(shape, mask=0.5, noise_model=noise_model, device=device)
+def get_physics(shape, pb, device):
+    if pb == "inpainting":
+        noise_level = torch.tensor(0.1)
+        noise_model = GaussianNoise(sigma=noise_level)
+        physics = Inpainting(shape, mask=0.5, noise_model=noise_model, device=device)
+    elif pb == "demosaicing":
+        noise_level = torch.tensor(0.1)
+        noise_model = GaussianNoise(sigma=noise_level)
+        physics = Demosaicing(shape, noise_model=noise_model, device=device)
+    elif pb == "blur":
+        noise_level = torch.tensor(0.1)
+        noise_model = GaussianNoise(sigma=noise_level)
+        power = 3.6
+        physics = CBlur(gaussian_blur(sigma=(power, power), angle=0), noise_model=noise_model, device=device, padding='replicate')
     return physics
 
 
-def get_img(device):
+def get_img(pb, device):
     shape = (3, 1024, 1024)  # rgb 1024x1024 pixels
     size = (1024, 1024)  # rgb 1024x1024 pixels
 
@@ -33,21 +47,28 @@ def get_img(device):
     dataset = load_dataset('LIU4K-v2', dataset_path(), transform=tr_vec)
 
     x_ref = dataset[66][0].unsqueeze(0).to(device)
-    physics = get_physics(shape, device)
+    physics = get_physics(shape, pb, device)
     y = physics(x_ref)  # A(x) + noise
 
     return x_ref, y
 
 
-def main_exp(x_ref, y, N_rng, N_iter, device):
+def main_exp(x_ref, y, N_rng, N_iter, pb, device):
     denoiser = DRUNet(in_channels=3, out_channels=3, device=device, pretrained="download")
     denoiser = EquivariantDenoiser(denoiser)
     prior = PnP(denoiser=denoiser)
     data_fidelity = L2()
 
     # gridsearch values
-    sigma_denoiser = 0.0801
-    stepsize = 1.0
+    if pb == "inpainting":
+        sigma_denoiser = 0.0801
+        stepsize = 1.0
+    elif pb == "demosaicing":
+        sigma_denoiser = 0.0801
+        stepsize = 1.17
+    elif pb == "blur":
+        sigma_denoiser = 0.0701
+        stepsize = 1.0
 
     # hyper paramètres
     nb_iter_fine = N_iter
@@ -128,7 +149,7 @@ def main_exp(x_ref, y, N_rng, N_iter, device):
         custom_init=custom_init_rand
     )
     s0 = y.shape
-    physics = get_physics((s0[-3], s0[-2], s0[-1]), device)
+    physics = get_physics((s0[-3], s0[-2], s0[-1]), pb, device)
 
     vec_est_ml_pnp = []
     vec_psnr_ml_pnp = []
@@ -174,15 +195,31 @@ def main_exp(x_ref, y, N_rng, N_iter, device):
 
 def main():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    x_ref, y = get_img(device)
+    pb = "inpainting"
+    # already done
+
+    pb = "demosaicing"
+    x_ref, y = get_img(pb, device)
     N_rng = 200
     for N_iter in [0, 1, 2, 3, 7, 20, 55, 200]:
-        std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, device)
+        std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, pb, device)
 
         mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
                     'std_pnp': std, 'vec_psnr_pnp': psnr}
 
-        out_f = f"init_robust_iter{N_iter}_rng{N_rng}.mat"
+        out_f = f"init_robust_{pb}_iter{N_iter}_rng{N_rng}.mat"
+        savemat(out_f, mat_data)
+
+    pb = "blur"
+    x_ref, y = get_img(pb, device)
+    N_rng = 200
+    for N_iter in [0, 1, 2, 3, 7, 20, 55, 200]:
+        std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, pb, device)
+
+        mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
+                    'std_pnp': std, 'vec_psnr_pnp': psnr}
+
+        out_f = f"init_robust_{pb}_iter{N_iter}_rng{N_rng}.mat"
         savemat(out_f, mat_data)
 
 
