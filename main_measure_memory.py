@@ -22,6 +22,7 @@ from multilevel.info_transfer import SincFilter
 from multilevel.iterator import MultiLevelIteration
 from utils.paths import dataset_path
 
+
 def get_physics(shape, pb, device):
     if pb == "inpainting":
         noise_level = torch.tensor(0.1)
@@ -53,7 +54,8 @@ def get_img(pb, device, id_img):
     return x_ref, y
 
 
-def main_exp(x_ref, y, N_rng, N_iter, pb, device):
+def main_exp(x_ref, y, pb, flag_ml_pnp, device):
+    flag_pnp = not flag_ml_pnp
     denoiser = DRUNet(in_channels=3, out_channels=3, device=device, pretrained="download")
     denoiser = EquivariantDenoiser(denoiser)
     prior = PnP(denoiser=denoiser)
@@ -69,9 +71,11 @@ def main_exp(x_ref, y, N_rng, N_iter, pb, device):
     elif pb == "blur":
         sigma_denoiser = 0.0701
         stepsize = 1.0
+    else:
+        raise ValueError("pb has an unsupported value, it should be 'inpainting' or 'demosaicing' or 'blur'.")
 
     # hyper paramètres
-    nb_iter_fine = N_iter
+    nb_iter_fine = 30
     nb_iter_coarse = 3  # in ML step
     nb_iter_coarse_init = 5  # in ML init
     nb_v_cycle = 2  # parameter "p"
@@ -117,105 +121,75 @@ def main_exp(x_ref, y, N_rng, N_iter, pb, device):
     gen0 = torch.Generator()
     gen0.manual_seed(2025)
 
-    def custom_init_rand(y_in, physics_in):
-        x0 = torch.rand(y_in.shape, generator=gen0).to(y_in.device)
-        return {'est': [x0]}
-
-    model_ml_pnp = optim_builder(
-        iteration=MultiLevelIteration(fine_iteration=PGDIteration()),
-        prior=prior,
-        data_fidelity=data_fidelity,
-        max_iter=nb_iter_fine,
-        g_first=False,
-        early_stop=True,
-        crit_conv='residual',
-        thres_conv=1e-6,
-        verbose=True,
-        params_algo=params_algo,
-        custom_init=custom_init_rand
-    )
-
-    model_pnp = optim_builder(
-        iteration=PGDIteration(),
-        prior=prior,
-        data_fidelity=data_fidelity,
-        max_iter=nb_iter_fine,
-        g_first=False,
-        early_stop=True,
-        crit_conv='residual',
-        thres_conv=1e-6,
-        verbose=True,
-        params_algo=params_algo,
-        custom_init=custom_init_rand
-    )
     s0 = y.shape
     physics = get_physics((s0[-3], s0[-2], s0[-1]), pb, device)
 
-    vec_est_ml_pnp = []
-    vec_psnr_ml_pnp = []
-    vec_est_pnp = []
-    vec_psnr_pnp = []
-    if N_iter == 0:
-        for i in range(0, N_rng):
-            x0 = custom_init_rand(y, physics)['est'][0]
-            vec_est_ml_pnp.append(x0)
-        vec_est_pnp = vec_est_ml_pnp
+    if flag_ml_pnp is True:
+        model_ml_pnp = optim_builder(
+            iteration=MultiLevelIteration(fine_iteration=PGDIteration()),
+            prior=prior,
+            data_fidelity=data_fidelity,
+            max_iter=nb_iter_fine,
+            g_first=False,
+            early_stop=True,
+            crit_conv='residual',
+            thres_conv=1e-6,
+            verbose=True,
+            params_algo=params_algo,
+        )
 
-        vec_psnr_ml_pnp = [0] * N_rng
-        vec_psnr_pnp = vec_psnr_ml_pnp
+        model_ml_pnp.eval()
+        x_est, met = model_ml_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
+        r_psnr = met['psnr'][0][-1]
     else:
-        for i in range(0, N_rng):
-            print(f"i = {i}")
-            model_ml_pnp.eval()
-            x_est, met = model_ml_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
-            r_psnr = met['psnr'][0][-1]
-            vec_est_ml_pnp.append(x_est)
-            vec_psnr_ml_pnp.append(r_psnr.item())
+        model_pnp = optim_builder(
+            iteration=PGDIteration(),
+            prior=prior,
+            data_fidelity=data_fidelity,
+            max_iter=nb_iter_fine,
+            g_first=False,
+            early_stop=True,
+            crit_conv='residual',
+            thres_conv=1e-6,
+            verbose=True,
+            params_algo=params_algo,
+        )
 
-            model_pnp.eval()
-            x_est, met = model_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
-            r_psnr = met['psnr'][0][-1]
-            vec_est_pnp.append(x_est)
-            vec_psnr_pnp.append(r_psnr.item())
+        model_pnp.eval()
+        x_est, met = model_pnp(y, physics, x_gt=x_ref, compute_metrics=True)
+        r_psnr = met['psnr'][0][-1]
 
-    stack_est = torch.stack(vec_est_ml_pnp, dim=1).squeeze()
-    vec_std = torch.std(stack_est, dim=0)
-    std_ml_pnp = torch.mean(vec_std).item()
-    print(f"average_std ML PnP = {std_ml_pnp}")
-
-    stack_est = torch.stack(vec_est_pnp, dim=1).squeeze()
-    vec_std = torch.std(stack_est, dim=0)
-    std_pnp = torch.mean(vec_std).item()
-    print(f"average_std PnP = {std_pnp}")
-
-    print(vec_psnr_pnp)
-    print(vec_psnr_ml_pnp)
-    return std_ml_pnp, vec_psnr_ml_pnp, std_pnp, vec_psnr_pnp
 
 def main():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
-    #id_img = 66 # done
-
-    id_img = 135
-    loop_inverse_pb(id_img, device)
-
     id_img = 59
-    loop_inverse_pb(id_img, device)
+    pb = 'inpainting'
+    x_ref, y = get_img(pb, device, id_img)
 
-def loop_inverse_pb(id_img, device):
+    print("=== Test memory consumption : without multilevel ===")
+    flag_ml_pnp = False
+    torch.cuda.reset_peak_memory_stats()
+    main_exp(x_ref, y, pb, flag_ml_pnp, device)
 
-    for pb in ["inpainting", "demosaicing", "blur"]:
-        x_ref, y = get_img(pb, device, id_img)
-        N_rng = 200
-        for N_iter in [0, 1, 2, 3, 7, 20, 55, 200]:
-            std_ml, psnr_ml, std, psnr = main_exp(x_ref, y, N_rng, N_iter, pb, device)
+    max_memory = torch.cuda.max_memory_allocated() / (1024 ** 2)  # in MB
+    print(f"Max GPU memory allocated: {max_memory:.2f} MB")
 
-            mat_data = {'std_ml_pnp': std_ml, 'vec_psnr_ml_pnp': psnr_ml,
-                        'std_pnp': std, 'vec_psnr_pnp': psnr}
+    # Reserved memory (includes cached but not used)
+    max_reserved = torch.cuda.max_memory_reserved() / (1024 ** 2)
+    print(f"Max GPU memory reserved: {max_reserved:.2f} MB")
 
-            out_f = f"init_robust_{id_img}_{pb}_iter{N_iter}_rng{N_rng}.mat"
-            savemat(out_f, mat_data)
+    print("=== Test memory consumption : with multilevel ===")
+    flag_ml_pnp = True
+    torch.cuda.reset_peak_memory_stats()
+    main_exp(x_ref, y, pb, flag_ml_pnp, device)
+
+    max_memory = torch.cuda.max_memory_allocated() / (1024 ** 2)  # in MB
+    print(f"Max GPU memory allocated: {max_memory:.2f} MB")
+
+    # Reserved memory (includes cached but not used)
+    max_reserved = torch.cuda.max_memory_reserved() / (1024 ** 2)
+    print(f"Max GPU memory reserved: {max_reserved:.2f} MB")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
