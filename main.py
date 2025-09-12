@@ -185,7 +185,7 @@ def main_tune(device, plot_and_exit=False):
     pb_list = ['inpainting', 'demosaicing']
     pb_list = ['blur']  # deconvolution
     noise_pow_vec = [0.1]
-    pb_list = ['inpainting']
+    #pb_list = ['inpainting']
 
     noise_pow_vec = numpy.sort(noise_pow_vec)
     if plot_and_exit is True:
@@ -244,8 +244,8 @@ def main_fn():
     device = deepinv.utils.get_freer_gpu() if torch.cuda.is_available() else "cpu"
 
     #main_tune(device=device, plot_and_exit=False)
-    main_tune(device=device, plot_and_exit=True)
-    return None
+    #main_tune(device=device, plot_and_exit=True)
+    #return None
 
     methods_base = [
         MPnP, MPnPInit, MPnPML, MPnPMLInit, MPnPMoreau, MPnPMoreauInit,
@@ -261,7 +261,7 @@ def main_fn():
         MPnP, MPnPInit, MPnPMLInit, MPnPMoreauInit, MFb, MFbMLGD, MDPIR, MDPIRLong
     ]
     RunAlgorithm.class_vec_save_img = methods_img
-    RunAlgorithm.class_vec_save_img = []  # dataset simulation
+    #RunAlgorithm.class_vec_save_img = []  # dataset simulation
 
     targ_vec = [59, 66, 135]  # original ML PnP tests
     # targ_vec = [197, 133, 194]  # Gretsi tests
@@ -272,13 +272,50 @@ def main_fn():
     #methods_2k = [MPnP, MPnPInit, MPnPMLInit]
 
     # review : adding blur
-    methods_blur = [MDPIRLong, MDPIR, MPnP, MPnPInit, MPnPML, MPnPMLInit, MFb, MFbMLGD]
+    #methods_blur = [MDPIRLong, MDPIR, MPnP, MPnPInit, MPnPML, MPnPMLInit, MFb, MFbMLGD]
+    methods_blur = [MFbMLGD, MFb]
     ConfParam().reset()
     ConfParam().use_equivariance = True
     main_test(
         'blur', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_blur, test_dataset=False,
-        use_file_data=False, benchmark=True, cpu=False, device=device#, target=targ_vec
+        use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
     )
+    return None
+
+    # review test multilevel params
+    # review : adding blur
+    methods_ml_hparams = [MPnPMLInit]
+    ConfParam().reset()
+    ConfParam().use_equivariance = True
+    nb_iter_coarse_vec = [3, 4, 5]
+    nb_iter_coarse_init_vec = [4, 5, 6]
+    nb_levels_vec = [3, 4, 5]
+    targ_vec = [59]
+    for nb_iter_coarse in nb_iter_coarse_vec:
+        ConfParam().iter_coarse_pnp_pgd = nb_iter_coarse
+        ConfParam().iter_coarse_pnp_map = nb_iter_coarse
+        RunAlgorithm.file_name_prefix = f"exp_p1_{nb_iter_coarse}"
+        main_test(
+            'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_ml_hparams, test_dataset=False,
+            use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
+        )
+    ConfParam().iter_coarse_pnp_pgd = 3
+    ConfParam().iter_coarse_pnp_map = 3
+    for nb_iter_coarse_init in nb_iter_coarse_init_vec:
+        ConfParam().coarse_iters_ini = nb_iter_coarse_init
+        RunAlgorithm.file_name_prefix = f"exp_p2_{nb_iter_coarse_init}"
+        main_test(
+            'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_ml_hparams, test_dataset=False,
+            use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
+        )
+    ConfParam().coarse_iters_ini = 5
+    for nb_levels in nb_levels_vec:
+        ConfParam().levels = nb_levels
+        RunAlgorithm.file_name_prefix = f"exp_p3_{nb_levels}"
+        main_test(
+            'demosaicing', img_size=1024, dataset_name='LIU4K-v2', noise_pow=0.1, m_vec=methods_ml_hparams, test_dataset=False,
+            use_file_data=False, benchmark=True, cpu=False, device=device, target=targ_vec
+        )
     return None
 
     ConfParam().reset()

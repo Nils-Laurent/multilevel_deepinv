@@ -29,6 +29,7 @@ class RunAlgorithm:
     class_vec_save_img = []
     save_all_img = False  # override class_vec_save_img
     class_vec_save_img_target = []
+    file_name_prefix = None
 
     def __init__(
         self,
@@ -130,7 +131,8 @@ class RunAlgorithm:
             return data_fidelity(x, y, physics) + reg_value
 
         iteration = PGDIteration(has_cost=use_cost, F_fn=F_fn)
-        iteration = MultiLevelIteration(iteration)
+        if params_algo['level'] > 1:
+            iteration = MultiLevelIteration(iteration)
 
         return self._run_algorithm(iteration, prior, params_algo, alg_name)
 
@@ -285,6 +287,8 @@ class RunAlgorithm:
         print('--')
 
         dict_metrics = met
+        if not (self.file_name_prefix is None):
+            f_prefix = self.file_name_prefix + f_prefix
         gen_mat_cost(dict_metrics, f_prefix, params_algo)
 
         return met

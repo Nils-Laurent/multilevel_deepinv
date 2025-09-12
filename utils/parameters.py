@@ -257,6 +257,8 @@ def get_parameters_tv(params_exp, m_class):
     gamma_vec[-1] = 1.0
     p_tv['params_multilevel'][0]['gamma_moreau'] = gamma_vec
     lf = ConfParam().data_fidelity_lipschitz
+    if params_exp['problem'] == 'blur':
+        lf = (1.225)**2
     step_size_coeff = 1.9  # convex setting
     stepsize_vec = [step_size_coeff / (lf + 1.0/gamma) for gamma in gamma_vec]
     stepsize_vec[-1] = step_size_coeff / lf  # only depends on lipschitz of data-fidelity

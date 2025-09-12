@@ -43,6 +43,10 @@ def tune_grid_all(data_in, params_exp, device):
         #dcn.MPnPMLSCUNetInit,
     ]
 
+    class_list = [
+        dc.MFbMLGD,
+    ]
+
     #class_list = [
     #    dc.MPnP,
     #    dc.MPnPInit,
@@ -84,7 +88,8 @@ def tune_algo(algo, alg_class, params_exp):
     pb = params_exp["problem"]
 
     k_lambda = 'lambda'
-    par_lambda = [[1E-5, 3.0], 13]
+    #par_lambda = [[1E-5, 3.0], 13]
+    par_lambda = [[1E-5, 1.5], 13]
     k_sig = 'g_param'
     par_sig = [[0.0001, 0.50], 11]
     k_coeff = 'stepsz_coeff'

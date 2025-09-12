@@ -57,7 +57,8 @@ def blur_hyper_param(noise_pow, gs_key):
     gs_vec = []
     if ConfParam().use_equivariance is True:
         gs_vec = [
-            [0.1, 'FB_TV_ML', {'lambda':0.375, }],  # PSNR = 17.05
+            #[0.1, 'FB_TV_ML', {'lambda':0.375, }],  # PSNR = 17.05
+            [0.1, 'FB_TV_ML', {'lambda':0.0208, }],  # PSNR = 19.12
             [0.1, 'PnP', {'g_param':0.1, 'stepsz_coeff':1.5, }],  # PSNR = 20.01
             [0.1, 'PnP_INIT', {'g_param':0.0801, 'stepsz_coeff':1.67, }],  # PSNR = 20.72
             [0.1, 'PnP_ML', {'g_param':0.0901, 'stepsz_coeff':1.67, }],  # PSNR = 20.29
